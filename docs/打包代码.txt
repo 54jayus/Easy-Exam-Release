@@ -1,0 +1,1 @@
+D:/ANACONDA/envs/exam_scheduler/python.exe -m PyInstaller --clean --noconfirm --name examflow-backend --onefile --noconsole --add-data "backend/resources;backend/resources" run_backend.py

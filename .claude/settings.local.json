@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(D:/ANACONDA/envs/exam_scheduler/python.exe:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(xargs grep:*)",
+      "Bash(wc:*)",
+      "Skill(code-review:code-review)",
+      "Bash(\"D:\\\\百度网盘同步空间\\\\BaiduSyncdisk\\\\自动化办公\\\\智能考务系统\\\\backend\\\\domain\\\\errors.py\":*)",
+      "Bash(grep:*)",
+      "Bash(do:*)",
+      "Bash(\"D:\\\\百度网盘同步空间\\\\BaiduSyncdisk\\\\自动化办公\\\\智能考务系统\\\\backend\\\\rpc\\\\__init__.py\":*)",
+      "Bash(ls:*)",
+      "Bash(node:*)"
+    ]
+  }
+}

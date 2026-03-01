@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 考场外框 -->
+  <rect x="2" y="3" width="20" height="18" rx="1" stroke="#4A90E2" stroke-width="2" fill="none"/>
+  
+  <!-- 座位排列 -->
+  <!-- 第一排 -->
+  <rect x="4" y="5" width="2" height="2" fill="#4A90E2"/>
+  <rect x="7" y="5" width="2" height="2" fill="#4A90E2"/>
+  <rect x="10" y="5" width="2" height="2" fill="#4A90E2"/>
+  <rect x="13" y="5" width="2" height="2" fill="#4A90E2"/>
+  <rect x="16" y="5" width="2" height="2" fill="#4A90E2"/>
+  
+  <!-- 第二排 -->
+  <rect x="4" y="8" width="2" height="2" fill="#4A90E2"/>
+  <rect x="7" y="8" width="2" height="2" fill="#4A90E2"/>
+  <rect x="10" y="8" width="2" height="2" fill="#4A90E2"/>
+  <rect x="13" y="8" width="2" height="2" fill="#4A90E2"/>
+  <rect x="16" y="8" width="2" height="2" fill="#4A90E2"/>
+  
+  <!-- 第三排 -->
+  <rect x="4" y="11" width="2" height="2" fill="#4A90E2"/>
+  <rect x="7" y="11" width="2" height="2" fill="#4A90E2"/>
+  <rect x="10" y="11" width="2" height="2" fill="#4A90E2"/>
+  <rect x="13" y="11" width="2" height="2" fill="#4A90E2"/>
+  <rect x="16" y="11" width="2" height="2" fill="#4A90E2"/>
+  
+  <!-- 第四排 -->
+  <rect x="4" y="14" width="2" height="2" fill="#4A90E2"/>
+  <rect x="7" y="14" width="2" height="2" fill="#4A90E2"/>
+  <rect x="10" y="14" width="2" height="2" fill="#4A90E2"/>
+  <rect x="13" y="14" width="2" height="2" fill="#4A90E2"/>
+  <rect x="16" y="14" width="2" height="2" fill="#4A90E2"/>
+  
+  <!-- 讲台 -->
+  <rect x="8" y="17" width="8" height="2" rx="0.5" fill="#E74C3C"/>
+  <text x="12" y="18.5" text-anchor="middle" font-size="8" fill="white">讲台</text>
+</svg>
