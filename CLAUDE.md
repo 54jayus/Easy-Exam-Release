@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**ExamFlow (智能考务系统)** — A desktop application for exam administration. It manages exam room arrangement, proctoring schedules, printing of exam materials, and student registration. Built as an Electron app with a Vue 3 frontend and a Python backend communicating via JSON-RPC over stdin/stdout.
+**Easy Exam (智能考务系统)** — A desktop application for exam administration. It manages exam room arrangement, proctoring schedules, printing of exam materials, and student registration. Built as an Electron app with a Vue 3 frontend and a Python backend communicating via JSON-RPC over stdin/stdout.
 
 ## Architecture
 
@@ -96,7 +96,7 @@ In Electron mode, the main process sets `EXAMDESK_APP_DIR` and `EXAMDESK_CERT_DI
 ## License Certificate Path
 
 - **Dev mode (via Electron)**: `frontend/node_modules/electron/dist/license.cert`
-- **Installed app**: same directory as `ExamFlow.exe`
+- **Installed app**: same directory as `Easy Exam.exe`
 - **Direct Python run** (no env vars): `<project_root>/backend/license.cert`
 
 ## Python Environment

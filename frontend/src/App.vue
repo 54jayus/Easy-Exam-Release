@@ -4,18 +4,18 @@
   </div>
   <div v-else class="flex h-screen w-full bg-surface-50 overflow-hidden font-sans text-slate-900">
     <!-- Immersive Sidebar -->
-    <aside class="w-64 flex-shrink-0 bg-primary-900 flex flex-col transition-all duration-300 relative z-20 shadow-2xl">
+    <aside class="w-64 flex-shrink-0 bg-primary-900 flex flex-col transition-[width,transform] duration-300 relative z-20 shadow-2xl">
       <!-- Brand -->
       <div class="h-20 flex items-center px-6 bg-primary-950/30 backdrop-blur-sm border-b border-white/5">
         <div class="flex items-center gap-3">
           <div
-            class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-900/50"
+            class="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-primary-900/50"
             @click="handleLogoTap"
           >
-            <el-icon class="text-white" :size="18"><Monitor /></el-icon>
+            <img src="/logo.svg" alt="Easy Exam" class="w-8 h-8" />
           </div>
           <div>
-            <h1 class="text-white font-bold tracking-tight text-base">智能考务系统</h1>
+            <h1 class="text-white font-bold tracking-tight text-base">Easy Exam</h1>
             <div class="flex items-center gap-2">
               <p class="text-primary-300 text-xs">v3.1.0301</p>
               <span
@@ -29,19 +29,33 @@
         </div>
       </div>
 
+      <!-- Backend Loading Indicator -->
+      <transition name="fade-slide">
+        <div
+          v-if="!licenseStore.checked"
+          class="px-4 py-2 bg-primary-800/60 text-primary-300 text-xs flex items-center gap-2 border-b border-white/5"
+        >
+          <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+          </svg>
+          正在连接后端...
+        </div>
+      </transition>
+
       <!-- Navigation -->
       <nav class="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar">
-        <router-link 
-          v-for="item in navItems" 
-          :key="item.path" 
+        <router-link
+          v-for="item in navItems"
+          :key="item.path"
           :to="item.path"
-          class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden"
+          class="flex items-center gap-3 px-4 py-3 rounded-xl transition-[background-color,color,box-shadow] duration-200 group relative overflow-hidden"
           :class="[
             $route.path.startsWith(item.path) ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' : 'text-primary-200 hover:bg-white/5 hover:text-white',
             isNavItemDisabled(item.path) ? 'pointer-events-none opacity-50 cursor-not-allowed' : ''
           ]"
         >
-          <component :is="item.icon" class="w-5 h-5 transition-transform group-hover:scale-110" />
+          <component :is="item.icon" class="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
           <span class="font-medium text-sm tracking-wide">{{ item.label }}</span>
           
           <!-- Active Indicator -->
@@ -78,11 +92,11 @@
         <!-- Step Wizard (Only visible on workflow pages) -->
         <div v-if="showWizard" class="hidden md:flex items-center gap-2">
            <div v-for="(step, index) in workflowSteps" :key="step.path" class="flex items-center">
-             <div 
-               class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+             <div
+               class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-[background-color,color] duration-200"
                :class="getStepClass(step.path)"
              >
-               <div class="w-2 h-2 rounded-full" :class="getDotClass(step.path)"></div>
+               <div class="w-2 h-2 rounded-full transition-colors duration-200" :class="getDotClass(step.path)"></div>
                {{ step.label }}
              </div>
              <div v-if="index < workflowSteps.length - 1" class="w-8 h-px bg-slate-200 mx-2"></div>
@@ -99,7 +113,7 @@
       </header>
 
       <!-- Scrollable Content -->
-      <div class="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8">
+      <div class="flex-1 overflow-y-auto custom-scrollbar pt-6 px-6 md:pt-8 md:px-8">
         <router-view v-slot="{ Component }">
           <transition name="fade-slide" mode="out-in">
             <component :is="Component" />
@@ -125,10 +139,10 @@
         <div class="flex flex-col gap-3">
           <label class="text-sm font-bold text-slate-700">选择头像</label>
           <div class="grid grid-cols-5 gap-3">
-             <div 
-               v-for="seed in avatarSeeds" 
+             <div
+               v-for="seed in avatarSeeds"
                :key="seed"
-               class="aspect-square rounded-full border-2 cursor-pointer transition-all hover:scale-110 overflow-hidden relative"
+               class="aspect-square rounded-full border-2 cursor-pointer transition-[transform,border-color] duration-200 hover:scale-110 overflow-hidden relative"
                :class="userProfile.avatarSeed === seed ? 'border-primary-500 ring-2 ring-primary-200 ring-offset-2' : 'border-slate-200 hover:border-primary-300'"
                @click="selectAvatar(seed)"
              >
@@ -202,7 +216,7 @@
 
 <script setup lang="ts">
 import { computed, watch, ref, onMounted, reactive } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useLicenseStore } from "./stores/license"
 import AiAssistant from "@/components/AiAssistant.vue"
 import { 
@@ -216,7 +230,15 @@ import 'dayjs/locale/zh-cn'
 dayjs.locale('zh-cn')
 
 const route = useRoute()
+const router = useRouter()
 const licenseStore = useLicenseStore()
+
+// Once backend finishes checking, redirect to /registration if license is invalid
+watch(() => licenseStore.checked, (checked) => {
+  if (checked && !licenseStore.valid && route.path !== '/registration') {
+    router.replace('/registration')
+  }
+})
 
 const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 
@@ -348,7 +370,7 @@ const workflowSteps = [
 
 const pageTitle = computed(() => {
   const item = navItems.find(i => route.path.startsWith(i.path))
-  return item ? item.label : '智能考务系统'
+  return item ? item.label : 'Easy Exam'
 })
 
 const showWizard = computed(() => {
@@ -404,20 +426,20 @@ function getDotClass(path: string) {
 
 /* Page Transitions */
 .fade-slide-enter-active {
-  transition: all 0.2s ease-out;
+  transition: all 0.3s ease-out;
 }
 
 .fade-slide-leave-active {
-  transition: all 0.1s ease-in;
+  transition: all 0.15s ease-in;
 }
 
 .fade-slide-enter-from {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateY(8px);
 }
 
 .fade-slide-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-8px);
 }
 </style>

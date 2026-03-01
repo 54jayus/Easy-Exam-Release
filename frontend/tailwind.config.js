@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      width: {
+        '70': '280px',
+      },
       colors: {
         primary: {
           DEFAULT: '#4F46E5', // Indigo 600

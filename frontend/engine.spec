@@ -4,17 +4,15 @@ import os
 import sys
 
 # Get project root dynamically
-if getattr(sys, 'frozen', False):
-    project_root = os.path.dirname(sys.executable)
-else:
-    # When running from frontend/engine.spec, go up one level to project root
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# SPECPATH is the directory containing this .spec file (frontend/)
+# Project root is one level up
+project_root = os.path.dirname(SPECPATH)
 
 a = Analysis(
     [os.path.join(project_root, 'backend', '__main__.py')],
     pathex=[project_root],
     binaries=[('D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\ffi.dll', '.'), ('D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libcrypto-3-x64.dll', '.'), ('D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libssl-3-x64.dll', '.'), ('D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libexpat.dll', '.')],
-    datas=[],
+    datas=[(os.path.join(project_root, 'backend', 'resources'), 'backend/resources')],
     hiddenimports=['backend', 'pandas', 'openpyxl', 'uvicorn', 'fastapi'],
     hookspath=[],
     hooksconfig={},

@@ -6,8 +6,8 @@
     </div>
 
     <!-- Left Sidebar: Controls & Settings -->
-    <div 
-      class="flex flex-col border-r border-slate-200/80 bg-white/80 backdrop-blur-xl transition-all duration-300 relative z-20 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]"
+    <div
+      class="flex flex-col border-r border-slate-200/80 bg-white/80 backdrop-blur-xl transition-[width,opacity] duration-300 relative z-20 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]"
       :class="sidebarCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-[280px] opacity-100'"
     >
        <div class="h-14 px-4 border-b border-slate-100/80 flex items-center justify-between shrink-0 bg-gradient-to-b from-white to-slate-50/50">
@@ -48,20 +48,20 @@
 
              <div class="grid grid-cols-2 gap-2">
                 <button
-                   class="flex items-center justify-center gap-2 p-2 pr-7 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-all duration-200 group relative"
+                   class="flex items-center justify-center gap-2 p-2 pr-7 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group relative"
                    :class="importedFromFile ? '!border-sky-500 bg-sky-50/50' : ''"
                    @click="handleImport"
                 >
-                   <el-icon class="text-base transition-colors" :class="importedFromFile ? 'text-sky-600' : 'text-slate-400 group-hover:text-sky-500'"><FolderOpened /></el-icon>
-                   <span class="text-xs font-medium transition-colors" :class="importedFromFile ? 'text-sky-700 font-bold' : 'text-slate-600 group-hover:text-sky-700'">导入科目</span>
+                   <el-icon class="text-base transition-colors duration-200" :class="importedFromFile ? 'text-sky-600' : 'text-slate-400 group-hover:text-sky-500'"><FolderOpened /></el-icon>
+                   <span class="text-xs font-medium transition-colors duration-200" :class="importedFromFile ? 'text-sky-700 font-bold' : 'text-slate-600 group-hover:text-sky-700'">导入科目</span>
                    <span
                       v-if="importedFromFile"
-                      class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-sky-600 hover:bg-sky-100 transition-colors"
+                      class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-sky-600 hover:bg-sky-100 transition-colors duration-200"
                       @click.stop.prevent="handleClearImport"
                    >×</span>
                 </button>
-                <button 
-                  class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-all duration-200 group"
+                <button
+                  class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group"
                   @click="handleTemplate"
                 >
                    <el-icon class="text-base text-slate-400 group-hover:text-sky-500 transition-colors"><Download /></el-icon>
@@ -69,8 +69,8 @@
                 </button>
              </div>
 
-             <button 
-               class="flex w-full items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-all duration-200 group"
+             <button
+               class="flex w-full items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group"
                @click="handleExport"
                :disabled="subjects.length === 0"
              >
@@ -491,9 +491,9 @@ const syncToBackend = async () => {
 
 const loadFromBackend = async () => {
    try {
-      const res = await pythonBackend.request<{ subjects: Subject[] }>('subjects.list')
+      const res = await pythonBackend.request('subjects.list')
       if (res && res.subjects) {
-         subjects.value = res.subjects
+         subjects.value = res.subjects as any
          if (res.subjects.length > 0) importedFromFile.value = true
       }
    } catch (e) {
@@ -507,7 +507,7 @@ const validateData = async () => {
     return
   }
   try {
-    const res = await pythonBackend.request<{ errors: string[] }>('subjects.validate', {
+    const res = await pythonBackend.request('subjects.validate', {
       subjects: subjects.value
     })
     validationErrors.value = res.errors
@@ -534,7 +534,7 @@ const handleImport = async () => {
       logInfo(`已选择文件：${selected}`)
       loading.value = true
       logInfo('正在导入科目数据')
-      const res = await pythonBackend.request<{ subjects: Subject[], errors: string[] }>('subjects.import', {
+      const res = await pythonBackend.request('subjects.import', {
         path: selected
       })
       

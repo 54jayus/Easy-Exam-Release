@@ -12,7 +12,13 @@
       "Bash(do:*)",
       "Bash(\"D:\\\\百度网盘同步空间\\\\BaiduSyncdisk\\\\自动化办公\\\\智能考务系统\\\\backend\\\\rpc\\\\__init__.py\":*)",
       "Bash(ls:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(sed:*)",
+      "Bash(python3:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

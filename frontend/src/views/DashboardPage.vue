@@ -68,11 +68,11 @@
 
     <!-- Stats Grid (Bento Style) -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div v-for="(stat, index) in stats" :key="index" 
-        class="bg-white/60 backdrop-blur-lg p-5 rounded-2xl border border-white/40 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group cursor-default select-none"
+      <div v-for="(stat, index) in stats" :key="index"
+        class="bg-white/60 backdrop-blur-lg p-5 rounded-2xl border border-white/40 shadow-sm hover:shadow-md transition-[transform,shadow] duration-200 hover:-translate-y-1 group cursor-default select-none"
         @dblclick="stat.path && $router.push(stat.path)">
         <div class="flex items-start justify-between mb-3">
-          <div :class="`p-2.5 rounded-xl ${stat.bgClass} ${stat.textClass} group-hover:scale-110 transition-transform duration-300`">
+          <div :class="`p-2.5 rounded-xl ${stat.bgClass} ${stat.textClass} group-hover:scale-110 transition-transform duration-200`">
             <component :is="stat.icon" class="w-5 h-5" />
           </div>
           <span v-if="stat.trend !== '--'" :class="['text-xs font-bold px-2 py-0.5 rounded-full flex items-center', stat.trendClass || 'bg-slate-100 text-slate-500']">
@@ -100,13 +100,13 @@
           <div class="absolute left-8 top-4 bottom-12 w-0.5 bg-slate-100"></div>
           
           <div class="space-y-8 relative z-10">
-            <div v-for="(step, index) in workflow" :key="index" 
-                 class="group relative pl-12 transition-all duration-300 hover:pl-14 cursor-pointer"
+            <div v-for="(step, index) in workflow" :key="index"
+                 class="group relative pl-12 transition-transform duration-200 hover:translate-x-2 cursor-pointer"
                  @click="$router.push(step.path)">
               
               <!-- Step Indicator -->
               <div class="absolute left-0 top-0 w-8 h-8 flex items-center justify-center">
-                 <div :class="`w-8 h-8 rounded-full flex items-center justify-center border-2 z-20 transition-all duration-300 bg-white ${
+                 <div :class="`w-8 h-8 rounded-full flex items-center justify-center border-2 z-20 transition-[background-color,border-color,box-shadow] duration-200 bg-white ${
                     step.status === 'completed' ? 'border-primary-500 text-primary-500' :
                     step.status === 'current' ? 'border-primary-600 bg-primary-600 text-white shadow-lg shadow-primary-200 ring-4 ring-primary-50' :
                     'border-slate-200 text-slate-300 group-hover:border-slate-300'
@@ -117,8 +117,8 @@
               </div>
 
               <!-- Content Card -->
-              <div :class="`p-5 rounded-2xl border transition-all duration-300 ${
-                  step.status === 'current' ? 'bg-primary-50/50 border-primary-100 shadow-sm' : 
+              <div :class="`p-5 rounded-2xl border transition-[background-color,border-color,box-shadow] duration-200 ${
+                  step.status === 'current' ? 'bg-primary-50/50 border-primary-100 shadow-sm' :
                   'bg-white border-slate-100 hover:border-primary-200 hover:shadow-md'
               }`">
                 <div class="flex items-center justify-between mb-2">
@@ -182,7 +182,7 @@ let timer: any = null
 
 const updateCountdown = async () => {
   try {
-    const res = await pythonBackend.request<{ subjects: Subject[] }>('subjects.list')
+    const res = await pythonBackend.request('subjects.list')
     if (!res.subjects || res.subjects.length === 0) {
       countdown.days = '0'
       countdown.time = '无待考科目'
@@ -195,7 +195,7 @@ const updateCountdown = async () => {
     let minDiff = Infinity
 
     for (const sub of res.subjects) {
-       const startTime = sub.exam_time.split('-')[0]
+       const startTime = sub.exam_time?.split('-')[0]
        if (!sub.exam_date || !startTime) continue
        
        // Parse date and time safely
@@ -352,13 +352,3 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-</style>

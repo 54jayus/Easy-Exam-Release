@@ -26,7 +26,7 @@ export type RpcMethods = {
 
   // Assistant
   "assistant.generateReply": {
-    params: { message: string; context?: any }
+    params: { message?: string; userText?: string; history?: any[]; uiContextText?: string; attachments?: any[]; context?: any }
     result: { reply: string }
   }
   "assistant.checkConfig": {
@@ -35,7 +35,7 @@ export type RpcMethods = {
   }
   "assistant.configure": {
     params: { apiKey: string }
-    result: { success: boolean }
+    result: { success: boolean; error?: string }
   }
 
   // Dashboard
@@ -52,14 +52,14 @@ export type RpcMethods = {
   // Subjects
   "subjects.list": {
     params: {}
-    result: { subjects: Array<{ id: string; name: string; duration: number; date: string; time: string }> }
+    result: { subjects: Array<{ id?: string; name: string; duration?: number; duration_minutes?: number; date?: string; time?: string; exam_date?: string; exam_time?: string; remark?: string }> }
   }
   "subjects.update": {
     params: { subjects: Array<{ name: string; duration: number; date: string; time: string }> }
     result: { proctoringReset: boolean }
   }
   "subjects.import": {
-    params: { path: string }
+    params: { path: string | string[] }
     result: { subjects: any[]; errors: string[]; proctoringReset: boolean }
   }
   "subjects.export": {
@@ -97,7 +97,7 @@ export type RpcMethods = {
     result: {}
   }
   "proctoring.export": {
-    params: { path: string }
+    params: { path: string; teachers?: any[]; subjects?: any[]; schedule?: any[]; config?: any }
     result: {}
   }
   "proctoring.continue": {
@@ -117,7 +117,7 @@ export type RpcMethods = {
     result: { schedule: any[] }
   }
   "proctoring.export_empty_preset": {
-    params: { path: string }
+    params: { path: string; subjects?: any[]; roomCount?: number; mode?: string }
     result: {}
   }
   "proctoring.import_preset": {
@@ -173,7 +173,7 @@ export type RpcMethods = {
     result: { sourceType: string; dataPath: string; headers: string[]; mapping: any; data: any[]; total: number }
   }
   "printing.saveConfig": {
-    params: { config: any }
+    params: { config: any; commonConfig?: any; totalCount?: number; sourceType?: string }
     result: {}
   }
   "printing.resetState": {
@@ -197,7 +197,7 @@ export type RpcMethods = {
     result: { path: string }
   }
   "printing.generate": {
-    params: { type: string; config: any; outputPath: string }
+    params: { type: string; config: any; outputPath: string; sourceType?: string; dataPath?: string; mapping?: any; confirmFlags?: any }
     result: { path: string }
   }
 }

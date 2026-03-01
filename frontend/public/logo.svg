@@ -1,0 +1,22 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="512" height="512" rx="112" fill="url(#grad)"/>
+  <!-- 左侧 E -->
+  <rect x="76"  y="118" width="136" height="30" rx="15" fill="white"/>
+  <rect x="76"  y="118" width="30"  height="276" rx="15" fill="white"/>
+  <rect x="76"  y="241" width="110" height="30" rx="15" fill="white"/>
+  <rect x="76"  y="364" width="136" height="30" rx="15" fill="white"/>
+  <!-- 右侧 E（镜像） -->
+  <rect x="300" y="118" width="136" height="30" rx="15" fill="white" opacity="0.85"/>
+  <rect x="406" y="118" width="30"  height="276" rx="15" fill="white" opacity="0.85"/>
+  <rect x="326" y="241" width="110" height="30" rx="15" fill="white" opacity="0.85"/>
+  <rect x="300" y="364" width="136" height="30" rx="15" fill="white" opacity="0.85"/>
+  <!-- 中间分隔线 -->
+  <rect x="245" y="136" width="22" height="240" rx="11" fill="white" opacity="0.25"/>
+</svg>

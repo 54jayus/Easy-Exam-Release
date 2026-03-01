@@ -1,1 +1,0 @@
-pyinstaller --onefile --windowed --name "智能考务系统v2.0.0118" --add-data "ui;ui" --add-data "使用说明书.md;." main.py

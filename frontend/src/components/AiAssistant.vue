@@ -269,7 +269,7 @@ const dragHandleRef = ref<HTMLElement | null>(null)
 // Check configuration on mount
 onMounted(async () => {
   try {
-    const res = await pythonBackend.request<{ configured: boolean }>('assistant.checkConfig')
+    const res = await pythonBackend.request('assistant.checkConfig')
     isConfigured.value = res.configured
   } catch (e) {
     logger.error('检查助手配置失败', e)
@@ -387,10 +387,10 @@ const handleConfigure = async () => {
   
   configLoading.value = true
   try {
-    const res = await pythonBackend.request<{ success: boolean; error?: string }>('assistant.configure', {
+    const res = await pythonBackend.request('assistant.configure', {
       apiKey: configApiKey.value.trim()
     })
-    
+
     if (res.success) {
       isConfigured.value = true
       ElMessage.success('配置成功')
@@ -545,7 +545,7 @@ const handleSend = async () => {
 
     const uiContext = await getUiContext()
 
-    const res = await pythonBackend.request<{ reply: string }>('assistant.generateReply', {
+    const res = await pythonBackend.request('assistant.generateReply', {
       userText: text,
       history,
       uiContextText: uiContext,

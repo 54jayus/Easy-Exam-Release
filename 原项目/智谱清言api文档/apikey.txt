@@ -1,2 +1,0 @@
-API key:eeda818a78204c9c8fc563ab8934a68e.Fna7mwy0LJrqxHDE
-模型名称:GLM-4.6V-Flash

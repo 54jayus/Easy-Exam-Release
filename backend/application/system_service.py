@@ -39,7 +39,9 @@ class SystemService:
                         break
                     base_dir = parent
 
+            # Read the manual file
             manual_path = os.path.join(base_dir, "resources", "使用说明书.md")
+
             if not os.path.exists(manual_path):
                 return {"error": f"未找到使用说明书文件: {manual_path}"}
             with open(manual_path, "r", encoding="utf-8") as f:

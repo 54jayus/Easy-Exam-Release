@@ -1,0 +1,117 @@
+import { ElMessage } from 'element-plus'
+import { open, saveAndRun } from '@/lib/dialog'
+import { pythonBackend } from '@/lib/pythonBackend'
+import type { Ref } from 'vue'
+import type { RoomsConfig } from './useRoomsState'
+
+export function useRoomsIO(deps: {
+  roomSettings: Ref<any[]>
+  students: Ref<any[]>
+  results: Ref<any[]>
+  studentPath: Ref<string>
+  cachedResultsPath: Ref<string>
+  config: RoomsConfig
+  activeTab: Ref<string>
+  logInfo: (msg: string) => void
+  logSuccess: (msg: string) => void
+  logError: (msg: string) => void
+  logFromText: (msg: string) => void
+}) {
+  // Template Generation
+  const handleGenerateTemplate = async (type: string) => {
+    await saveAndRun({
+      dialog: {
+        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+        defaultPath: type === 'settings' ? '考场设置模板.xlsx' : '考生名册模板.xlsx'
+      },
+      run: async (path) => {
+        return await pythonBackend.request<any>('rooms.generateTemplate', { type, path })
+      },
+      successText: '模板生成成功',
+      errorText: '生成模板失败',
+      onLog: deps.logFromText
+    })
+  }
+
+  // Import Settings
+  const handleImportSettings = async () => {
+    const path = await open({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
+    if (path) {
+      const res = await pythonBackend.request<any>('rooms.importSettings', { path })
+      if (res?.error) {
+        ElMessage.error(res.error)
+        deps.logError(`导入考场设置失败：${res.error}`)
+      } else if (res?.settings) {
+        deps.roomSettings.value = res.settings
+        deps.config.totalRooms = res.settings.length
+        // Try to detect capacity
+        if (res.settings.length > 0) {
+          deps.config.seatsPerRoom = res.settings[0].capacity || 30
+        }
+        ElMessage.success(`成功导入 ${res.settings.length} 个考场设置`)
+        deps.logSuccess(`已导入考场设置：${res.settings.length} 个考场`)
+        deps.activeTab.value = 'settings'
+      }
+    }
+  }
+
+  // Import Students
+  const handleImportStudents = async () => {
+    const path = await open({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
+    if (path) {
+      deps.studentPath.value = path as string // Save path
+      const res = await pythonBackend.request<any>('rooms.importStudents', { path })
+      if (res?.error) {
+        ElMessage.error(res.error)
+        deps.logError(`导入考生名册失败：${res.error}`)
+      } else if (res?.students) {
+        deps.students.value = res.students
+        ElMessage.success(`成功导入 ${res.total} 名考生`)
+        deps.logSuccess(`已导入考生名册：${res.total} 人`)
+        deps.activeTab.value = 'students'
+      }
+    }
+  }
+
+  // Import Results
+  const handleImportResults = async () => {
+    const path = await open({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
+    if (path) {
+      const res = await pythonBackend.request<any>('rooms.importResults', { path })
+      if (res?.error) {
+        ElMessage.error(res.error)
+        deps.logError(`导入编排结果失败：${res.error}`)
+      } else if (res?.results) {
+        deps.results.value = res.results
+        deps.cachedResultsPath.value = String(path)
+        ElMessage.success('导入成功')
+        deps.logSuccess(`已导入编排结果：共 ${res.results.length} 人`)
+        deps.activeTab.value = 'results'
+      }
+    }
+  }
+
+  // Export Results
+  const handleExport = async () => {
+    await saveAndRun({
+      dialog: {
+        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+        defaultPath: '考场编排结果.xlsx'
+      },
+      run: async (path) => {
+        return await pythonBackend.request<any>('rooms.export', { path })
+      },
+      successText: '导出成功',
+      errorText: '导出失败',
+      onLog: deps.logFromText
+    })
+  }
+
+  return {
+    handleGenerateTemplate,
+    handleImportSettings,
+    handleImportStudents,
+    handleImportResults,
+    handleExport
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "name": "examflow",
+  "name": "easy-exam",
   "private": true,
   "version": "3.1.0301",
   "main": "dist-electron/main.js",
@@ -12,8 +12,8 @@
     "electron:build": "vue-tsc -p tsconfig.json && vite build && electron-builder"
   },
   "build": {
-    "appId": "com.examflow.app",
-    "productName": "ExamFlow",
+    "appId": "com.easyexam.app",
+    "productName": "Easy Exam",
     "directories": {
       "output": "release_v6"
     },
@@ -27,7 +27,7 @@
         "to": "engine"
       }
     ],
-    "artifactName": "ExamFlow-Setup-${version}.${ext}",
+    "artifactName": "EasyExam-Setup-${version}.${ext}",
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico"
@@ -41,6 +41,7 @@
     "@element-plus/icons-vue": "^2.3.1",
     "@vueuse/core": "^14.1.0",
     "element-plus": "^2.8.4",
+    "html2pdf.js": "^0.10.2",
     "lucide-vue-next": "^0.563.0",
     "marked": "^17.0.1",
     "pinia": "^2.2.2",

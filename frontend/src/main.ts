@@ -93,15 +93,11 @@ app.use(ElementPlus, {
 
 const licenseStore = useLicenseStore(pinia);
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach((to, from, next) => {
   if (!licenseStore.checked) {
-    await licenseStore.refreshStatus();
-  }
-  if (!licenseStore.valid && to.path !== "/registration") {
-    if (to.path === "/registration") {
-      next();
-      return;
-    }
+    // Kick off backend startup in the background — don't block rendering
+    licenseStore.refreshStatus();
+  } else if (!licenseStore.valid && to.path !== "/registration") {
     next({ path: "/registration", replace: true });
     return;
   }
