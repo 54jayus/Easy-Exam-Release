@@ -17,7 +17,7 @@
           <div>
             <h1 class="text-white font-bold tracking-tight text-base">智能考务系统</h1>
             <div class="flex items-center gap-2">
-              <p class="text-primary-300 text-xs">v3.0.0213</p>
+              <p class="text-primary-300 text-xs">v3.1.0301</p>
               <span
                 v-if="developerMode"
                 class="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-100 text-[10px] border border-amber-300/40 tracking-wide"
