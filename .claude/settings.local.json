@@ -19,7 +19,9 @@
       "Bash(npm run:*)",
       "Bash(rm:*)",
       "Bash(mkdir:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(D:/Anaconda3/envs/exam_scheduler/python.exe:*)",
+      "Bash(test:*)"
     ]
   }
 }

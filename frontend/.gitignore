@@ -4,3 +4,6 @@ dist-ssr
 .DS_Store
 *.local
 
+# 本地环境配置（每台电脑不同）
+.env.development
+.env.production
