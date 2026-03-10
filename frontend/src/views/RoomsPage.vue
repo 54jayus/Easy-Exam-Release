@@ -22,6 +22,9 @@
       @export="handleExport"
       @reset="handleResetPage"
       @open-priority-dialog="showSubjectPriorityDialog = true"
+      @update:mode="(mode: string) => config.mode = mode"
+      @update:totalRooms="(val: number) => config.totalRooms = val"
+      @update:seatsPerRoom="(val: number) => config.seatsPerRoom = val"
     />
 
     <!-- Toggle Button (Visible when collapsed) -->

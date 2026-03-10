@@ -112,7 +112,7 @@
               <div class="text-[10px] font-bold text-slate-400 uppercase">考场数量</div>
               <el-input-number
                 :model-value="config.totalRooms"
-                @update:model-value="$emit('update:config', { ...config, totalRooms: $event })"
+                @update:model-value="$emit('update:totalRooms', $event)"
                 :min="1" :max="200"
                 size="small"
                 class="!w-full shadow-sm"
@@ -123,7 +123,7 @@
               <div class="text-[10px] font-bold text-slate-400 uppercase">每场人数</div>
               <el-input-number
                 :model-value="config.seatsPerRoom"
-                @update:model-value="$emit('update:config', { ...config, seatsPerRoom: $event })"
+                @update:model-value="$emit('update:seatsPerRoom', $event)"
                 :min="1" :max="100"
                 size="small"
                 class="!w-full shadow-sm"
@@ -136,7 +136,7 @@
             <label class="text-[10px] font-bold text-slate-400 uppercase">编排模式</label>
             <el-select
               :model-value="config.mode"
-              @update:model-value="$emit('update:config', { ...config, mode: $event })"
+              @update:model-value="$emit('update:mode', $event)"
               size="default"
               class="w-full shadow-sm"
             >
@@ -207,6 +207,9 @@ defineProps<Props>()
 defineEmits<{
   'update:collapsed': [value: boolean]
   'update:config': [value: RoomsConfig]
+  'update:mode': [value: string]
+  'update:totalRooms': [value: number]
+  'update:seatsPerRoom': [value: number]
   'generate-template': [type: string]
   'import-settings': []
   'import-students': []
