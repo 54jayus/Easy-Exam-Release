@@ -1185,6 +1185,7 @@ const handleImportPreset = async () => {
             if (retryRes?.schedule) {
                schedule.value = retryRes.schedule
                if (retryRes.teachers) teachers.value = retryRes.teachers
+               if (retryRes.detectedRoomCount) config.roomCount = retryRes.detectedRoomCount
                hasPreset.value = true
                logSuccess('导入预设安排成功')
                presetVisible.value = false
@@ -1200,6 +1201,7 @@ const handleImportPreset = async () => {
          if (res?.schedule) {
             schedule.value = res.schedule
             if (res.teachers) teachers.value = res.teachers
+            if (res.detectedRoomCount) config.roomCount = res.detectedRoomCount
             hasPreset.value = true
             logSuccess('导入预设安排成功')
             presetVisible.value = false

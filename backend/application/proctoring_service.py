@@ -574,4 +574,9 @@ class ProctoringService:
         self._state.proctoring.teachers = result["teachers"]
         self._state.proctoring.config = config
         self._repo.save(self._state)
+        try:
+            _df = pd.read_excel(path, sheet_name="监考总览表")
+            result["detectedRoomCount"] = len(_df)
+        except Exception:
+            pass
         return result
