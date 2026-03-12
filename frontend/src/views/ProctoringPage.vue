@@ -1023,7 +1023,19 @@ const handleClearTeachers = async () => {
    } catch {
       return
    }
+   try {
+      // 清除后端教师和编排数据，但保留配置
+      await pythonBackend.request('proctoring.clearState', {
+         clearTeachers: true,
+         clearSchedule: true,
+         clearConfig: false
+      })
+   } catch (e) {
+      logWarning('清除后端状态失败：' + (e instanceof Error ? e.message : String(e)))
+   }
    teachers.value = []
+   schedule.value = []
+   hasPreset.value = false
    resetScheduleState()
    logInfo('已清除教师数据')
 }
@@ -1038,6 +1050,17 @@ const handleClearPreset = async () => {
    } catch {
       return
    }
+   try {
+      // 清除后端编排数据，但保留教师和配置
+      await pythonBackend.request('proctoring.clearState', {
+         clearTeachers: false,
+         clearSchedule: true,
+         clearConfig: false
+      })
+   } catch (e) {
+      logWarning('清除后端状态失败：' + (e instanceof Error ? e.message : String(e)))
+   }
+   hasPreset.value = false
    resetScheduleState()
    logInfo('已清除预设监考安排')
 }

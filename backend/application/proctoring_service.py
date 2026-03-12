@@ -216,9 +216,24 @@ class ProctoringService:
             "config": self._state.proctoring.config,
         }
 
-    def clear_state(self, _params: dict) -> Any:
+    def clear_state(self, params: dict) -> Any:
         from backend.domain.state import ProctoringState
-        self._state.proctoring = ProctoringState()
+        clear_teachers = params.get("clearTeachers", True)
+        clear_schedule = params.get("clearSchedule", True)
+        clear_config = params.get("clearConfig", True)
+
+        if clear_teachers or clear_schedule or clear_config:
+            # 如果需要清除部分数据，手动处理
+            if clear_teachers:
+                self._state.proctoring.teachers = []
+            if clear_schedule:
+                self._state.proctoring.schedule = None
+            if clear_config:
+                self._state.proctoring.config = {}
+        else:
+            # 全部清除
+            self._state.proctoring = ProctoringState()
+
         self._repo.save(self._state)
         return {"success": True}
 
