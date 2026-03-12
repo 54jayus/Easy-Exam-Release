@@ -169,6 +169,11 @@ def _reconstruct_schedule(params: dict, state_subjects: list) -> Schedule:
     for i in range(num_subjects):
         schedule.exams.append(Exam(i + 1, list(range(1, num_rooms + 1))))
 
+    # 重置教师的已分配场次和监考时长，避免重复累加
+    for teacher in teachers:
+        teacher.assigned_sessions = []
+        teacher.supervision_duration = 0
+
     for subj in schedule_data:
         s_id_str = subj.get("subjectId")
         if s_id_str not in subj_id_map:
