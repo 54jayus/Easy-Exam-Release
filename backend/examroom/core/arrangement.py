@@ -28,6 +28,7 @@ class ExamArrangement:
         self.students = None
         self.arranged_students = None
         self.subject_column = "选科"  # 用户指定的选科列名
+        self.gaokao_results = None  # 高考模式编排结果
 
     def get_room_capacity(self, room_num):
         """获取指定考场的容量，如果没有特殊设置则返回默认容量"""
@@ -72,6 +73,7 @@ class ExamArrangement:
         if self.arrangement_mode == "normal_mode" or self.arrangement_mode == "random_mode":
             required_columns = ["班级", "学号", "考号", "姓名"]
         else:
+            # subject_mode 和 gaokao_mode 都需要选科列
             required_columns = ["班级", "学号", "考号", "姓名", self.subject_column]
 
         missing_columns = [col for col in required_columns if col not in self.students.columns]
@@ -95,7 +97,7 @@ class ExamArrangement:
             if not ok:
                 return False, msg
 
-        if self.arrangement_mode == "subject_mode":
+        if self.arrangement_mode == "subject_mode" or self.arrangement_mode == "gaokao_mode":
             is_valid, message = self.validate_subject_column()
             if not is_valid:
                 return False, message
@@ -206,7 +208,7 @@ class ExamArrangement:
         return True, "选科列校验通过"
 
     def arrange_exam_rooms(self):
-        """编排考场（支持两种模式）"""
+        """编排考场（支持四种模式）"""
         if self.students is None:
             return False, "请先加载数据"
 
@@ -218,6 +220,8 @@ class ExamArrangement:
             return self.arrange_normal_mode()
         elif self.arrangement_mode == "random_mode":
             return self.arrange_random_mode()
+        elif self.arrangement_mode == "gaokao_mode":
+            return self.arrange_gaokao_mode()
         else:
             return self.arrange_subject_mode()
 
@@ -570,6 +574,258 @@ class ExamArrangement:
             subjects.append("")
         return subjects[:3]
 
+    # ==================== 高考模式编排方法 ====================
+
+    def _shuffle_students(self, students_df):
+        """使用安全随机数打乱学生顺序"""
+        import secrets
+        random_state = secrets.randbelow(2**32)
+        return students_df.sample(frac=1, random_state=random_state).reset_index(drop=True)
+
+    def _get_room_list(self):
+        """获取考场号列表（按顺序）"""
+        # 优先使用room_setting_df（DataFrame格式）
+        if hasattr(self, 'room_setting_df') and self.room_setting_df is not None:
+            return [str(row['考场号']) for _, row in self.room_setting_df.iterrows()]
+        # 兼容旧的room_setting_data（DataFrame格式）
+        elif self.room_setting_data is not None and hasattr(self.room_setting_data, 'iterrows'):
+            return [str(row['考场号']) for _, row in self.room_setting_data.iterrows()]
+        # 如果都没有，使用1到total_rooms的顺序编号
+        else:
+            return [str(i) for i in range(1, self.total_rooms + 1)]
+
+    def _fill_rooms_sequential(self, students_list, start_room_index=0):
+        """
+        将学生顺序填充到考场
+        参数:
+            students_list: 学生DataFrame
+            start_room_index: 起始考场索引（在考场列表中的位置）
+        返回: (考场分配结果列表, 最后使用的考场索引)
+        """
+        room_list = self._get_room_list()
+        rooms = []
+        current_room_index = start_room_index
+        current_room_students = []
+
+        for idx, student in students_list.iterrows():
+            # 检查是否需要进入下一个考场
+            if current_room_students:
+                room_num = room_list[current_room_index]
+                room_capacity = self.get_room_capacity(room_num)
+
+                if len(current_room_students) >= room_capacity:
+                    # 当前考场已满，保存并进入下一个考场
+                    rooms.append({
+                        'room_num': room_num,
+                        'students': current_room_students
+                    })
+                    current_room_index += 1
+                    current_room_students = []
+
+            # 检查考场是否足够
+            if current_room_index >= len(room_list):
+                raise ValueError(f"考场数量不足，需要至少{current_room_index + 1}个考场")
+
+            current_room_students.append(student)
+
+        # 添加最后一个考场
+        if current_room_students:
+            if current_room_index >= len(room_list):
+                raise ValueError(f"考场数量不足，需要至少{current_room_index + 1}个考场")
+            room_num = room_list[current_room_index]
+            rooms.append({
+                'room_num': room_num,
+                'students': current_room_students
+            })
+
+        return rooms, current_room_index
+
+    def _extract_subject_from_combination(self, combination_str, subject_abbr):
+        """从选科组合中提取是否包含某科目"""
+        return subject_abbr in str(combination_str)
+
+    def _arrange_unified_exams(self):
+        """
+        编排统考科目（语数英+物理/历史）
+        返回: DataFrame包含所有学生的统考编排结果
+        """
+        # 1. 按物理/历史分组
+        physics_students = self.students[self.students[self.subject_column].str.startswith('物')].copy()
+        history_students = self.students[self.students[self.subject_column].str.startswith('史')].copy()
+
+        # 2. 随机打乱物理组学生
+        physics_students = self._shuffle_students(physics_students)
+
+        # 3. 编排物理组学生（从考场索引0开始）
+        physics_rooms, last_physics_index = self._fill_rooms_sequential(physics_students, 0)
+
+        # 4. 随机打乱历史组学生
+        history_students = self._shuffle_students(history_students)
+
+        # 5. 编排历史组学生（从物理组的下一个考场开始）
+        history_rooms, last_history_index = self._fill_rooms_sequential(history_students, last_physics_index + 1)
+
+        # 6. 合并所有考场，为每个学生分配座位号
+        all_rooms = physics_rooms + history_rooms
+        result_records = []
+
+        for room in all_rooms:
+            room_num = room['room_num']
+            # 获取考场名称
+            room_name = self._get_room_name(room_num)
+
+            for seat_idx, student in enumerate(room['students'], start=1):
+                seat_num = f"{seat_idx:02d}"  # 格式化为01, 02, ...
+
+                record = student.to_dict()
+                record['考场号'] = room_num
+                record['考场'] = room_name
+                record['座位号'] = seat_num
+
+                result_records.append(record)
+
+        result_df = pd.DataFrame(result_records)
+        return result_df
+
+    def _get_room_name(self, room_num):
+        """获取考场名称"""
+        room_str = str(room_num).strip()
+
+        # 优先使用room_setting_df（DataFrame格式）
+        if hasattr(self, 'room_setting_df') and self.room_setting_df is not None:
+            for _, row in self.room_setting_df.iterrows():
+                setting_room_num = str(row.get('考场号', '')).strip()
+                if setting_room_num == room_str or setting_room_num.lstrip('0') == room_str.lstrip('0'):
+                    return str(row.get('考场', f'第{room_num}考场'))
+
+        # 兼容旧的room_setting_data（DataFrame格式）
+        elif self.room_setting_data is not None and hasattr(self.room_setting_data, 'iterrows'):
+            for _, row in self.room_setting_data.iterrows():
+                setting_room_num = str(row.get('考场号', '')).strip()
+                if setting_room_num == room_str or setting_room_num.lstrip('0') == room_str.lstrip('0'):
+                    return str(row.get('考场', f'第{room_num}考场'))
+
+        return f'第{room_num}考场'
+
+    def _arrange_elective_exam(self, subject):
+        """
+        编排单个选考科目
+        参数:
+            subject: 科目名称（如"化学"）
+        返回: DataFrame包含所有学生的该科目编排结果，包含科目类型列
+        """
+        # 科目缩写映射
+        subject_abbr_map = {
+            '化学': '化',
+            '地理': '地',
+            '政治': '政',
+            '生物': '生'
+        }
+        subject_abbr = subject_abbr_map.get(subject, subject[0])
+
+        # 1. 分离考试学生和自习学生
+        exam_students = self.students[self.students[self.subject_column].str.contains(subject_abbr)].copy()
+        self_study_students = self.students[~self.students[self.subject_column].str.contains(subject_abbr)].copy()
+
+        # 2. 随机打乱考试学生
+        exam_students = self._shuffle_students(exam_students)
+
+        # 3. 编排考试学生到考试考场（从考场索引0开始）
+        exam_rooms, last_exam_index = self._fill_rooms_sequential(exam_students, 0)
+
+        # 4. 随机打乱自习学生
+        self_study_students = self._shuffle_students(self_study_students)
+
+        # 5. 编排自习学生到自习考场（从考试考场的下一个开始）
+        self_study_rooms, last_self_study_index = self._fill_rooms_sequential(self_study_students, last_exam_index + 1)
+
+        # 6. 合并所有考场，为每个学生分配座位号和科目类型
+        all_rooms = exam_rooms + self_study_rooms
+        result_records = []
+
+        for room_idx, room in enumerate(all_rooms):
+            room_num = room['room_num']
+            room_name = self._get_room_name(room_num)
+            is_exam_room = room_idx < len(exam_rooms)  # 判断是否为考试考场
+
+            for seat_idx, student in enumerate(room['students'], start=1):
+                seat_num = f"{seat_idx:02d}"
+
+                record = student.to_dict()
+                record['考场号'] = room_num
+                record['考场'] = room_name
+                record['座位号'] = seat_num
+                record['科目类型'] = subject if is_exam_room else '自习'
+
+                result_records.append(record)
+
+        result_df = pd.DataFrame(result_records)
+        return result_df
+
+    def _merge_gaokao_results(self):
+        """
+        合并所有科目的编排结果为学生中心视图
+        返回: DataFrame，每行一个学生，包含9个科目的完整信息
+        """
+        # 从统考结果开始
+        unified_df = self.gaokao_results['unified']
+
+        # 创建基础DataFrame，包含学生基本信息
+        result_df = unified_df[['班级', '学号', '考号', '姓名', self.subject_column]].copy()
+
+        # 定义9个科目（按考试顺序）
+        subjects = ['语文', '数学', '英语', '物理', '化学', '地理', '政治', '生物']
+
+        # 为每个科目添加4列：科目状态、考场号、考场、座位号
+        for subject in subjects:
+            if subject in ['语文', '数学', '英语', '物理']:
+                # 统考科目：从unified_df获取数据
+                result_df[f'{subject}科目'] = subject
+                result_df[f'{subject}考场号'] = unified_df['考场号']
+                result_df[f'{subject}考场'] = unified_df['考场']
+                result_df[f'{subject}座位号'] = unified_df['座位号']
+            else:
+                # 选考科目：从electives获取数据
+                elective_df = self.gaokao_results['electives'][subject]
+
+                # 按考号合并
+                for idx, row in result_df.iterrows():
+                    exam_id = row['考号']
+                    elective_row = elective_df[elective_df['考号'] == exam_id]
+
+                    if not elective_row.empty:
+                        elective_row = elective_row.iloc[0]
+                        result_df.at[idx, f'{subject}科目'] = elective_row['科目类型']
+                        result_df.at[idx, f'{subject}考场号'] = elective_row['考场号']
+                        result_df.at[idx, f'{subject}考场'] = elective_row['考场']
+                        result_df.at[idx, f'{subject}座位号'] = elective_row['座位号']
+
+        return result_df
+
+    def arrange_gaokao_mode(self):
+        """
+        高考模式编排：统考(语数英+物/历史) + 选考(化地政生)
+        返回: (成功标志, 消息)
+        """
+        # 1. 编排统考科目
+        unified_result = self._arrange_unified_exams()
+
+        # 2. 编排选考科目
+        elective_results = {}
+        for subject in ['化学', '地理', '政治', '生物']:
+            elective_results[subject] = self._arrange_elective_exam(subject)
+
+        # 3. 保存结果
+        self.gaokao_results = {
+            'unified': unified_result,
+            'electives': elective_results
+        }
+
+        # 4. 合并为学生中心视图
+        self.arranged_students = self._merge_gaokao_results()
+
+        return True, f"高考模式编排完成，共编排{len(self.students)}名学生"
+
     def save_results(self, output_file="考场编排结果.xlsx"):
         """保存编排结果，包含学生信息和选科统计"""
         if self.arranged_students is None:
@@ -609,6 +865,198 @@ class ExamArrangement:
             return False, f"磁盘空间不足或文件系统错误: {e}"
         except Exception as e:
             return False, f"保存结果失败: {e}"
+
+    def save_gaokao_results(self, output_file="高考编排结果.xlsx"):
+        """保存高考模式编排结果（3种表格）"""
+        if self.arranged_students is None:
+            return False, "请先编排考场"
+
+        if self.gaokao_results is None:
+            return False, "高考模式编排结果不存在"
+
+        try:
+            with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
+                # 表格A: 学生中心视图（1个sheet）
+                self._export_gaokao_student_table(writer)
+
+                # 表格B: 座位中心视图（1个sheet）
+                self._export_gaokao_seat_tables(writer)
+
+                # 表格C: 时间段视图（5个sheet）
+                self._export_gaokao_timeslot_tables(writer)
+
+                # 表格D: 考场人数统计（1个sheet）
+                self._export_gaokao_stats_table(writer)
+
+            return True, f"高考编排结果已保存至 {os.path.abspath(output_file)}"
+        except PermissionError:
+            return False, f"文件被占用或没有写入权限: {output_file}"
+        except Exception as e:
+            return False, f"保存结果失败: {e}"
+
+    def _export_gaokao_student_table(self, writer):
+        """导出考场安排（学生）表"""
+        export_df = self.arranged_students.copy()
+
+        # 确保文本列格式正确
+        text_columns = ['班级', '学号', '考号']
+        for col in text_columns:
+            if col in export_df.columns:
+                export_df[col] = export_df[col].astype(str)
+
+        # 确保考场号和座位号也是文本格式
+        subjects = ['语文', '数学', '英语', '物理', '化学', '地理', '政治', '生物']
+        for subject in subjects:
+            for suffix in ['考场号', '座位号']:
+                col_name = f'{subject}{suffix}'
+                if col_name in export_df.columns:
+                    export_df[col_name] = export_df[col_name].astype(str)
+
+        export_df.to_excel(writer, sheet_name="考场安排（学生）", index=False)
+
+    def _export_gaokao_seat_tables(self, writer):
+        """导出考场安排（座位）表 - 1个sheet包含所有科目"""
+        # 收集所有唯一的考场号和座位号组合
+        unified_df = self.gaokao_results['unified']
+        electives = self.gaokao_results['electives']
+
+        # 从统考结果获取所有考场和座位
+        seats = unified_df[['考场号', '考场', '座位号']].drop_duplicates().sort_values(['考场号', '座位号'])
+
+        # 创建座位表的基础DataFrame
+        seat_records = []
+
+        for _, seat_row in seats.iterrows():
+            room_num = seat_row['考场号']
+            room_name = seat_row['考场']
+            seat_num = seat_row['座位号']
+
+            record = {
+                '考场号': room_num,
+                '考场': room_name,
+                '座位号': seat_num
+            }
+
+            # 为每个科目添加5列数据
+            subjects_data = {
+                '语文': unified_df,
+                '数学': unified_df,
+                '英语': unified_df,
+                '物理': unified_df,
+                '化学': electives['化学'],
+                '地理': electives['地理'],
+                '政治': electives['政治'],
+                '生物': electives['生物']
+            }
+
+            for subject, df in subjects_data.items():
+                # 查找该座位在该科目下的学生
+                student_row = df[(df['考场号'] == room_num) & (df['座位号'] == seat_num)]
+
+                if not student_row.empty:
+                    student_row = student_row.iloc[0]
+                    if subject in ['语文', '数学', '英语', '物理']:
+                        # 统考科目
+                        record[f'{subject}科目'] = subject
+                    else:
+                        # 选考科目
+                        record[f'{subject}科目'] = student_row.get('科目类型', '自习')
+
+                    record[f'{subject}姓名'] = student_row.get('姓名', '')
+                    record[f'{subject}考号'] = str(student_row.get('考号', ''))
+                    record[f'{subject}班级'] = str(student_row.get('班级', ''))
+                    record[f'{subject}学号'] = str(student_row.get('学号', ''))
+                else:
+                    # 该座位在该科目下没有学生
+                    record[f'{subject}科目'] = ''
+                    record[f'{subject}姓名'] = ''
+                    record[f'{subject}考号'] = ''
+                    record[f'{subject}班级'] = ''
+                    record[f'{subject}学号'] = ''
+
+            seat_records.append(record)
+
+        seat_df = pd.DataFrame(seat_records)
+        seat_df.to_excel(writer, sheet_name="考场安排（座位）", index=False)
+
+    def _export_gaokao_timeslot_tables(self, writer):
+        """导出各科考试时间编排结果表 - 5个sheet"""
+        # Sheet 1: 统考编排结果（语数英+物理/历史）
+        unified_df = self.gaokao_results['unified'].copy()
+        unified_df['科目'] = unified_df[self.subject_column].str[0].map({'物': '物理', '史': '历史'})
+
+        # 调整列顺序
+        columns_order = ['考场号', '考场', '座位号', '考号', '姓名', '班级', '学号', '科目']
+        existing_cols = [col for col in columns_order if col in unified_df.columns]
+        unified_export = unified_df[existing_cols].copy()  # 添加 .copy()
+
+        # 确保文本列格式正确
+        for col in ['考场号', '座位号', '考号', '班级', '学号']:
+            if col in unified_export.columns:
+                unified_export.loc[:, col] = unified_export[col].astype(str)  # 使用 .loc
+
+        unified_export.to_excel(writer, sheet_name="统考编排结果", index=False)
+
+        # Sheet 2-5: 选考科目编排结果
+        for subject in ['化学', '地理', '政治', '生物']:
+            elective_df = self.gaokao_results['electives'][subject].copy()
+
+            # 重命名科目类型列为科目
+            elective_df['科目'] = elective_df['科目类型']
+            elective_df = elective_df.drop(columns=['科目类型'])
+
+            # 调整列顺序
+            elective_export = elective_df[existing_cols].copy()  # 添加 .copy()
+
+            # 确保文本列格式正确
+            for col in ['考场号', '座位号', '考号', '班级', '学号']:
+                if col in elective_export.columns:
+                    elective_export.loc[:, col] = elective_export[col].astype(str)  # 使用 .loc
+
+            elective_export.to_excel(writer, sheet_name=f"{subject}编排结果", index=False)
+
+    def _export_gaokao_stats_table(self, writer):
+        """导出考场人数统计表"""
+        # 获取所有考场号（按顺序）
+        room_list = self._get_room_list()
+
+        # 定义所有科目
+        subjects = ['语文', '数学', '英语', '物理', '化学', '地理', '政治', '生物']
+
+        # 创建统计数据
+        stats_records = []
+
+        for room_num in room_list:
+            record = {'考场号': room_num, '考场': self._get_room_name(room_num)}
+
+            # 统计每个科目的人数
+            for subject in subjects:
+                if subject in ['语文', '数学', '英语', '物理']:
+                    # 统考科目：从unified结果中统计
+                    unified_df = self.gaokao_results['unified']
+                    count = len(unified_df[unified_df['考场号'] == room_num])
+                else:
+                    # 选考科目：从electives结果中统计考试人数（排除自习）
+                    elective_df = self.gaokao_results['electives'][subject]
+                    count = len(elective_df[(elective_df['考场号'] == room_num) & (elective_df['科目类型'] == subject)])
+
+                record[subject] = count
+
+            stats_records.append(record)
+
+        # 创建DataFrame
+        stats_df = pd.DataFrame(stats_records)
+
+        # 添加总计行
+        total_record = {'考场号': '总计', '考场': ''}
+        for subject in subjects:
+            total_record[subject] = stats_df[subject].sum()
+
+        # 使用concat而不是append
+        stats_df = pd.concat([stats_df, pd.DataFrame([total_record])], ignore_index=True)
+
+        # 导出到Excel
+        stats_df.to_excel(writer, sheet_name="考场人数统计", index=False)
 
     def _create_stats_sheet_with_formulas(self, writer, export_df=None):
         """使用公式创建考场选科统计工作表"""

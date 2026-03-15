@@ -41,7 +41,7 @@ def _build_exam_arrangement(settings: list, config: dict, student_path: str) -> 
         pd.DataFrame([{"考场号": s["roomNum"], "考场": s["roomName"]} for s in settings])
         if settings else None
     )
-    mode_map = {"3+1+2": "subject_mode", "normal": "normal_mode", "random": "random_mode"}
+    mode_map = {"3+1+2": "subject_mode", "normal": "normal_mode", "random": "random_mode", "gaokao": "gaokao_mode"}
     mode = mode_map.get(config.get("mode", "normal"), "normal_mode")
 
     ea = ExamArrangement(
@@ -362,15 +362,24 @@ class RoomsService:
         except Exception:
             pass
 
+        # 注意：不要覆盖gaokao_mode
         try:
             if getattr(ea, "arranged_students", None) is not None:
                 if "选科" in list(ea.arranged_students.columns):
-                    ea.arrangement_mode = "subject_mode"
+                    # 只有当前不是gaokao_mode时才设置为subject_mode
+                    if ea.arrangement_mode != "gaokao_mode":
+                        ea.arrangement_mode = "subject_mode"
         except Exception:
             pass
 
         path = params["path"]
-        success, msg = ea.save_results(path)
+
+        # 检查是否为高考模式
+        if ea.arrangement_mode == "gaokao_mode":
+            success, msg = ea.save_gaokao_results(path)
+        else:
+            success, msg = ea.save_results(path)
+
         return {} if success else {"error": msg}
 
     def import_results(self, params: dict) -> Any:
