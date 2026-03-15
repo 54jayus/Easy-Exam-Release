@@ -60,30 +60,44 @@ class CornerPaperGenerator:
         使用相对坐标逻辑。
         """
 
-        # 提取数据
-        kaochang = data.get("考场", "") if data else ""
-        kaochang_no = data.get("考场号", "") if data else ""
-        seat_no = data.get("座位号", "") if data else ""
-        name = (data.get("考生姓名") or data.get("姓名") or "") if data else ""
-        exam_no = (data.get("考生考号") or data.get("考号") or "") if data else ""
+        # 检测是否为高考模式数据
+        is_gaokao_mode = data and "科目数据" in data
 
-        class_no = data.get("班级", "") if data else ""
-        student_no = data.get("学号", "") if data else ""
-
-        # 拼接班级学号 (x班x号 格式)
-        class_student = ""
-        # 优先使用已经处理好的 '考生班级学号' 字段
-        if data and "考生班级学号" in data:
-            class_student = data["考生班级学号"]
+        if is_gaokao_mode:
+            # 高考模式：使用科目数据数组
+            subject_data_list = data.get("科目数据", [])
+            kaochang = data.get("考场", "")
+            kaochang_no = data.get("考场号", "")
+            seat_no = data.get("座位号", "")
+            # 高考模式下，学生信息在科目数据中
+            name = ""
+            exam_no = ""
+            class_student = ""
         else:
-            # 回退逻辑
-            if data:
-                try:
-                    c_str = str(class_no)
-                    s_str = str(student_no)
-                    class_student = f"{c_str}班{s_str}号"
-                except:
-                    class_student = f"{class_no}班{student_no}号"
+            # 普通模式：保持原有逻辑
+            kaochang = data.get("考场", "") if data else ""
+            kaochang_no = data.get("考场号", "") if data else ""
+            seat_no = data.get("座位号", "") if data else ""
+            name = (data.get("考生姓名") or data.get("姓名") or "") if data else ""
+            exam_no = (data.get("考生考号") or data.get("考号") or "") if data else ""
+
+            class_no = data.get("班级", "") if data else ""
+            student_no = data.get("学号", "") if data else ""
+
+            # 拼接班级学号 (x班x号 格式)
+            class_student = ""
+            # 优先使用已经处理好的 '考生班级学号' 字段
+            if data and "考生班级学号" in data:
+                class_student = data["考生班级学号"]
+            else:
+                # 回退逻辑
+                if data:
+                    try:
+                        c_str = str(class_no)
+                        s_str = str(student_no)
+                        class_student = f"{c_str}班{s_str}号"
+                    except:
+                        class_student = f"{class_no}班{student_no}号"
 
         # --- 辅助函数：相对坐标获取单元格 ---
         def cell(r_offset, c_offset):
@@ -156,15 +170,35 @@ class CornerPaperGenerator:
         for i, subject in enumerate(subjects):
             r_current = 4 + i
 
+            if is_gaokao_mode:
+                # 高考模式：每个科目显示不同的学生信息
+                if i < len(subject_data_list):
+                    subject_item = subject_data_list[i]
+                    subject_name = subject_item.get("科目", "")
+                    student_name = subject_item.get("考生姓名", "")
+                    student_exam_no = subject_item.get("考生考号", "")
+                    student_class_student = subject_item.get("考生班级学号", "")
+                else:
+                    subject_name = subject
+                    student_name = ""
+                    student_exam_no = ""
+                    student_class_student = ""
+            else:
+                # 普通模式：所有科目显示相同的学生信息
+                subject_name = subject
+                student_name = name
+                student_exam_no = exam_no
+                student_class_student = class_student
+
             # 第1列: 科目名称
             c = cell(r_current, 0)
-            c.value = subject
+            c.value = subject_name
             c.font = self.FONT_NORMAL
             c.alignment = self.CENTER_ALIGN
             c.border = self.THIN_BORDER
 
-            # 第2-4列: 占位符
-            placeholders = [name, exam_no, class_student]
+            # 第2-4列: 学生信息
+            placeholders = [student_name, student_exam_no, student_class_student]
             for p_idx, p_text in enumerate(placeholders):
                 c = cell(r_current, p_idx + 1)
                 c.value = p_text

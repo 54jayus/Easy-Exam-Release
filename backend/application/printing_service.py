@@ -162,8 +162,8 @@ class PrintingService:
                 ea = self._get_exam_arrangement()
                 if not ea or ea.arranged_students is None:
                     return {"error": '暂无考场编排数据，请先在"考场编排"页面完成编排'}
-                df = ea.arranged_students.fillna("")
-                data_list = load_examroom_data_for_corner(df) if type_ == "corner" else load_examroom_data_for_ticket(df)
+                # 直接传递 ea 对象，适配器会自动检测模式
+                data_list = load_examroom_data_for_corner(ea) if type_ == "corner" else load_examroom_data_for_ticket(ea)
                 data_list = data_list or []
             elif source_type == "empty":
                 data_list = []
@@ -232,17 +232,18 @@ class PrintingService:
                 ea = self._get_exam_arrangement()
                 if not ea or ea.arranged_students is None:
                     return {"error": '暂无考场编排数据，请先在"考场编排"页面完成编排'}
-                df = ea.arranged_students.fillna("")
+                # 直接传递 ea 对象，适配器会自动检测模式
                 if type_ == "corner":
-                    data_list = load_examroom_data_for_corner(df) or []
+                    data_list = load_examroom_data_for_corner(ea) or []
                 elif type_ == "ticket":
-                    data_list = load_examroom_data_for_ticket(df) or []
+                    data_list = load_examroom_data_for_ticket(ea) or []
                 elif type_ == "table":
+                    df = ea.arranged_students.fillna("")
                     data_list = load_examroom_data_for_student_info(df, include_subject_fields=config_data.get("includeSubjectFields", False)) or []
                 elif type_ == "desk":
-                    data_list = load_examroom_data_for_corner(df) or []
+                    data_list = load_examroom_data_for_corner(ea) or []
                 else:
-                    data_list = load_examroom_data_for_ticket(df) or []
+                    data_list = load_examroom_data_for_ticket(ea) or []
             elif source_type == "empty":
                 data_list = []
         except Exception as e:

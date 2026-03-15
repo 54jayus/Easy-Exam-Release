@@ -201,7 +201,7 @@
                       <el-input v-model="config.examBag.schoolName" size="small" />
                    </div>
                    <div class="text-[10px] text-slate-400 leading-relaxed">
-                      说明：请上传 Excel 数据文件，第一列为“考场”，后续列为“科目”（值为人数）。系统将自动识别并生成标签。
+                      说明：请上传 Excel 数据文件，第一列为"考场"，后续列为"科目"（值为人数）。系统将自动识别并生成标签。
                    </div>
                 </div>
 
@@ -214,11 +214,20 @@
                    <div class="space-y-2">
                       <div class="flex items-center justify-between">
                          <label class="text-xs text-slate-500">科目列表</label>
-                         <el-button size="small" type="primary" link @click="openSubjectDialog">编辑科目</el-button>
+                         <el-tooltip
+                            v-if="sourceType === 'schedule' && isGaokaoMode"
+                            content="高考模式下科目信息由编排数据决定，无需手动设置"
+                            placement="top"
+                         >
+                            <el-button size="small" type="info" link disabled>编辑科目</el-button>
+                         </el-tooltip>
+                         <el-button v-else size="small" type="primary" link @click="openSubjectDialog">编辑科目</el-button>
                       </div>
                       <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] flex flex-wrap gap-1">
                          <el-tag v-for="(s, idx) in subjectPreview" :key="idx" size="small" type="info" effect="light" class="!border-none !bg-slate-100">{{ s }}</el-tag>
-                         <span v-if="subjectPreview.length === 0" class="text-xs text-slate-400 w-full text-center py-1">点击“编辑科目”添加</span>
+                         <span v-if="subjectPreview.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
+                            {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目由编排数据决定' : '点击"编辑科目"添加' }}
+                         </span>
                       </div>
                    </div>
                 </div>
@@ -232,14 +241,23 @@
                    <div class="space-y-2">
                       <div class="flex items-center justify-between">
                          <label class="text-xs text-slate-500">科目与时间</label>
-                         <el-button size="small" type="primary" link @click="openSubjectDialog">编辑科目</el-button>
+                         <el-tooltip
+                            v-if="sourceType === 'schedule' && isGaokaoMode"
+                            content="高考模式下科目与时间由编排数据决定，无需手动设置"
+                            placement="top"
+                         >
+                            <el-button size="small" type="info" link disabled>编辑科目</el-button>
+                         </el-tooltip>
+                         <el-button v-else size="small" type="primary" link @click="openSubjectDialog">编辑科目</el-button>
                       </div>
                       <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] space-y-1">
                          <div v-for="(row, idx) in subjectPreviewWithTime" :key="idx" class="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
                             <span class="text-xs text-slate-700 truncate flex-1 font-medium">{{ row.name }}</span>
                             <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '—' }}</span>
                          </div>
-                         <div v-if="subjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">未设置科目</div>
+                         <div v-if="subjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
+                            {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目与时间由编排数据决定' : '未设置科目' }}
+                         </div>
                       </div>
                    </div>
                 </div>
@@ -791,7 +809,7 @@
           <!-- Hint -->
           <div class="mt-2 flex items-center gap-2 text-[10px] text-slate-400 px-1">
              <el-icon><InfoFilled /></el-icon>
-             <span>提示：拖动滑块或输入数字可调整科目总数；点击“从系统同步”可获取最新考试安排。</span>
+             <span>提示：拖动滑块或输入数字可调整科目总数；点击"从系统同步"可获取最新考试安排。</span>
           </div>
        </div>
        <template #footer>
@@ -904,9 +922,11 @@ const generating = ref(false)
 const sourceType = ref('empty') // 'empty' | 'file' | 'schedule'
 const totalCount = ref(800)
 const loadingSchedule = ref(false)
+const scheduleArrangementMode = ref('') // 考场编排模式：'gaokao_mode' | 'normal_mode' | 'subject_mode' | 'random_mode'
 
 const dataPath = ref('')
 const dataFileName = computed(() => dataPath.value.split(/[\\/]/).pop())
+const isGaokaoMode = computed(() => scheduleArrangementMode.value === 'gaokao_mode')
 const headers = ref<string[]>([])
 const showMappingDialog = ref(false)
 const previewData = ref<any[]>([])
@@ -2558,6 +2578,14 @@ const loadPreview = async () => {
 const handleLoadFromSchedule = async () => {
     loadingSchedule.value = true
     try {
+        // 获取考场编排配置信息
+        const roomsState = await pythonBackend.request<any>('rooms.getState', {})
+        if (roomsState && roomsState.config) {
+            // 保存编排模式
+            const mode = roomsState.config.mode || ''
+            scheduleArrangementMode.value = mode === 'gaokao' ? 'gaokao_mode' : ''
+        }
+
         const res = await pythonBackend.request<any>('printing.loadFromSchedule', {})
         if (res.data) {
             previewData.value = res.data
@@ -2603,7 +2631,7 @@ const handleGenerate = async () => {
       if (missing.length) {
          try {
             await ElMessageBox.confirm(
-               `已勾选“包含选科列”，但未映射字段：${missing.join('、')}。\n继续生成将导致这些列为空。\n是否继续？`,
+               `已勾选"包含选科列"，但未映射字段：${missing.join('、')}。\n继续生成将导致这些列为空。\n是否继续？`,
                '字段映射提示',
                { type: 'warning', confirmButtonText: '继续生成', cancelButtonText: '取消', closeOnClickModal: false }
             )
@@ -2638,9 +2666,13 @@ const handleGenerate = async () => {
          try {
             let specificConfig: any = {}
             if (activeTab.value === 'corner') {
+               // 高考模式下使用固定的8个科目（物理历史合并）
+               const subjects = isGaokaoMode.value
+                  ? ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
+                  : subjectRows.value.map(r => r.name)
                specificConfig = {
                   title: config.corner.title,
-                  subjects: subjectRows.value.map(r => r.name)
+                  subjects
                }
             } else if (activeTab.value === 'desk') {
                specificConfig = {
@@ -2649,10 +2681,17 @@ const handleGenerate = async () => {
                   layoutCols: deskEffectiveLayout.value.cols,
                }
             } else if (activeTab.value === 'ticket') {
+               // 高考模式下使用固定的8个科目（物理历史合并）
+               const subjects = isGaokaoMode.value
+                  ? ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
+                  : subjectRows.value.map(r => r.name)
+               const subjectTimes = isGaokaoMode.value
+                  ? ['', '', '', '', '', '', '', ''] // 高考模式时间在数据中已包含
+                  : subjectRows.value.map(r => r.time)
                specificConfig = {
                   title: config.ticket.title,
-                  subjects: subjectRows.value.map(r => r.name),
-                  subjectTimes: subjectRows.value.map(r => r.time)
+                  subjects,
+                  subjectTimes
                }
             } else if (activeTab.value === 'table') {
                specificConfig = config.table

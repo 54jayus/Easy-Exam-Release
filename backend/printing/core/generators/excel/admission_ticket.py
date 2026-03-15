@@ -72,14 +72,29 @@ class AdmissionTicketGenerator:
             is_first_col: 是否为该行的第一个模板（用于设置行高）
         """
 
-        # 提取数据
-        kaochang = data.get("考场", "") if data else ""
-        kaochang_no = data.get("考场号", "") if data else ""
-        seat_no = data.get("座位号", "") if data else ""
-        name = (data.get("考生姓名") or data.get("姓名") or "") if data else ""
-        exam_no = (data.get("考生考号") or data.get("考号") or "") if data else ""
-        class_no = data.get("班级", "") if data else ""
-        student_no = data.get("学号", "") if data else ""
+        # 检测是否为高考模式数据
+        is_gaokao_mode = data and "科目数据" in data
+
+        if is_gaokao_mode:
+            # 高考模式：使用科目数据数组
+            subject_data_list = data.get("科目数据", [])
+            name = data.get("考生姓名", "")
+            exam_no = data.get("考生考号", "")
+            class_no = data.get("班级", "")
+            student_no = data.get("学号", "")
+            # 高考模式下，考场信息在科目数据中，这里不使用
+            kaochang = ""
+            kaochang_no = ""
+            seat_no = ""
+        else:
+            # 普通模式：保持原有逻辑
+            kaochang = data.get("考场", "") if data else ""
+            kaochang_no = data.get("考场号", "") if data else ""
+            seat_no = data.get("座位号", "") if data else ""
+            name = (data.get("考生姓名") or data.get("姓名") or "") if data else ""
+            exam_no = (data.get("考生考号") or data.get("考号") or "") if data else ""
+            class_no = data.get("班级", "") if data else ""
+            student_no = data.get("学号", "") if data else ""
 
         # --- 辅助函数：相对坐标获取单元格 ---
         def cell(r_offset, c_offset):
@@ -227,8 +242,26 @@ class AdmissionTicketGenerator:
 
         for i in range(self.total_subject_rows):
             r_current = 4 + i
-            subject = subjects[i] if i < len(subjects) else ""
-            subject_time = self.subject_times[i] if i < len(self.subject_times) else ""
+
+            if is_gaokao_mode:
+                # 高考模式：每个科目使用不同的考场信息
+                if i < len(subject_data_list):
+                    subject_item = subject_data_list[i]
+                    subject = subject_item.get("科目", "")
+                    subject_time = subject_item.get("时间", "")
+                    kaochang = subject_item.get("考场", "")
+                    kaochang_no = subject_item.get("考场号", "")
+                    seat_no = subject_item.get("座位号", "")
+                else:
+                    subject = ""
+                    subject_time = ""
+                    kaochang = ""
+                    kaochang_no = ""
+                    seat_no = ""
+            else:
+                # 普通模式：所有科目使用相同的考场信息
+                subject = subjects[i] if i < len(subjects) else ""
+                subject_time = self.subject_times[i] if i < len(self.subject_times) else ""
 
             # A: 科目
             c = cell(r_current, 0)
