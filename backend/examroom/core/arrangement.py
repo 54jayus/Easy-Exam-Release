@@ -581,37 +581,57 @@ class ExamArrangement:
         random_state = secrets.randbelow(2**32)
         return students_df.sample(frac=1, random_state=random_state).reset_index(drop=True)
 
-    def _fill_rooms_sequential(self, students_list, start_room_num):
+    def _get_room_list(self):
+        """获取考场号列表（按顺序）"""
+        if self.room_setting_data is not None:
+            # 使用考场设置中的考场号
+            return [str(row['考场号']) for _, row in self.room_setting_data.iterrows()]
+        else:
+            # 如果没有考场设置，使用1到total_rooms的顺序编号
+            return [str(i) for i in range(1, self.total_rooms + 1)]
+
+    def _fill_rooms_sequential(self, students_list, start_room_index=0):
         """
         将学生顺序填充到考场
-        返回: (考场分配结果列表, 最后使用的考场号)
+        参数:
+            students_list: 学生DataFrame
+            start_room_index: 起始考场索引（在考场列表中的位置）
+        返回: (考场分配结果列表, 最后使用的考场索引)
         """
+        room_list = self._get_room_list()
         rooms = []
-        current_room_num = start_room_num
+        current_room_index = start_room_index
         current_room_students = []
 
         for idx, student in students_list.iterrows():
-            room_capacity = self.get_room_capacity(str(current_room_num))
+            if current_room_index >= len(room_list):
+                raise ValueError(f"考场数量不足，需要至少{current_room_index + 1}个考场")
+
+            room_num = room_list[current_room_index]
+            room_capacity = self.get_room_capacity(room_num)
 
             if len(current_room_students) >= room_capacity:
                 # 当前考场已满，保存并进入下一个考场
                 rooms.append({
-                    'room_num': str(current_room_num),
+                    'room_num': room_num,
                     'students': current_room_students
                 })
-                current_room_num += 1
+                current_room_index += 1
                 current_room_students = []
 
             current_room_students.append(student)
 
         # 添加最后一个考场
         if current_room_students:
+            if current_room_index >= len(room_list):
+                raise ValueError(f"考场数量不足，需要至少{current_room_index + 1}个考场")
+            room_num = room_list[current_room_index]
             rooms.append({
-                'room_num': str(current_room_num),
+                'room_num': room_num,
                 'students': current_room_students
             })
 
-        return rooms, current_room_num
+        return rooms, current_room_index
 
     def _extract_subject_from_combination(self, combination_str, subject_abbr):
         """从选科组合中提取是否包含某科目"""
@@ -629,14 +649,14 @@ class ExamArrangement:
         # 2. 随机打乱物理组学生
         physics_students = self._shuffle_students(physics_students)
 
-        # 3. 编排物理组学生
-        physics_rooms, last_physics_room = self._fill_rooms_sequential(physics_students, 1)
+        # 3. 编排物理组学生（从考场索引0开始）
+        physics_rooms, last_physics_index = self._fill_rooms_sequential(physics_students, 0)
 
         # 4. 随机打乱历史组学生
         history_students = self._shuffle_students(history_students)
 
         # 5. 编排历史组学生（从物理组的下一个考场开始）
-        history_rooms, last_history_room = self._fill_rooms_sequential(history_students, last_physics_room + 1)
+        history_rooms, last_history_index = self._fill_rooms_sequential(history_students, last_physics_index + 1)
 
         # 6. 合并所有考场，为每个学生分配座位号
         all_rooms = physics_rooms + history_rooms
@@ -694,14 +714,14 @@ class ExamArrangement:
         # 2. 随机打乱考试学生
         exam_students = self._shuffle_students(exam_students)
 
-        # 3. 编排考试学生到考试考场
-        exam_rooms, last_exam_room = self._fill_rooms_sequential(exam_students, 1)
+        # 3. 编排考试学生到考试考场（从考场索引0开始）
+        exam_rooms, last_exam_index = self._fill_rooms_sequential(exam_students, 0)
 
         # 4. 随机打乱自习学生
         self_study_students = self._shuffle_students(self_study_students)
 
-        # 5. 编排自习学生到自习考场
-        self_study_rooms, last_self_study_room = self._fill_rooms_sequential(self_study_students, last_exam_room + 1)
+        # 5. 编排自习学生到自习考场（从考试考场的下一个开始）
+        self_study_rooms, last_self_study_index = self._fill_rooms_sequential(self_study_students, last_exam_index + 1)
 
         # 6. 合并所有考场，为每个学生分配座位号和科目类型
         all_rooms = exam_rooms + self_study_rooms
