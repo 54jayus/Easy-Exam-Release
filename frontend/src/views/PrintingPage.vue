@@ -387,9 +387,9 @@
                                            </tr>
                                            <tr v-for="(sub, sidx) in cornerSubjectRows" :key="sidx">
                                               <td class="corner-td">{{ sub }}</td>
-                                              <td class="corner-td">{{ item.考生姓名 }}</td>
-                                              <td class="corner-td">{{ item.考生考号 }}</td>
-                                              <td class="corner-td">{{ (item as any)['考生班级学号'] }}</td>
+                                              <td class="corner-td">{{ getCornerStudentName(item, sidx) }}</td>
+                                              <td class="corner-td">{{ getCornerStudentExamNo(item, sidx) }}</td>
+                                              <td class="corner-td">{{ getCornerStudentClassNo(item, sidx) }}</td>
                                            </tr>
                                         </tbody>
                                      </table>
@@ -432,9 +432,9 @@
                                      <tr v-for="(row, idx) in ticketSubjectRowsForPrint" :key="idx">
                                               <td class="ticket-xlsx-td">{{ row.name }}</td>
                                               <td class="ticket-xlsx-td">{{ row.time }}</td>
-                                              <td class="ticket-xlsx-td">{{ item.考场 }}</td>
-                                              <td class="ticket-xlsx-td">{{ item.考场号 }}</td>
-                                              <td class="ticket-xlsx-td">{{ item.座位号 }}</td>
+                                              <td class="ticket-xlsx-td">{{ getTicketRoom(item, idx) }}</td>
+                                              <td class="ticket-xlsx-td">{{ getTicketRoomNo(item, idx) }}</td>
+                                              <td class="ticket-xlsx-td">{{ getTicketSeatNo(item, idx) }}</td>
                                            </tr>
                                         </tbody>
                                      </table>
@@ -481,9 +481,9 @@
                                   </tr>
                                   <tr v-for="(sub, sidx) in cornerSubjectRowsForStyle" :key="sidx">
                                      <td class="corner-td">{{ sub }}</td>
-                                     <td class="corner-td">{{ cornerPreview.考生姓名 }}</td>
-                                     <td class="corner-td">{{ cornerPreview.考生考号 }}</td>
-                                     <td class="corner-td">{{ cornerPreview.考生班级学号 }}</td>
+                                     <td class="corner-td">{{ getCornerStudentName(cornerPreview, sidx) }}</td>
+                                     <td class="corner-td">{{ getCornerStudentExamNo(cornerPreview, sidx) }}</td>
+                                     <td class="corner-td">{{ getCornerStudentClassNo(cornerPreview, sidx) }}</td>
                                   </tr>
                                </tbody>
                             </table>
@@ -527,9 +527,9 @@
                                   <tr v-for="(row, idx) in ticketSubjectRows" :key="idx">
                                      <td class="ticket-xlsx-td">{{ row.name }}</td>
                                      <td class="ticket-xlsx-td">{{ row.time }}</td>
-                                     <td class="ticket-xlsx-td">{{ ticketPreview.考场 }}</td>
-                                     <td class="ticket-xlsx-td">{{ ticketPreview.考场号 }}</td>
-                                     <td class="ticket-xlsx-td">{{ ticketPreview.座位号 }}</td>
+                                     <td class="ticket-xlsx-td">{{ getTicketRoom(ticketPreview, idx) }}</td>
+                                     <td class="ticket-xlsx-td">{{ getTicketRoomNo(ticketPreview, idx) }}</td>
+                                     <td class="ticket-xlsx-td">{{ getTicketSeatNo(ticketPreview, idx) }}</td>
                                   </tr>
                                </tbody>
                             </table>
@@ -1924,15 +1924,30 @@ const getCornerPreviewData = (item: Record<string, any>) => {
    const kaochang = String(item['考场'] ?? '')
    const kaochangNo = String(item['考场号'] ?? '')
    const seatNo = String(item['座位号'] ?? '')
-   const name = String(item['考生姓名'] ?? item['姓名'] ?? '')
-   const examNo = String(item['考生考号'] ?? item['考号'] ?? '')
-   
-   let classStudent = String(item['考生班级学号'] ?? '')
-   if (!classStudent) {
-      const c = String(item['班级'] ?? '')
-      const n = String(item['学号'] ?? '')
-      if (c || n) {
-         classStudent = `${c}班${n}号`
+
+   // 高考模式：从科目数据数组中获取第一个科目的学生信息
+   let name = ''
+   let examNo = ''
+   let classStudent = ''
+
+   if (item['科目数据'] && Array.isArray(item['科目数据']) && item['科目数据'].length > 0) {
+      // 高考模式：使用第一个科目的数据作为预览
+      const firstSubject = item['科目数据'][0]
+      name = String(firstSubject['考生姓名'] ?? '')
+      examNo = String(firstSubject['考生考号'] ?? '')
+      classStudent = String(firstSubject['考生班级学号'] ?? '')
+   } else {
+      // 普通模式：直接从顶层获取
+      name = String(item['考生姓名'] ?? item['姓名'] ?? '')
+      examNo = String(item['考生考号'] ?? item['考号'] ?? '')
+      classStudent = String(item['考生班级学号'] ?? '')
+
+      if (!classStudent) {
+         const c = String(item['班级'] ?? '')
+         const n = String(item['学号'] ?? '')
+         if (c || n) {
+            classStudent = `${c}班${n}号`
+         }
       }
    }
 
@@ -1943,7 +1958,63 @@ const getCornerPreviewData = (item: Record<string, any>) => {
       考生姓名: name,
       考生考号: examNo,
       考生班级学号: classStudent,
+      科目数据: item['科目数据']  // 保留原始的科目数据数组，供辅助函数使用
    }
+}
+
+// Helper functions for Gaokao mode compatibility
+// Corner paper helpers - get student info for a specific subject
+const getCornerStudentName = (item: any, subjectIndex: number): string => {
+  if (!item) return ''
+  // Gaokao mode: get from subject data array
+  if (item.科目数据 && Array.isArray(item.科目数据)) {
+    return item.科目数据[subjectIndex]?.考生姓名 || ''
+  }
+  // Normal mode: get directly
+  return item.考生姓名 || ''
+}
+
+const getCornerStudentExamNo = (item: any, subjectIndex: number): string => {
+  if (!item) return ''
+  if (item.科目数据 && Array.isArray(item.科目数据)) {
+    return item.科目数据[subjectIndex]?.考生考号 || ''
+  }
+  return item.考生考号 || ''
+}
+
+const getCornerStudentClassNo = (item: any, subjectIndex: number): string => {
+  if (!item) return ''
+  if (item.科目数据 && Array.isArray(item.科目数据)) {
+    return item.科目数据[subjectIndex]?.考生班级学号 || ''
+  }
+  return item.考生班级学号 || ''
+}
+
+// Admission ticket helpers - get room info for a specific subject
+const getTicketRoom = (item: any, subjectIndex: number): string => {
+  if (!item) return ''
+  // Gaokao mode: get from subject data array
+  if (item.科目数据 && Array.isArray(item.科目数据)) {
+    return item.科目数据[subjectIndex]?.考场 || ''
+  }
+  // Normal mode: get directly
+  return item.考场 || ''
+}
+
+const getTicketRoomNo = (item: any, subjectIndex: number): string => {
+  if (!item) return ''
+  if (item.科目数据 && Array.isArray(item.科目数据)) {
+    return item.科目数据[subjectIndex]?.考场号 || ''
+  }
+  return item.考场号 || ''
+}
+
+const getTicketSeatNo = (item: any, subjectIndex: number): string => {
+  if (!item) return ''
+  if (item.科目数据 && Array.isArray(item.科目数据)) {
+    return item.科目数据[subjectIndex]?.座位号 || ''
+  }
+  return item.座位号 || ''
 }
 
 const cornerPreview = computed(() => {
@@ -1962,19 +2033,39 @@ const cornerPreview = computed(() => {
 })
 
 const cornerSubjectRowsForStyle = computed(() => {
+   if (sourceType.value === 'empty') {
+      const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
+      return Array.from({ length: count }, () => '')
+   }
+
+   // 高考模式：从第一条数据的科目数据数组中获取科目名称
+   const first = displayData.value[0]
+   if (first && first['科目数据'] && Array.isArray(first['科目数据'])) {
+      return first['科目数据'].map((subj: any) => String(subj['科目'] ?? '').trim())
+   }
+
+   // 普通模式：从 subjectRows 获取
    const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
    return Array.from({ length: count }, (_, i) => {
-      if (sourceType.value === 'empty') return ''
       return String(subjectRows.value[i]?.name ?? '').trim()
    })
 })
 
 const cornerSubjectRows = computed(() => {
+   if (sourceType.value === 'empty') {
+      const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
+      return Array.from({ length: count }, () => '')
+   }
+
+   // 高考模式：从第一条数据的科目数据数组中获取科目名称
+   const first = displayData.value[0]
+   if (first && first['科目数据'] && Array.isArray(first['科目数据'])) {
+      return first['科目数据'].map((subj: any) => String(subj['科目'] ?? '').trim())
+   }
+
+   // 普通模式：从 subjectRows 获取
    const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
    return Array.from({ length: count }, (_, i) => {
-      if (sourceType.value === 'empty') {
-         return ''
-      }
       const v = String(subjectRows.value[i]?.name ?? '').trim()
       return v
    })
@@ -2051,13 +2142,29 @@ const printPreviewList = computed(() => {
 })
 
 const getTicketPreviewData = (item: Record<string, any>) => {
-   const kaochang = String(item['考场'] ?? '')
-   const kaochangNo = String(item['考场号'] ?? '')
-   const seatNo = String(item['座位号'] ?? '')
    const name = String(item['考生姓名'] ?? item['姓名'] ?? '')
    const examNo = String(item['考生考号'] ?? item['考号'] ?? '')
    const cls = String(item['班级'] ?? '')
    const studentNo = String(item['学号'] ?? '')
+
+   // 高考模式：从科目数据数组中获取第一个科目的考场信息
+   let kaochang = ''
+   let kaochangNo = ''
+   let seatNo = ''
+
+   if (item['科目数据'] && Array.isArray(item['科目数据']) && item['科目数据'].length > 0) {
+      // 高考模式：使用第一个科目的考场数据作为预览
+      const firstSubject = item['科目数据'][0]
+      kaochang = String(firstSubject['考场'] ?? '')
+      kaochangNo = String(firstSubject['考场号'] ?? '')
+      seatNo = String(firstSubject['座位号'] ?? '')
+   } else {
+      // 普通模式：直接从顶层获取
+      kaochang = String(item['考场'] ?? '')
+      kaochangNo = String(item['考场号'] ?? '')
+      seatNo = String(item['座位号'] ?? '')
+   }
+
    return {
       考场: kaochang,
       考场号: kaochangNo,
@@ -2066,6 +2173,7 @@ const getTicketPreviewData = (item: Record<string, any>) => {
       考生考号: examNo,
       班级: cls,
       学号: studentNo,
+      科目数据: item['科目数据']  // 保留原始的科目数据数组，供辅助函数使用
    }
 }
 
@@ -2086,9 +2194,23 @@ const ticketPreview = computed(() => {
 })
 
 const ticketSubjectRows = computed(() => {
+   if (sourceType.value === 'empty') {
+      const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
+      return Array.from({ length: count }, () => ({ name: '', time: '' }))
+   }
+
+   // 高考模式：从第一条数据的科目数据数组中获取科目名称和时间
+   const first = displayData.value[0]
+   if (first && first['科目数据'] && Array.isArray(first['科目数据'])) {
+      return first['科目数据'].map((subj: any) => ({
+         name: String(subj['科目'] ?? '').trim(),
+         time: String(subj['时间'] ?? '').trim()
+      }))
+   }
+
+   // 普通模式：从 subjectRows 获取
    const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
    return Array.from({ length: count }, (_, i) => {
-      if (sourceType.value === 'empty') return { name: '', time: '' }
       const name = String(subjectRows.value[i]?.name ?? '').trim()
       const time = String(subjectRows.value[i]?.time ?? '').trim()
       return { name, time }
@@ -2586,7 +2708,7 @@ const handleLoadFromSchedule = async () => {
             scheduleArrangementMode.value = mode === 'gaokao' ? 'gaokao_mode' : ''
         }
 
-        const res = await pythonBackend.request<any>('printing.loadFromSchedule', {})
+        const res = await pythonBackend.request<any>('printing.loadFromSchedule', { type: activeTab.value })
         if (res.data) {
             previewData.value = res.data
             previewTotal.value = res.total

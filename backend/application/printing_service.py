@@ -120,13 +120,26 @@ class PrintingService:
         except Exception as e:
             return {"error": str(e)}
 
-    def load_from_schedule(self, _params: dict) -> Any:
+    def load_from_schedule(self, params: dict) -> Any:
         try:
             ea = self._get_exam_arrangement()
             if not ea or ea.arranged_students is None:
                 return {"error": '暂无考场编排数据，请先在"考场编排"页面完成编排'}
-            df = ea.arranged_students.fillna("")
-            data = load_examroom_data_for_student_info(df, include_subject_fields=True) or []
+
+            # 获取打印类型，根据类型选择正确的数据加载函数
+            type_ = params.get("type", "table")
+
+            if type_ == "corner":
+                # 台角纸：传递 ea 对象，适配器会自动检测高考模式
+                data = load_examroom_data_for_corner(ea) or []
+            elif type_ == "ticket":
+                # 准考证：传递 ea 对象，适配器会自动检测高考模式
+                data = load_examroom_data_for_ticket(ea) or []
+            else:
+                # 考生信息表等其他类型：使用原有逻辑
+                df = ea.arranged_students.fillna("")
+                data = load_examroom_data_for_student_info(df, include_subject_fields=True) or []
+
             return {"data": data, "total": len(data)}
         except Exception as e:
             return {"error": str(e)}

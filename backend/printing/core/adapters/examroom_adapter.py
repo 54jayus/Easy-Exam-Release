@@ -390,28 +390,69 @@ def _load_gaokao_data_for_corner(exam_arrangement):
     # 科目顺序 - 物理历史合并为一个时间段
     subject_order = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
 
-    # 收集所有考场-座位组合
-    seat_positions = set()
-
-    # 从 unified 收集统考考场的座位
+    # 【性能优化】构建索引字典，避免重复遍历 DataFrame
+    # 统考科目索引：{(考场, 座位号): row_data}
+    unified_index = {}
     for _, row in unified_df.iterrows():
         room = str(row.get('考场', ''))
-        room_no = str(row.get('考场号', ''))
         seat = str(row.get('座位号', ''))
         if room and seat:
-            seat_positions.add((room, room_no, seat))
+            key = (room, seat)
+            unified_index[key] = {
+                '姓名': str(row.get('姓名', '')),
+                '考号': str(row.get('考号', '')),
+                '班级': str(row.get('班级', '')),
+                '学号': str(row.get('学号', '')),
+                '选科': str(row.get('选科', '')),
+                '考场号': str(row.get('考场号', ''))
+            }
 
-    # 从 electives 收集选考考场的座位
+    # 选考科目索引：{科目: {(考场, 座位号): row_data}}
+    electives_index = {}
     if electives_dict:
         for subject, elective_df in electives_dict.items():
             if elective_df is None or elective_df.empty:
                 continue
+            electives_index[subject] = {}
             for _, row in elective_df.iterrows():
                 room = str(row.get('考场', ''))
-                room_no = str(row.get('考场号', ''))
                 seat = str(row.get('座位号', ''))
                 if room and seat:
-                    seat_positions.add((room, room_no, seat))
+                    key = (room, seat)
+                    electives_index[subject][key] = {
+                        '姓名': str(row.get('姓名', '')),
+                        '考号': str(row.get('考号', '')),
+                        '班级': str(row.get('班级', '')),
+                        '学号': str(row.get('学号', '')),
+                        '科目类型': str(row.get('科目类型', ''))
+                    }
+
+    # 收集所有考场-座位组合
+    seat_positions = set()
+    # 从统考索引收集
+    for (room, seat), data in unified_index.items():
+        room_no = data['考场号']
+        seat_positions.add((room, room_no, seat))
+    # 从选考索引收集
+    for subject_index in electives_index.values():
+        for (room, seat) in subject_index.keys():
+            # 需要从 unified_index 获取考场号
+            if (room, seat) in unified_index:
+                room_no = unified_index[(room, seat)]['考场号']
+            else:
+                # 如果统考中没有，尝试从第一个选考科目获取
+                room_no = ''
+                for subj, idx in electives_index.items():
+                    if (room, seat) in idx:
+                        # 从原始 DataFrame 获取考场号
+                        elective_df = electives_dict.get(subj)
+                        if elective_df is not None:
+                            for _, row in elective_df.iterrows():
+                                if str(row.get('考场', '')) == room and str(row.get('座位号', '')) == seat:
+                                    room_no = str(row.get('考场号', ''))
+                                    break
+                        break
+            seat_positions.add((room, room_no, seat))
 
     # 为每个座位构建科目数据
     data_list = []
@@ -424,63 +465,54 @@ def _load_gaokao_data_for_corner(exam_arrangement):
             '科目数据': []
         }
 
+        key = (room, seat)
+
         for subject in subject_order:
             student_found = False
 
             if subject == '物理历史':
-                # 物理历史时间段：查找该座位的学生，显示其首选科目
-                for _, row in unified_df.iterrows():
-                    if (str(row.get('考场', '')) == room and
-                        str(row.get('座位号', '')) == seat):
-                        # 获取该学生的首选科目
-                        subject_combination = str(row.get('选科', ''))
-                        preferred_subject = '物理' if subject_combination.startswith('物') else '历史'
+                # 物理历史时间段：从统考索引查找
+                if key in unified_index:
+                    row_data = unified_index[key]
+                    subject_combination = row_data['选科']
+                    preferred_subject = '物理' if subject_combination.startswith('物') else '历史'
 
-                        seat_data['科目数据'].append({
-                            '科目': preferred_subject,
-                            '考生姓名': str(row.get('姓名', '')),
-                            '考生考号': str(row.get('考号', '')),
-                            '考生班级学号': _format_class_student(str(row.get('班级', '')), str(row.get('学号', '')))
-                        })
-                        student_found = True
-                        break
+                    seat_data['科目数据'].append({
+                        '科目': preferred_subject,
+                        '考生姓名': row_data['姓名'],
+                        '考生考号': row_data['考号'],
+                        '考生班级学号': _format_class_student(row_data['班级'], row_data['学号'])
+                    })
+                    student_found = True
 
             elif subject in ['语文', '数学', '英语']:
-                # 其他统考科目：从 unified 中查找
-                for _, row in unified_df.iterrows():
-                    if (str(row.get('考场', '')) == room and
-                        str(row.get('座位号', '')) == seat):
-                        seat_data['科目数据'].append({
-                            '科目': subject,
-                            '考生姓名': str(row.get('姓名', '')),
-                            '考生考号': str(row.get('考号', '')),
-                            '考生班级学号': _format_class_student(str(row.get('班级', '')), str(row.get('学号', '')))
-                        })
-                        student_found = True
-                        break
+                # 其他统考科目：从统考索引查找
+                if key in unified_index:
+                    row_data = unified_index[key]
+                    seat_data['科目数据'].append({
+                        '科目': subject,
+                        '考生姓名': row_data['姓名'],
+                        '考生考号': row_data['考号'],
+                        '考生班级学号': _format_class_student(row_data['班级'], row_data['学号'])
+                    })
+                    student_found = True
             else:
-                # 选考科目：从 electives 中查找
-                if electives_dict and subject in electives_dict:
-                    elective_df = electives_dict[subject]
-                    if elective_df is not None and not elective_df.empty:
-                        for _, row in elective_df.iterrows():
-                            if (str(row.get('考场', '')) == room and
-                                str(row.get('座位号', '')) == seat):
-                                # 检查科目类型：如果是"自习"则为自习科目，否则为考试科目
-                                subject_type = str(row.get('科目类型', ''))
-                                is_self_study = subject_type == '自习'
-                                subject_display = '自习' if is_self_study else subject
+                # 选考科目：从选考索引查找
+                if subject in electives_index and key in electives_index[subject]:
+                    row_data = electives_index[subject][key]
+                    subject_type = row_data['科目类型']
+                    is_self_study = subject_type == '自习'
+                    subject_display = '自习' if is_self_study else subject
 
-                                seat_data['科目数据'].append({
-                                    '科目': subject_display,
-                                    '考生姓名': str(row.get('姓名', '')),
-                                    '考生考号': str(row.get('考号', '')),
-                                    '考生班级学号': _format_class_student(str(row.get('班级', '')), str(row.get('学号', '')))
-                                })
-                                student_found = True
-                                break
+                    seat_data['科目数据'].append({
+                        '科目': subject_display,
+                        '考生姓名': row_data['姓名'],
+                        '考生考号': row_data['考号'],
+                        '考生班级学号': _format_class_student(row_data['班级'], row_data['学号'])
+                    })
+                    student_found = True
 
-            # 如果该科目该座位无人，留空（不添加任何数据）
+            # 如果该科目该座位无人，留空
             if not student_found:
                 seat_data['科目数据'].append({
                     '科目': '',
