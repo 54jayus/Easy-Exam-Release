@@ -198,13 +198,33 @@ class CornerPaperPDFGenerator:
         rows = [row1, row2, row3, row4]
 
         # Rows 5+: Subjects
-        subjects = self.config.subjects
-        for sub in subjects:
+        # 检测是否为高考模式（数据中包含"科目数据"数组）
+        subject_data_list = data.get("科目数据", []) if data else []
+        is_gaokao_mode = bool(subject_data_list and isinstance(subject_data_list, list))
+
+        # 高考模式：循环科目数据数组；普通模式：循环配置的科目列表
+        loop_count = len(subject_data_list) if is_gaokao_mode else len(self.config.subjects)
+
+        for i in range(loop_count):
+            # 高考模式：从科目数据数组中获取对应科目的信息
+            if is_gaokao_mode and i < len(subject_data_list):
+                subject_data = subject_data_list[i]
+                subject_name = subject_data.get("科目", "")
+                student_name = subject_data.get("考生姓名", "")
+                student_exam_no = subject_data.get("考生考号", "")
+                student_class_no = subject_data.get("考生班级学号", "")
+            else:
+                # 普通模式：使用配置的科目和统一的学生信息
+                subject_name = self.config.subjects[i] if i < len(self.config.subjects) else ""
+                student_name = name
+                student_exam_no = exam_no
+                student_class_no = class_student
+
             r = [
-                Paragraph(sub, style_normal),
-                Paragraph(name, style_normal),
-                Paragraph(exam_no, style_normal),
-                Paragraph(class_student, style_normal),
+                Paragraph(subject_name, style_normal),
+                Paragraph(student_name, style_normal),
+                Paragraph(student_exam_no, style_normal),
+                Paragraph(student_class_no, style_normal),
             ]
             rows.append(r)
 
@@ -539,15 +559,36 @@ class AdmissionTicketPDFGenerator:
         rows = [row1, row2, row3, row4]
 
         # Rows 5+: Subjects
-        subjects = self.config.subjects
-        for i, sub in enumerate(subjects):
-            time_val = _t(self.subject_times[i]) if i < len(self.subject_times) else ""
+        # 检测是否为高考模式（数据中包含"科目数据"数组）
+        subject_data_list = data.get("科目数据", []) if data else []
+        is_gaokao_mode = bool(subject_data_list and isinstance(subject_data_list, list))
+
+        # 高考模式：循环科目数据数组；普通模式：循环配置的科目列表
+        loop_count = len(subject_data_list) if is_gaokao_mode else len(self.config.subjects)
+
+        for i in range(loop_count):
+            # 高考模式：从科目数据数组中获取对应科目的信息
+            if is_gaokao_mode and i < len(subject_data_list):
+                subject_data = subject_data_list[i]
+                subject_name = _t(subject_data.get("科目", ""))
+                time_val = _t(subject_data.get("时间", ""))
+                room = _t(subject_data.get("考场", ""))
+                room_no = _t(subject_data.get("考场号", ""))
+                seat = _t(subject_data.get("座位号", ""))
+            else:
+                # 普通模式：使用配置的科目/时间和统一的考场信息
+                subject_name = _t(self.config.subjects[i]) if i < len(self.config.subjects) else ""
+                time_val = _t(self.subject_times[i]) if i < len(self.subject_times) else ""
+                room = kaochang
+                room_no = kaochang_no
+                seat = seat_no
+
             r = [
-                Paragraph(_t(sub), style_normal),
+                Paragraph(subject_name, style_normal),
                 Paragraph(time_val, style_normal),
-                Paragraph(kaochang, style_normal),
-                Paragraph(kaochang_no, style_normal),
-                Paragraph(seat_no, style_normal),
+                Paragraph(room, style_normal),
+                Paragraph(room_no, style_normal),
+                Paragraph(seat, style_normal),
             ]
             rows.append(r)
 
