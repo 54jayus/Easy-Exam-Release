@@ -7,6 +7,7 @@ import pandas as pd
 from backend.domain.state import AppState
 from backend.repository.interfaces import IStateRepository
 from backend.examroom.core.arrangement import ExamArrangement
+from backend.examroom.core.gaokao_defaults import GAOKAO_TIME_DEFAULTS
 
 
 def _to_int(value: Any, default: int = 0) -> int:
@@ -54,6 +55,12 @@ def _build_exam_arrangement(settings: list, config: dict, student_path: str) -> 
     )
     try:
         setattr(ea, "subject_priority_order", _normalize_subject_priority_order(config.get("subjectPriorityOrder")))
+    except Exception:
+        pass
+    # 设置高考时间配置
+    try:
+        gaokao_settings = config.get("gaokaoTimeSettings", GAOKAO_TIME_DEFAULTS)
+        setattr(ea, "gaokao_time_settings", gaokao_settings)
     except Exception:
         pass
     if room_setting_df is not None:
@@ -117,6 +124,42 @@ class RoomsService:
                 pass
         self._repo.save(self._state)
         return {"order": order}
+
+    def get_gaokao_time_settings(self, _params: dict) -> Any:
+        """获取高考模式时间设置"""
+        settings = (self._state.rooms.config or {}).get("gaokaoTimeSettings")
+        if not settings:
+            settings = GAOKAO_TIME_DEFAULTS
+        return {"settings": settings}
+
+    def set_gaokao_time_settings(self, params: dict) -> Any:
+        """保存高考模式时间设置"""
+        settings = params.get("settings")
+        if not settings:
+            return {"error": "缺少 settings 参数"}
+
+        # 验证数据结构
+        if not isinstance(settings, dict):
+            return {"error": "settings 必须是字典类型"}
+
+        if "examTimes" not in settings or "selfStudyTimes" not in settings:
+            return {"error": "settings 缺少必要字段"}
+
+        # 保存到 config
+        merged = dict(self._state.rooms.config or {})
+        merged["gaokaoTimeSettings"] = settings
+        self._state.rooms.config = merged
+
+        # 如果 exam_arrangement 存在，更新其时间设置
+        ea = self._state.exam_arrangement
+        if ea is not None:
+            try:
+                setattr(ea, "gaokao_time_settings", settings)
+            except Exception:
+                pass
+
+        self._repo.save(self._state)
+        return {}
 
     def reset_state(self, _params: dict) -> Any:
         from backend.domain.state import RoomsState
@@ -329,6 +372,9 @@ class RoomsService:
         config = params.get("config", {})
         if isinstance(config, dict):
             config["subjectPriorityOrder"] = _normalize_subject_priority_order(config.get("subjectPriorityOrder"))
+            # 确保高考时间设置存在
+            if "gaokaoTimeSettings" not in config:
+                config["gaokaoTimeSettings"] = GAOKAO_TIME_DEFAULTS
 
         self._state.rooms.config = config
         self._state.rooms.settings_data = settings
@@ -359,6 +405,15 @@ class RoomsService:
 
         try:
             setattr(ea, "subject_priority_order", _normalize_subject_priority_order((self._state.rooms.config or {}).get("subjectPriorityOrder")))
+        except Exception:
+            pass
+
+        # 确保高考时间设置被传递
+        try:
+            gaokao_settings = (self._state.rooms.config or {}).get(
+                "gaokaoTimeSettings", GAOKAO_TIME_DEFAULTS
+            )
+            setattr(ea, "gaokao_time_settings", gaokao_settings)
         except Exception:
             pass
 

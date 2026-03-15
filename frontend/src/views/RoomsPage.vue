@@ -22,6 +22,7 @@
       @export="handleExport"
       @reset="handleResetPage"
       @open-priority-dialog="showSubjectPriorityDialog = true"
+      @open-gaokao-time-dialog="showGaokaoTimeDialog = true"
       @update:mode="(mode: string) => config.mode = mode"
       @update:totalRooms="(val: number) => config.totalRooms = val"
       @update:seatsPerRoom="(val: number) => config.seatsPerRoom = val"
@@ -63,6 +64,14 @@
       @log-error="logError"
     />
 
+    <!-- Gaokao Time Settings Dialog -->
+    <GaokaoTimeSettingsDialog
+      v-model:visible="showGaokaoTimeDialog"
+      v-model:settings="gaokaoTimeSettings"
+      @log-success="logSuccess"
+      @log-error="logError"
+    />
+
     <!-- Logs Drawer -->
     <RoomsLogsDrawer
       v-model:visible="showLogs"
@@ -73,14 +82,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { Expand } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pythonBackend } from '@/lib/pythonBackend'
 import RoomsSidebar from './RoomsPage/RoomsSidebar.vue'
 import RoomsDataTabs from './RoomsPage/RoomsDataTabs.vue'
 import SubjectPriorityDialog from './RoomsPage/SubjectPriorityDialog.vue'
+import GaokaoTimeSettingsDialog from './RoomsPage/GaokaoTimeSettingsDialog.vue'
 import RoomsLogsDrawer from './RoomsPage/RoomsLogsDrawer.vue'
+import { GAOKAO_TIME_DEFAULTS } from '@/types/gaokao'
+import type { GaokaoTimeSettings } from '@/types/gaokao'
 import {
   useRoomsState,
   useRoomsPersistence,
@@ -114,6 +126,10 @@ const {
   filteredResults,
   resetState
 } = useRoomsState()
+
+// Gaokao Time Settings State
+const showGaokaoTimeDialog = ref(false)
+const gaokaoTimeSettings = ref<GaokaoTimeSettings>(JSON.parse(JSON.stringify(GAOKAO_TIME_DEFAULTS)))
 
 const {
   initializeFromStorage,
@@ -240,6 +256,16 @@ onMounted(async () => {
   }
 
   config.subjectPriorityOrder = normalizeSubjectPriorityOrder((res?.config || {}).subjectPriorityOrder ?? config.subjectPriorityOrder)
+
+  // 加载高考时间设置
+  try {
+    const timeRes = await pythonBackend.request('rooms.getGaokaoTimeSettings', {})
+    if (timeRes?.settings) {
+      gaokaoTimeSettings.value = timeRes.settings
+    }
+  } catch (e) {
+    console.error('Failed to load gaokao time settings:', e)
+  }
 
   if ((!results.value || results.value.length === 0) && cachedResultsPath.value) {
     try {

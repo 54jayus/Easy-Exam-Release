@@ -146,7 +146,20 @@
                   <el-button class="ml-auto -mr-5" link type="primary" size="small" @click.stop="$emit('open-priority-dialog')">高级设置</el-button>
                 </div>
               </el-option>
-              <el-option label="高考模式" value="gaokao" />
+              <el-option label="高考模式" value="gaokao">
+                <div class="flex items-center w-full">
+                  <span class="truncate">高考模式</span>
+                  <el-button
+                    class="ml-auto -mr-5"
+                    link
+                    type="primary"
+                    size="small"
+                    @click.stop="$emit('open-gaokao-time-dialog')"
+                  >
+                    高级设置
+                  </el-button>
+                </div>
+              </el-option>
               <el-option label="顺序编排" value="normal" />
               <el-option label="随机编排" value="random" />
             </el-select>
@@ -219,5 +232,6 @@ defineEmits<{
   'export': []
   'reset': []
   'open-priority-dialog': []
+  'open-gaokao-time-dialog': []
 }>()
 </script>

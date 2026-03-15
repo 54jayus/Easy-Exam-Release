@@ -1,10 +1,12 @@
 import os
 import random
 import time
+from datetime import datetime
 
 import pandas as pd
 
 from .stats_sheet import create_stats_sheet_with_formulas
+from .gaokao_defaults import GAOKAO_TIME_DEFAULTS, GAOKAO_SUBJECT_ORDER
 
 
 class ExamArrangement:
@@ -29,6 +31,7 @@ class ExamArrangement:
         self.arranged_students = None
         self.subject_column = "选科"  # 用户指定的选科列名
         self.gaokao_results = None  # 高考模式编排结果
+        self.gaokao_time_settings = None  # 高考模式时间设置
 
     def get_room_capacity(self, room_num):
         """获取指定考场的容量，如果没有特殊设置则返回默认容量"""
@@ -576,6 +579,54 @@ class ExamArrangement:
 
     # ==================== 高考模式编排方法 ====================
 
+    def _get_gaokao_time_settings(self):
+        """获取高考时间设置，如果没有则返回默认值"""
+        if self.gaokao_time_settings:
+            return self.gaokao_time_settings
+        return GAOKAO_TIME_DEFAULTS
+
+    def _format_subject_time(self, subject: str, is_self_study: bool = False) -> str:
+        """
+        格式化科目时间为 "6月8日09:00-10:15" 格式
+
+        Args:
+            subject: 科目名称
+            is_self_study: 是否为自习时间
+
+        Returns:
+            格式化的时间字符串
+        """
+        settings = self._get_gaokao_time_settings()
+
+        try:
+            if is_self_study and subject in settings.get("selfStudyTimes", {}):
+                time_config = settings["selfStudyTimes"][subject]
+            elif subject in settings.get("examTimes", {}):
+                time_config = settings["examTimes"][subject]
+            else:
+                return ""
+
+            date_str = time_config.get("date", "")
+            start_time = time_config.get("startTime", "")
+            end_time = time_config.get("endTime", "")
+
+            if not all([date_str, start_time, end_time]):
+                return ""
+
+            # 转换日期格式: "2024-06-08" -> "6月8日"
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            month = date_obj.month
+            day = date_obj.day
+
+            # 返回格式化字符串（无空格）
+            return f"{month}月{day}日{start_time}-{end_time}"
+        except Exception:
+            return ""
+
+    def _get_subject_order(self) -> list:
+        """返回科目的考试顺序"""
+        return GAOKAO_SUBJECT_ORDER
+
     def _shuffle_students(self, students_df):
         """使用安全随机数打乱学生顺序"""
         import secrets
@@ -908,13 +959,40 @@ class ExamArrangement:
             if col in export_df.columns:
                 export_df[col] = export_df[col].astype(str)
 
+        # 按考试顺序获取科目列表
+        subjects = self._get_subject_order()
+
+        # 为每个科目添加时间列
+        for subject in subjects:
+            time_str = self._format_subject_time(subject)
+            export_df[f'{subject}时间'] = time_str
+
         # 确保考场号和座位号也是文本格式
-        subjects = ['语文', '数学', '英语', '物理历史', '化学', '地理', '政治', '生物']
         for subject in subjects:
             for suffix in ['考场号', '座位号']:
                 col_name = f'{subject}{suffix}'
                 if col_name in export_df.columns:
                     export_df[col_name] = export_df[col_name].astype(str)
+
+        # 重新排列列顺序：基本信息 + 按科目顺序排列的科目列
+        base_cols = ['班级', '学号', '考号', '姓名', self.subject_column]
+        subject_cols = []
+        for subject in subjects:
+            # 每个科目的列顺序：科目、时间、考场号、考场、座位号
+            subject_cols.extend([
+                f'{subject}科目',
+                f'{subject}时间',
+                f'{subject}考场号',
+                f'{subject}考场',
+                f'{subject}座位号'
+            ])
+
+        # 过滤出实际存在的列
+        existing_base = [col for col in base_cols if col in export_df.columns]
+        existing_subject = [col for col in subject_cols if col in export_df.columns]
+        new_order = existing_base + existing_subject
+
+        export_df = export_df[new_order]
 
         # 按班级和学号排序（班级主排序，学号次排序）
         if '班级' in export_df.columns and '学号' in export_df.columns:
@@ -934,6 +1012,9 @@ class ExamArrangement:
         # 从统考结果获取所有考场和座位
         seats = unified_df[['考场号', '考场', '座位号']].drop_duplicates().sort_values(['考场号', '座位号'])
 
+        # 按考试顺序获取科目
+        subjects = self._get_subject_order()
+
         # 创建座位表的基础DataFrame
         seat_records = []
 
@@ -948,7 +1029,6 @@ class ExamArrangement:
                 '座位号': seat_num
             }
 
-            # 为每个科目添加5列数据
             subjects_data = {
                 '语文': unified_df,
                 '数学': unified_df,
@@ -960,9 +1040,13 @@ class ExamArrangement:
                 '生物': electives['生物']
             }
 
-            for subject, df in subjects_data.items():
-                # 查找该座位在该科目下的学生
+            for subject in subjects:  # 使用排序后的科目列表
+                df = subjects_data[subject]
                 student_row = df[(df['考场号'] == room_num) & (df['座位号'] == seat_num)]
+
+                # 添加时间列
+                time_str = self._format_subject_time(subject)
+                record[f'{subject}时间'] = time_str
 
                 if not student_row.empty:
                     student_row = student_row.iloc[0]
@@ -996,7 +1080,25 @@ class ExamArrangement:
 
             seat_records.append(record)
 
+        # 重新排列列顺序
+        base_cols = ['考场号', '考场', '座位号']
+        subject_cols = []
+        for subject in subjects:
+            subject_cols.extend([
+                f'{subject}时间',
+                f'{subject}科目',
+                f'{subject}姓名',
+                f'{subject}考号',
+                f'{subject}班级',
+                f'{subject}学号'
+            ])
+
+        # 过滤出实际存在的列
+        all_cols = base_cols + subject_cols
+        existing_cols = [col for col in all_cols if col in pd.DataFrame(seat_records).columns]
+
         seat_df = pd.DataFrame(seat_records)
+        seat_df = seat_df[existing_cols]
         seat_df.to_excel(writer, sheet_name="考场安排（座位）", index=False)
 
     def _export_gaokao_timeslot_tables(self, writer):
@@ -1005,15 +1107,18 @@ class ExamArrangement:
         unified_df = self.gaokao_results['unified'].copy()
         unified_df['科目'] = unified_df[self.subject_column].str[0].map({'物': '物理', '史': '历史'})
 
+        # 添加时间列
+        unified_df['时间'] = self._format_subject_time('物理历史')
+
         # 调整列顺序
-        columns_order = ['考场号', '考场', '座位号', '考号', '姓名', '班级', '学号', '科目']
+        columns_order = ['考场号', '考场', '座位号', '考号', '姓名', '班级', '学号', '科目', '时间']
         existing_cols = [col for col in columns_order if col in unified_df.columns]
-        unified_export = unified_df[existing_cols].copy()  # 添加 .copy()
+        unified_export = unified_df[existing_cols].copy()
 
         # 确保文本列格式正确
         for col in ['考场号', '座位号', '考号', '班级', '学号']:
             if col in unified_export.columns:
-                unified_export.loc[:, col] = unified_export[col].astype(str)  # 使用 .loc
+                unified_export.loc[:, col] = unified_export[col].astype(str)
 
         unified_export.to_excel(writer, sheet_name="统考编排结果", index=False)
 
@@ -1025,13 +1130,16 @@ class ExamArrangement:
             elective_df['科目'] = elective_df['科目类型']
             elective_df = elective_df.drop(columns=['科目类型'])
 
+            # 添加时间列
+            elective_df['时间'] = self._format_subject_time(subject)
+
             # 调整列顺序
-            elective_export = elective_df[existing_cols].copy()  # 添加 .copy()
+            elective_export = elective_df[existing_cols].copy()
 
             # 确保文本列格式正确
             for col in ['考场号', '座位号', '考号', '班级', '学号']:
                 if col in elective_export.columns:
-                    elective_export.loc[:, col] = elective_export[col].astype(str)  # 使用 .loc
+                    elective_export.loc[:, col] = elective_export[col].astype(str)
 
             elective_export.to_excel(writer, sheet_name=f"{subject}编排结果", index=False)
 
@@ -1040,8 +1148,8 @@ class ExamArrangement:
         # 获取所有考场号（按顺序）
         room_list = self._get_room_list()
 
-        # 定义所有科目
-        subjects = ['语文', '数学', '英语', '物理历史', '化学', '地理', '政治', '生物']
+        # 按考试顺序获取科目列表
+        subjects = self._get_subject_order()
 
         # 创建统计数据
         stats_records = []

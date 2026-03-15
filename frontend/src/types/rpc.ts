@@ -166,6 +166,14 @@ export type RpcMethods = {
     params: { path: string }
     result: { results: any[] }
   }
+  "rooms.getGaokaoTimeSettings": {
+    params: {}
+    result: { settings: any }
+  }
+  "rooms.setGaokaoTimeSettings": {
+    params: { settings: any }
+    result: {}
+  }
 
   // Printing
   "printing.getState": {
