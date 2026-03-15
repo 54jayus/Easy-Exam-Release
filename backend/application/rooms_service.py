@@ -362,10 +362,13 @@ class RoomsService:
         except Exception:
             pass
 
+        # 注意：不要覆盖gaokao_mode
         try:
             if getattr(ea, "arranged_students", None) is not None:
                 if "选科" in list(ea.arranged_students.columns):
-                    ea.arrangement_mode = "subject_mode"
+                    # 只有当前不是gaokao_mode时才设置为subject_mode
+                    if ea.arrangement_mode != "gaokao_mode":
+                        ea.arrangement_mode = "subject_mode"
         except Exception:
             pass
 
