@@ -125,7 +125,7 @@
                 @update:model-value="$emit('update:totalRooms', $event)"
                 :min="1" :max="200"
                 size="small"
-                class="!w-full shadow-sm"
+                class="!w-full shadow-sm input-number-fixed-height"
                 controls-position="right"
               />
             </div>
@@ -136,7 +136,7 @@
                 :content="`考场人数不一致，范围：${seatsPerRoomInfo.min}-${seatsPerRoomInfo.max}人`"
                 placement="top"
               >
-                <div class="h-8 px-3 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-sm text-slate-500 cursor-not-allowed">
+                <div class="h-[32px] px-3 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-sm text-slate-500 cursor-not-allowed shadow-sm">
                   {{ seatsPerRoomInfo.displayText }}人
                 </div>
               </el-tooltip>
@@ -146,7 +146,7 @@
                 @update:model-value="$emit('update:seatsPerRoom', $event)"
                 :min="1" :max="100"
                 size="small"
-                class="!w-full shadow-sm"
+                class="!w-full shadow-sm input-number-fixed-height"
                 controls-position="right"
               />
             </div>
@@ -264,3 +264,35 @@ defineEmits<{
   'open-gaokao-time-dialog': []
 }>()
 </script>
+
+<style scoped>
+/* 确保两个输入框高度一致 */
+.input-number-fixed-height :deep(.el-input-number) {
+  height: 32px;
+}
+
+.input-number-fixed-height :deep(.el-input__wrapper) {
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.input-number-fixed-height :deep(.el-input__inner) {
+  height: 30px;
+  line-height: 30px;
+}
+
+/* 去掉上下箭头中间的空隙 */
+.input-number-fixed-height :deep(.el-input-number__increase),
+.input-number-fixed-height :deep(.el-input-number__decrease) {
+  height: 16px;
+  line-height: 16px;
+}
+
+.input-number-fixed-height :deep(.el-input-number__increase) {
+  border-bottom: none;
+}
+
+.input-number-fixed-height :deep(.el-input-number__decrease) {
+  border-top: 1px solid var(--el-input-border-color);
+}
+</style>
