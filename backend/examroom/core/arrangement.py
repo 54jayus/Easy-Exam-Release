@@ -946,12 +946,12 @@ class ExamArrangement:
         # 调整列顺序
         columns_order = ['考场号', '考场', '座位号', '考号', '姓名', '班级', '学号', '科目']
         existing_cols = [col for col in columns_order if col in unified_df.columns]
-        unified_export = unified_df[existing_cols]
+        unified_export = unified_df[existing_cols].copy()  # 添加 .copy()
 
         # 确保文本列格式正确
         for col in ['考场号', '座位号', '考号', '班级', '学号']:
             if col in unified_export.columns:
-                unified_export[col] = unified_export[col].astype(str)
+                unified_export.loc[:, col] = unified_export[col].astype(str)  # 使用 .loc
 
         unified_export.to_excel(writer, sheet_name="统考编排结果", index=False)
 
@@ -964,12 +964,12 @@ class ExamArrangement:
             elective_df = elective_df.drop(columns=['科目类型'])
 
             # 调整列顺序
-            elective_export = elective_df[existing_cols]
+            elective_export = elective_df[existing_cols].copy()  # 添加 .copy()
 
             # 确保文本列格式正确
             for col in ['考场号', '座位号', '考号', '班级', '学号']:
                 if col in elective_export.columns:
-                    elective_export[col] = elective_export[col].astype(str)
+                    elective_export.loc[:, col] = elective_export[col].astype(str)  # 使用 .loc
 
             elective_export.to_excel(writer, sheet_name=f"{subject}编排结果", index=False)
 
