@@ -172,13 +172,13 @@ const customSelfStudyTime = reactive<Record<string, boolean>>({
   生物: false
 })
 
-// 响应式对话框宽度 - 减小宽度
+// 响应式对话框宽度 - 增加宽度以容纳组件
 const dialogWidth = computed(() => {
-  if (typeof window === 'undefined') return '700px'
+  if (typeof window === 'undefined') return '750px'
   const width = window.innerWidth
   if (width < 768) return '95%'
-  if (width < 1024) return '80%'
-  return '700px'
+  if (width < 1024) return '85%'
+  return '750px'
 })
 
 // 判断是否为选考科目
@@ -305,8 +305,29 @@ const handleSave = async () => {
 
 .gaokao-time-dialog :deep(.el-dialog__body) {
   padding: 20px 24px;
+  height: 600px;
   max-height: 70vh;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 自定义滚动条样式 */
+.gaokao-time-dialog :deep(.el-dialog__body)::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gaokao-time-dialog :deep(.el-dialog__body)::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.gaokao-time-dialog :deep(.el-dialog__body)::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.gaokao-time-dialog :deep(.el-dialog__body)::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .dialog-content {
@@ -354,7 +375,7 @@ const handleSave = async () => {
 /* 表格样式 */
 .table-header {
   display: grid;
-  grid-template-columns: 100px 1fr 1.5fr;
+  grid-template-columns: 90px 160px 1fr;
   gap: 12px;
   padding: 10px 12px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -387,7 +408,7 @@ const handleSave = async () => {
 /* 考试时间行 */
 .exam-row {
   display: grid;
-  grid-template-columns: 100px 1fr 1.5fr;
+  grid-template-columns: 90px 160px 1fr;
   gap: 12px;
   padding: 10px 12px;
   background: #fafafa;
@@ -429,12 +450,18 @@ const handleSave = async () => {
 
 .time-input {
   flex: 1;
+  min-width: 0;
+}
+
+.time-input :deep(.el-input__wrapper) {
+  width: 100%;
 }
 
 .time-separator {
   color: #666;
   font-weight: 500;
   flex-shrink: 0;
+  padding: 0 4px;
 }
 
 /* 自习时间行 */
@@ -450,7 +477,7 @@ const handleSave = async () => {
 .self-study-toggle {
   display: flex;
   align-items: center;
-  padding-left: 100px;
+  padding-left: 90px;
 }
 
 .self-study-toggle :deep(.el-checkbox) {
@@ -460,9 +487,9 @@ const handleSave = async () => {
 
 .self-study-settings {
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
+  grid-template-columns: 160px 1fr;
   gap: 12px;
-  padding-left: 112px;
+  padding-left: 102px;
 }
 
 /* 底部按钮 */
@@ -489,11 +516,12 @@ const handleSave = async () => {
 @media (max-width: 768px) {
   .gaokao-time-dialog :deep(.el-dialog__body) {
     padding: 16px;
+    height: 500px;
   }
 
   .table-header,
   .exam-row {
-    grid-template-columns: 80px 1fr 1.5fr;
+    grid-template-columns: 80px 140px 1fr;
     gap: 8px;
     font-size: 12px;
   }
@@ -526,6 +554,7 @@ const handleSave = async () => {
 
   .self-study-settings {
     padding-left: 92px;
+    grid-template-columns: 140px 1fr;
   }
 
   .dialog-footer {
@@ -540,9 +569,13 @@ const handleSave = async () => {
 }
 
 @media (max-width: 640px) {
+  .gaokao-time-dialog :deep(.el-dialog__body) {
+    height: 450px;
+  }
+
   .table-header,
   .exam-row {
-    grid-template-columns: 70px 1fr 1.5fr;
+    grid-template-columns: 70px 120px 1fr;
     gap: 6px;
   }
 
@@ -555,6 +588,10 @@ const handleSave = async () => {
     gap: 4px;
   }
 
+  .time-separator {
+    padding: 0 2px;
+  }
+
   .self-study-toggle {
     padding-left: 70px;
   }
@@ -562,6 +599,7 @@ const handleSave = async () => {
   .self-study-settings {
     padding-left: 82px;
     gap: 8px;
+    grid-template-columns: 120px 1fr;
   }
 }
 
