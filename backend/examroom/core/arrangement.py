@@ -608,20 +608,23 @@ class ExamArrangement:
         current_room_students = []
 
         for idx, student in students_list.iterrows():
+            # 检查是否需要进入下一个考场
+            if current_room_students:
+                room_num = room_list[current_room_index]
+                room_capacity = self.get_room_capacity(room_num)
+
+                if len(current_room_students) >= room_capacity:
+                    # 当前考场已满，保存并进入下一个考场
+                    rooms.append({
+                        'room_num': room_num,
+                        'students': current_room_students
+                    })
+                    current_room_index += 1
+                    current_room_students = []
+
+            # 检查考场是否足够
             if current_room_index >= len(room_list):
                 raise ValueError(f"考场数量不足，需要至少{current_room_index + 1}个考场")
-
-            room_num = room_list[current_room_index]
-            room_capacity = self.get_room_capacity(room_num)
-
-            if len(current_room_students) >= room_capacity:
-                # 当前考场已满，保存并进入下一个考场
-                rooms.append({
-                    'room_num': room_num,
-                    'students': current_room_students
-                })
-                current_room_index += 1
-                current_room_students = []
 
             current_room_students.append(student)
 
@@ -882,6 +885,9 @@ class ExamArrangement:
                 # 表格C: 时间段视图（5个sheet）
                 self._export_gaokao_timeslot_tables(writer)
 
+                # 表格D: 考场人数统计（1个sheet）
+                self._export_gaokao_stats_table(writer)
+
             return True, f"高考编排结果已保存至 {os.path.abspath(output_file)}"
         except PermissionError:
             return False, f"文件被占用或没有写入权限: {output_file}"
@@ -1008,6 +1014,49 @@ class ExamArrangement:
                     elective_export.loc[:, col] = elective_export[col].astype(str)  # 使用 .loc
 
             elective_export.to_excel(writer, sheet_name=f"{subject}编排结果", index=False)
+
+    def _export_gaokao_stats_table(self, writer):
+        """导出考场人数统计表"""
+        # 获取所有考场号（按顺序）
+        room_list = self._get_room_list()
+
+        # 定义所有科目
+        subjects = ['语文', '数学', '英语', '物理', '化学', '地理', '政治', '生物']
+
+        # 创建统计数据
+        stats_records = []
+
+        for room_num in room_list:
+            record = {'考场号': room_num, '考场': self._get_room_name(room_num)}
+
+            # 统计每个科目的人数
+            for subject in subjects:
+                if subject in ['语文', '数学', '英语', '物理']:
+                    # 统考科目：从unified结果中统计
+                    unified_df = self.gaokao_results['unified']
+                    count = len(unified_df[unified_df['考场号'] == room_num])
+                else:
+                    # 选考科目：从electives结果中统计考试人数（排除自习）
+                    elective_df = self.gaokao_results['electives'][subject]
+                    count = len(elective_df[(elective_df['考场号'] == room_num) & (elective_df['科目类型'] == subject)])
+
+                record[subject] = count
+
+            stats_records.append(record)
+
+        # 创建DataFrame
+        stats_df = pd.DataFrame(stats_records)
+
+        # 添加总计行
+        total_record = {'考场号': '总计', '考场': ''}
+        for subject in subjects:
+            total_record[subject] = stats_df[subject].sum()
+
+        # 使用concat而不是append
+        stats_df = pd.concat([stats_df, pd.DataFrame([total_record])], ignore_index=True)
+
+        # 导出到Excel
+        stats_df.to_excel(writer, sheet_name="考场人数统计", index=False)
 
     def _create_stats_sheet_with_formulas(self, writer, export_df=None):
         """使用公式创建考场选科统计工作表"""
