@@ -442,7 +442,8 @@ class RoomsService:
         try:
             xl = pd.ExcelFile(path)
             sheet_name = None
-            for cand in ["学生编排结果", "编排结果", "考场编排结果", "Sheet1"]:
+            # 优先查找"考场安排（学生）"（高考模式导出的sheet名）
+            for cand in ["考场安排（学生）", "学生编排结果", "编排结果", "考场编排结果", "Sheet1"]:
                 if cand in xl.sheet_names:
                     sheet_name = cand
                     break
@@ -457,6 +458,132 @@ class RoomsService:
         if df.empty:
             return {"error": "导入失败：文件中没有可用数据"}
 
+        # 检测是否为高考模式（检查是否有科目特定的考场号列）
+        gaokao_subjects = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
+        is_gaokao_mode = any(f'{subj}考场号' in df.columns for subj in gaokao_subjects)
+
+        if is_gaokao_mode:
+            # 高考模式导入逻辑
+            return self._import_gaokao_results(df, params)
+        else:
+            # 普通模式/科目模式导入逻辑
+            return self._import_normal_results(df, params)
+
+    def _import_gaokao_results(self, df: pd.DataFrame, params: dict) -> Any:
+        """导入高考模式的编排结果"""
+        # 1. 验证必需列
+        required_cols = ["考号"]
+        missing = [c for c in required_cols if c not in df.columns]
+        if missing:
+            return {"error": f"导入失败：缺少必要的列: {', '.join(missing)}"}
+
+        # 2. 检查考号唯一性
+        exam_id_series = df["考号"].astype(str).str.strip()
+        if not exam_id_series.is_unique:
+            duplicates = df[df.duplicated("考号", keep=False)]["考号"].astype(str).unique().tolist()
+            head = duplicates[:5]
+            suffix = "..." if len(duplicates) > 5 else ""
+            return {"error": f"导入失败：存在重复的考号: {', '.join(head)}{suffix}"}
+
+        # 3. 获取配置信息
+        settings = self._state.rooms.settings_data
+        config = self._state.rooms.config or {}
+        student_path = self._state.rooms.student_path or ""
+
+        # 4. 强制设置为高考模式
+        merged_config = dict(config)
+        merged_config["mode"] = "gaokao"
+        self._state.rooms.config = merged_config
+
+        # 5. 创建ExamArrangement对象
+        ea = _build_exam_arrangement(settings, merged_config, student_path)
+        ea.arranged_students = df.copy()
+        ea.arrangement_mode = "gaokao_mode"
+
+        # 6. 重建gaokao_results数据结构
+        try:
+            gaokao_subjects = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
+
+            # 统考科目（语文、数学、物理历史、英语）
+            unified_records = []
+            # 选考科目（化学、地理、政治、生物）
+            elective_records = {
+                '化学': [],
+                '地理': [],
+                '政治': [],
+                '生物': []
+            }
+
+            # 遍历每个学生，提取各科目的考场信息
+            for _, row in df.iterrows():
+                base_info = {
+                    '班级': str(row.get('班级', '')),
+                    '学号': str(row.get('学号', '')),
+                    '姓名': str(row.get('姓名', '')),
+                    '考号': str(row.get('考号', '')),
+                    '选科': str(row.get('选科', ''))
+                }
+
+                # 处理统考科目
+                for subject in ['语文', '数学', '物理历史', '英语']:
+                    room_no_col = f'{subject}考场号'
+                    room_col = f'{subject}考场'
+                    seat_col = f'{subject}座位号'
+
+                    if room_no_col in df.columns and seat_col in df.columns:
+                        record = base_info.copy()
+                        record['考场号'] = str(row.get(room_no_col, ''))
+                        record['考场'] = str(row.get(room_col, ''))
+                        record['座位号'] = str(row.get(seat_col, ''))
+                        record['科目'] = subject
+                        unified_records.append(record)
+
+                # 处理选考科目
+                for subject in ['化学', '地理', '政治', '生物']:
+                    room_no_col = f'{subject}考场号'
+                    room_col = f'{subject}考场'
+                    seat_col = f'{subject}座位号'
+
+                    if room_no_col in df.columns and seat_col in df.columns:
+                        room_no = str(row.get(room_no_col, '')).strip()
+                        seat_no = str(row.get(seat_col, '')).strip()
+
+                        # 只有当考场号和座位号都不为空时才添加记录
+                        if room_no and seat_no:
+                            record = base_info.copy()
+                            record['考场号'] = room_no
+                            record['考场'] = str(row.get(room_col, ''))
+                            record['座位号'] = seat_no
+                            record['科目'] = subject
+                            elective_records[subject].append(record)
+
+            # 转换为DataFrame
+            unified_df = pd.DataFrame(unified_records) if unified_records else pd.DataFrame()
+            elective_dfs = {
+                subject: pd.DataFrame(records) if records else pd.DataFrame()
+                for subject, records in elective_records.items()
+            }
+
+            # 保存到gaokao_results
+            ea.gaokao_results = {
+                'unified': unified_df,
+                'electives': elective_dfs
+            }
+
+        except Exception as e:
+            return {"error": f"重建高考模式数据结构失败: {str(e)}"}
+
+        # 7. 保存状态
+        self._state.exam_arrangement = ea
+        results = ea.arranged_students.fillna("").to_dict("records")
+        self._state.rooms.results = results
+        self._repo.save(self._state)
+
+        return {"results": results, "message": f"导入成功（高考模式），共 {len(results)} 人"}
+
+    def _import_normal_results(self, df: pd.DataFrame, params: dict) -> Any:
+        """导入普通模式/科目模式的编排结果"""
+        # 验证必需列
         required_cols = ["考号", "考场号", "座位号"]
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
