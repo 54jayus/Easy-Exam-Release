@@ -56,6 +56,8 @@
                     format="HH:mm"
                     value-format="HH:mm"
                     class="time-input"
+                    :popper-options="{ strategy: 'fixed' }"
+                    popper-class="time-picker-popper"
                   />
                   <span class="time-separator">-</span>
                   <el-time-picker
@@ -65,6 +67,8 @@
                     format="HH:mm"
                     value-format="HH:mm"
                     class="time-input"
+                    :popper-options="{ strategy: 'fixed' }"
+                    popper-class="time-picker-popper"
                   />
                 </div>
               </div>
@@ -101,6 +105,8 @@
                       format="HH:mm"
                       value-format="HH:mm"
                       class="time-input"
+                      :popper-options="{ strategy: 'fixed' }"
+                      popper-class="time-picker-popper"
                     />
                     <span class="time-separator">-</span>
                     <el-time-picker
@@ -110,6 +116,8 @@
                       format="HH:mm"
                       value-format="HH:mm"
                       class="time-input"
+                      :popper-options="{ strategy: 'fixed' }"
+                      popper-class="time-picker-popper"
                     />
                   </div>
                 </div>
@@ -174,11 +182,11 @@ const customSelfStudyTime = reactive<Record<string, boolean>>({
 
 // 响应式对话框宽度 - 增加宽度以容纳组件
 const dialogWidth = computed(() => {
-  if (typeof window === 'undefined') return '750px'
+  if (typeof window === 'undefined') return '800px'
   const width = window.innerWidth
   if (width < 768) return '95%'
   if (width < 1024) return '85%'
-  return '750px'
+  return '800px'
 })
 
 // 判断是否为选考科目
@@ -292,41 +300,54 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
-/* 确保对话框在整个视口中居中 */
-.gaokao-time-dialog :deep(.el-dialog) {
+/* 确保对话框在整个视口中居中，并限制整体高度 */
+:deep(.gaokao-time-dialog.el-dialog) {
   margin: 0 auto !important;
+  height: 85vh !important;
+  max-height: 85vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 }
 
-.gaokao-time-dialog :deep(.el-overlay) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* 头部固定，不参与滚动 */
+:deep(.gaokao-time-dialog .el-dialog__header) {
+  flex-shrink: 0 !important;
 }
 
-.gaokao-time-dialog :deep(.el-dialog__body) {
-  padding: 20px 24px;
-  height: 600px;
-  max-height: 70vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+/* 内容区自适应高度，超出时滚动 */
+:deep(.gaokao-time-dialog .el-dialog__body) {
+  padding: 20px 24px !important;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  /* 关键：让 body 填满对话框剩余空间 */
+  height: auto !important;
+}
+
+/* 底部固定，不参与滚动 */
+:deep(.gaokao-time-dialog .el-dialog__footer) {
+  flex-shrink: 0 !important;
 }
 
 /* 自定义滚动条样式 */
-.gaokao-time-dialog :deep(.el-dialog__body)::-webkit-scrollbar {
+:deep(.gaokao-time-dialog .el-dialog__body)::-webkit-scrollbar {
   width: 8px;
 }
 
-.gaokao-time-dialog :deep(.el-dialog__body)::-webkit-scrollbar-track {
+:deep(.gaokao-time-dialog .el-dialog__body)::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
 
-.gaokao-time-dialog :deep(.el-dialog__body)::-webkit-scrollbar-thumb {
+:deep(.gaokao-time-dialog .el-dialog__body)::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
 }
 
-.gaokao-time-dialog :deep(.el-dialog__body)::-webkit-scrollbar-thumb:hover {
+:deep(.gaokao-time-dialog .el-dialog__body)::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 
@@ -514,9 +535,13 @@ const handleSave = async () => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .gaokao-time-dialog :deep(.el-dialog__body) {
+  :deep(.gaokao-time-dialog.el-dialog) {
+    height: 90vh !important;
+    max-height: 90vh !important;
+  }
+
+  :deep(.gaokao-time-dialog .el-dialog__body) {
     padding: 16px;
-    height: 500px;
   }
 
   .table-header,
@@ -569,8 +594,13 @@ const handleSave = async () => {
 }
 
 @media (max-width: 640px) {
-  .gaokao-time-dialog :deep(.el-dialog__body) {
-    height: 450px;
+  :deep(.gaokao-time-dialog.el-dialog) {
+    height: 95vh !important;
+    max-height: 95vh !important;
+  }
+
+  :deep(.gaokao-time-dialog .el-dialog__body) {
+    padding: 12px;
   }
 
   .table-header,
@@ -604,37 +634,42 @@ const handleSave = async () => {
 }
 
 /* Element Plus 组件样式覆盖 */
-.gaokao-time-dialog :deep(.el-input__wrapper) {
+:deep(.gaokao-time-dialog .el-input__wrapper) {
   border-radius: 6px;
   transition: all 0.2s ease;
 }
 
-.gaokao-time-dialog :deep(.el-input__wrapper:hover) {
+:deep(.gaokao-time-dialog .el-input__wrapper:hover) {
   box-shadow: 0 0 0 1px #667eea inset;
 }
 
-.gaokao-time-dialog :deep(.el-input__wrapper.is-focus) {
+:deep(.gaokao-time-dialog .el-input__wrapper.is-focus) {
   box-shadow: 0 0 0 1px #667eea inset;
 }
 
-.gaokao-time-dialog :deep(.el-button) {
+:deep(.gaokao-time-dialog .el-button) {
   border-radius: 6px;
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
-.gaokao-time-dialog :deep(.el-button--primary) {
+:deep(.gaokao-time-dialog .el-button--primary) {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
 }
 
-.gaokao-time-dialog :deep(.el-button--primary:hover) {
+:deep(.gaokao-time-dialog .el-button--primary:hover) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.gaokao-time-dialog :deep(.el-checkbox__label) {
+:deep(.gaokao-time-dialog .el-checkbox__label) {
   font-size: 13px;
+}
+
+/* 时间选择器下拉面板样式 */
+:deep(.time-picker-popper) {
+  max-width: 280px !important;
 }
 </style>
 
