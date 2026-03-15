@@ -5,8 +5,8 @@
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "electron:dev": "vite",
+    "dev": "chcp 65001 >nul 2>&1 && vite",
+    "electron:dev": "chcp 65001 >nul 2>&1 && vite",
     "build": "vue-tsc -p tsconfig.json && vite build",
     "preview": "vite preview",
     "electron:build": "vue-tsc -p tsconfig.json && vite build && electron-builder"

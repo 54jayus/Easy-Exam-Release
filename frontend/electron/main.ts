@@ -4,6 +4,16 @@ import { fileURLToPath } from 'node:url'
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 
+// Set stdout/stderr encoding to UTF-8 for Windows
+if (process.platform === 'win32') {
+  if (process.stdout.setDefaultEncoding) {
+    process.stdout.setDefaultEncoding('utf-8')
+  }
+  if (process.stderr.setDefaultEncoding) {
+    process.stderr.setDefaultEncoding('utf-8')
+  }
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -299,7 +309,7 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
     }
 
     cmd.stdout?.on('data', (data) => {
-      const chunk = data.toString()
+      const chunk = data.toString('utf-8')
       sendToAll('python-stdout', chunk)
       const lines = chunk.split(/\r?\n/)
       for (const raw of lines) {
@@ -315,7 +325,7 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
     })
 
     cmd.stderr?.on('data', (data) => {
-      const chunk = data.toString()
+      const chunk = data.toString('utf-8')
       sendToAll('python-stderr', chunk)
       const lines = chunk.split(/\r?\n/)
       for (const raw of lines) {
