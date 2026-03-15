@@ -6,6 +6,8 @@
     width="520px"
     align-center
     :close-on-click-modal="false"
+    append-to-body
+    destroy-on-close
   >
     <div class="space-y-3">
       <div class="text-sm text-slate-600">

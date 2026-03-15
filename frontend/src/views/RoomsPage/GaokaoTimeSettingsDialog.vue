@@ -6,6 +6,8 @@
     :width="dialogWidth"
     align-center
     :close-on-click-modal="false"
+    append-to-body
+    destroy-on-close
     class="gaokao-time-dialog"
   >
     <div class="dialog-content">
@@ -249,6 +251,17 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
+/* 确保对话框在整个视口中居中 */
+.gaokao-time-dialog :deep(.el-dialog) {
+  margin: 0 auto !important;
+}
+
+.gaokao-time-dialog :deep(.el-overlay) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .gaokao-time-dialog :deep(.el-dialog__body) {
   padding: 20px 24px;
   max-height: 70vh;
