@@ -81,20 +81,30 @@
         </div>
         <div class="grid grid-cols-2 gap-2">
           <button
-            class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-50 transition-all duration-200 group"
+            class="flex items-center justify-center gap-2 p-2 pr-7 bg-white border border-slate-200 rounded-lg hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-50 transition-all duration-200 group relative"
             :class="hasSettings ? '!border-emerald-500 bg-emerald-50/50' : ''"
             @click="$emit('import-settings')"
           >
             <el-icon class="text-base transition-colors" :class="hasSettings ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'"><OfficeBuilding /></el-icon>
             <span class="text-xs font-medium transition-colors" :class="hasSettings ? 'text-emerald-700 font-bold' : 'text-slate-600 group-hover:text-emerald-700'">考场设置</span>
+            <span
+              v-if="hasSettings"
+              class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors duration-200"
+              @click.stop.prevent="$emit('clear-settings')"
+            >×</span>
           </button>
           <button
-            class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-50 transition-all duration-200 group"
+            class="flex items-center justify-center gap-2 p-2 pr-7 bg-white border border-slate-200 rounded-lg hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-50 transition-all duration-200 group relative"
             :class="hasStudents ? '!border-emerald-500 bg-emerald-50/50' : ''"
             @click="$emit('import-students')"
           >
             <el-icon class="text-base transition-colors" :class="hasStudents ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'"><Upload /></el-icon>
             <span class="text-xs font-medium transition-colors" :class="hasStudents ? 'text-emerald-700 font-bold' : 'text-slate-600 group-hover:text-emerald-700'">考生名册</span>
+            <span
+              v-if="hasStudents"
+              class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors duration-200"
+              @click.stop.prevent="$emit('clear-students')"
+            >×</span>
           </button>
         </div>
       </section>
@@ -121,7 +131,17 @@
             </div>
             <div class="space-y-1.5">
               <div class="text-[10px] font-bold text-slate-400 uppercase">每场人数</div>
+              <el-tooltip
+                v-if="!seatsPerRoomInfo.isUniform"
+                :content="`考场人数不一致，范围：${seatsPerRoomInfo.min}-${seatsPerRoomInfo.max}人`"
+                placement="top"
+              >
+                <div class="h-8 px-3 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-sm text-slate-500 cursor-not-allowed">
+                  {{ seatsPerRoomInfo.displayText }}人
+                </div>
+              </el-tooltip>
               <el-input-number
+                v-else
                 :model-value="config.seatsPerRoom"
                 @update:model-value="$emit('update:seatsPerRoom', $event)"
                 :min="1" :max="100"
@@ -214,6 +234,13 @@ interface Props {
   hasResults: boolean
   canArrange: boolean
   studentsCount: number
+  seatsPerRoomInfo: {
+    isUniform: boolean
+    value: number
+    min: number
+    max: number
+    displayText: string
+  }
 }
 
 defineProps<Props>()
@@ -228,6 +255,8 @@ defineEmits<{
   'import-settings': []
   'import-students': []
   'import-results': []
+  'clear-settings': []
+  'clear-students': []
   'arrange': []
   'export': []
   'reset': []

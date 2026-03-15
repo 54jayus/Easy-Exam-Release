@@ -14,10 +14,13 @@
       :has-results="hasResults"
       :can-arrange="canArrange"
       :students-count="students.length"
+      :seats-per-room-info="seatsPerRoomInfo"
       @generate-template="handleGenerateTemplate"
       @import-settings="handleImportSettings"
       @import-students="handleImportStudents"
       @import-results="handleImportResults"
+      @clear-settings="handleClearSettings"
+      @clear-students="handleClearStudents"
       @arrange="handleArrange"
       @export="handleExport"
       @reset="handleResetPage"
@@ -124,6 +127,7 @@ const {
   hasSettings,
   hasStudents,
   filteredResults,
+  seatsPerRoomInfo,
   resetState
 } = useRoomsState()
 
@@ -236,6 +240,42 @@ const handleResetPage = async () => {
 
   logInfo('已初始化考场编排页面')
   ElMessage.success('页面已初始化')
+}
+
+// Clear settings handler
+const handleClearSettings = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要清除考场设置数据吗？',
+      '清除考场设置',
+      { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+
+  roomSettings.value = []
+  config.totalRooms = 30
+  logInfo('已清除考场设置数据')
+  ElMessage.success('已清除考场设置')
+}
+
+// Clear students handler
+const handleClearStudents = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要清除考生名册数据吗？',
+      '清除考生名册',
+      { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+
+  students.value = []
+  studentPath.value = ''
+  logInfo('已清除考生名册数据')
+  ElMessage.success('已清除考生名册')
 }
 
 // Lifecycle

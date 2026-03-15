@@ -21,7 +21,10 @@
       "Bash(mkdir:*)",
       "Bash(git check-ignore:*)",
       "Bash(D:/Anaconda3/envs/exam_scheduler/python.exe:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Skill(commit-commands:commit-push-pr)",
+      "Bash(pkill:*)",
+      "Bash(git add:*)"
     ]
   }
 }

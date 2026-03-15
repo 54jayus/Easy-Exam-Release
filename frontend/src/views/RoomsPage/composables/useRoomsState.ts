@@ -76,6 +76,45 @@ export function useRoomsState() {
     )
   })
 
+  // 计算考场人数统计信息
+  const seatsPerRoomInfo = computed(() => {
+    if (roomSettings.value.length === 0) {
+      return {
+        isUniform: true,
+        value: config.seatsPerRoom,
+        min: config.seatsPerRoom,
+        max: config.seatsPerRoom,
+        displayText: String(config.seatsPerRoom)
+      }
+    }
+
+    const capacities = roomSettings.value
+      .map(r => r.capacity)
+      .filter(c => typeof c === 'number' && c > 0)
+
+    if (capacities.length === 0) {
+      return {
+        isUniform: true,
+        value: config.seatsPerRoom,
+        min: config.seatsPerRoom,
+        max: config.seatsPerRoom,
+        displayText: String(config.seatsPerRoom)
+      }
+    }
+
+    const min = Math.min(...capacities)
+    const max = Math.max(...capacities)
+    const isUniform = min === max
+
+    return {
+      isUniform,
+      value: isUniform ? min : 0,
+      min,
+      max,
+      displayText: isUniform ? String(min) : `${min}-${max}`
+    }
+  })
+
   const pagedResults = computed(() => {
     const start = (currentPage.value - 1) * pageSize.value
     return filteredResults.value.slice(start, start + pageSize.value)
@@ -160,6 +199,7 @@ export function useRoomsState() {
     filteredResults,
     pagedResults,
     pagedStudents,
+    seatsPerRoomInfo,
 
     // Methods
     indexMethod,

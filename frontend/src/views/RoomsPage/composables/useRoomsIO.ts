@@ -44,10 +44,25 @@ export function useRoomsIO(deps: {
       } else if (res?.settings) {
         deps.roomSettings.value = res.settings
         deps.config.totalRooms = res.settings.length
-        // Try to detect capacity
+
+        // 检测考场人数是否一致
         if (res.settings.length > 0) {
-          deps.config.seatsPerRoom = res.settings[0].capacity || 30
+          const capacities = res.settings
+            .map((r: any) => r.capacity)
+            .filter((c: any) => typeof c === 'number' && c > 0)
+
+          if (capacities.length > 0) {
+            const min = Math.min(...capacities)
+            const max = Math.max(...capacities)
+
+            // 只有当所有考场人数一致时，才更新 seatsPerRoom
+            if (min === max) {
+              deps.config.seatsPerRoom = min
+            }
+            // 如果不一致，保持原有值不变，由 seatsPerRoomInfo 计算属性处理显示
+          }
         }
+
         ElMessage.success(`成功导入 ${res.settings.length} 个考场设置`)
         deps.logSuccess(`已导入考场设置：${res.settings.length} 个考场`)
         deps.activeTab.value = 'settings'
