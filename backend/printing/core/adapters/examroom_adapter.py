@@ -105,8 +105,12 @@ def load_examroom_data_for_corner(df_or_exam_arrangement):
         if is_gaokao_mode(df_or_exam_arrangement):
             return _load_gaokao_data_for_corner(df_or_exam_arrangement)
 
-    # 普通模式（保持原有逻辑）
-    df = df_or_exam_arrangement
+    # 普通模式：从 ExamArrangement 对象提取 DataFrame
+    if hasattr(df_or_exam_arrangement, 'arranged_students'):
+        df = df_or_exam_arrangement.arranged_students
+    else:
+        df = df_or_exam_arrangement
+
     if df is None:
         return None
 
@@ -155,8 +159,12 @@ def load_examroom_data_for_ticket(df_or_exam_arrangement):
         if is_gaokao_mode(df_or_exam_arrangement):
             return _load_gaokao_data_for_ticket(df_or_exam_arrangement)
 
-    # 普通模式（保持原有逻辑）
-    df = df_or_exam_arrangement
+    # 普通模式：从 ExamArrangement 对象提取 DataFrame
+    if hasattr(df_or_exam_arrangement, 'arranged_students'):
+        df = df_or_exam_arrangement.arranged_students
+    else:
+        df = df_or_exam_arrangement
+
     if df is None:
         return None
 

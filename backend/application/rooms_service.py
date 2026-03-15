@@ -102,6 +102,11 @@ class RoomsService:
                 self._state.rooms.student_path,
             )
             ea.arranged_students = pd.DataFrame(self._state.rooms.results)
+
+            # 恢复 gaokao_results
+            if self._state.rooms.gaokao_results:
+                ea.gaokao_results = self._state.rooms.gaokao_results
+
             self._state.exam_arrangement = ea
             return True
         except Exception:
@@ -394,6 +399,13 @@ class RoomsService:
 
         results = ea.arranged_students.fillna("").to_dict("records")
         self._state.rooms.results = results
+
+        # 保存 gaokao_results
+        if ea.arrangement_mode == "gaokao_mode" and ea.gaokao_results:
+            self._state.rooms.gaokao_results = ea.gaokao_results
+        else:
+            self._state.rooms.gaokao_results = None
+
         self._repo.save(self._state)
         return {"results": results, "message": msg}
 
@@ -577,6 +589,7 @@ class RoomsService:
         self._state.exam_arrangement = ea
         results = ea.arranged_students.fillna("").to_dict("records")
         self._state.rooms.results = results
+        self._state.rooms.gaokao_results = ea.gaokao_results
         self._repo.save(self._state)
 
         return {"results": results, "message": f"导入成功（高考模式），共 {len(results)} 人"}

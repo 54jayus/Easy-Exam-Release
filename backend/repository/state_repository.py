@@ -20,6 +20,66 @@ def _json_default(obj):
     return str(obj)
 
 
+def _serialize_gaokao_results(gaokao_results):
+    """将 gaokao_results 转换为可 JSON 序列化的格式"""
+    if not gaokao_results:
+        return None
+
+    import pandas as pd
+
+    result = {}
+
+    # 序列化 unified DataFrame
+    if 'unified' in gaokao_results and gaokao_results['unified'] is not None:
+        unified_df = gaokao_results['unified']
+        if isinstance(unified_df, pd.DataFrame) and not unified_df.empty:
+            result['unified'] = unified_df.fillna("").to_dict('records')
+        else:
+            result['unified'] = None
+    else:
+        result['unified'] = None
+
+    # 序列化 electives 字典
+    if 'electives' in gaokao_results and gaokao_results['electives']:
+        result['electives'] = {}
+        for subject, df in gaokao_results['electives'].items():
+            if df is not None and isinstance(df, pd.DataFrame) and not df.empty:
+                result['electives'][subject] = df.fillna("").to_dict('records')
+            else:
+                result['electives'][subject] = None
+    else:
+        result['electives'] = {}
+
+    return result
+
+
+def _deserialize_gaokao_results(data):
+    """将 JSON 数据转换回 gaokao_results 格式"""
+    if not data:
+        return None
+
+    import pandas as pd
+
+    result = {}
+
+    # 反序列化 unified
+    if data.get('unified'):
+        result['unified'] = pd.DataFrame(data['unified'])
+    else:
+        result['unified'] = None
+
+    # 反序列化 electives
+    result['electives'] = {}
+    if data.get('electives'):
+        for subject, records in data['electives'].items():
+            if records:
+                result['electives'][subject] = pd.DataFrame(records)
+            else:
+                result['electives'][subject] = None
+
+    return result
+
+
 class StateRepository(IStateRepository):
     """Handles JSON persistence of AppState with versioning and backup."""
 
@@ -65,6 +125,7 @@ class StateRepository(IStateRepository):
             student_path=rooms.get("student_path", ""),
             results=rooms.get("results", []),
             students_preview=rooms.get("students_preview", []),
+            gaokao_results=_deserialize_gaokao_results(rooms.get("gaokao_results")),
         )
 
         printing_data = state_data.get("printing", {})
@@ -103,6 +164,7 @@ class StateRepository(IStateRepository):
                         "student_path": state.rooms.student_path,
                         "results": state.rooms.results,
                         "students_preview": state.rooms.students_preview,
+                        "gaokao_results": _serialize_gaokao_results(state.rooms.gaokao_results),
                     },
                     "printing": {
                         "sourceType": state.printing.source_type,

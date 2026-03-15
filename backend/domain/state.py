@@ -22,6 +22,7 @@ class RoomsState:
     student_path: str = ""
     config: dict = field(default_factory=dict)
     results: list[dict] = field(default_factory=list)
+    gaokao_results: Optional[dict] = None  # 高考模式结果（包含 unified 和 electives）
 
 
 @dataclass
