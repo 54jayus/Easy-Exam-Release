@@ -28,6 +28,7 @@ class ExamArrangement:
         self.students = None
         self.arranged_students = None
         self.subject_column = "选科"  # 用户指定的选科列名
+        self.gaokao_results = None  # 高考模式编排结果
 
     def get_room_capacity(self, room_num):
         """获取指定考场的容量，如果没有特殊设置则返回默认容量"""
@@ -854,6 +855,9 @@ class ExamArrangement:
         """保存高考模式编排结果（3种表格）"""
         if self.arranged_students is None:
             return False, "请先编排考场"
+
+        if self.gaokao_results is None:
+            return False, "高考模式编排结果不存在"
 
         try:
             with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
