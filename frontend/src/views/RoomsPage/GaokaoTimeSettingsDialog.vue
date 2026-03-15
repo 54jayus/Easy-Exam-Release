@@ -3,95 +3,137 @@
     :model-value="visible"
     @update:model-value="$emit('update:visible', $event)"
     title="高考模式时间设置"
-    width="800px"
+    :width="dialogWidth"
     align-center
     :close-on-click-modal="false"
+    class="gaokao-time-dialog"
   >
-    <div class="space-y-6">
+    <div class="dialog-content">
       <!-- 说明文字 -->
-      <div class="text-sm text-slate-600 bg-blue-50 p-3 rounded-lg">
-        设置各科目的考试时间和自习时间，导出时将自动添加时间列。
+      <div class="info-banner">
+        <i class="el-icon-info-filled"></i>
+        <span>设置各科目的考试时间和自习时间，导出时将自动添加时间列。</span>
       </div>
 
       <!-- 考试时间设置 -->
-      <section>
-        <h3 class="text-base font-bold text-slate-800 mb-3">考试时间设置</h3>
-        <div class="space-y-2">
-          <div v-for="subject in examSubjects" :key="subject"
-               class="grid grid-cols-[100px_1fr_1fr_1fr] gap-3 items-center p-2 bg-slate-50 rounded-lg">
-            <div class="font-bold text-slate-700">{{ subject }}</div>
-            <el-date-picker
-              v-model="localSettings.examTimes[subject].date"
-              type="date"
-              placeholder="选择日期"
-              size="small"
-              format="YYYY-MM-DD"
-              value-format="YYYY-MM-DD"
-              class="w-full"
-            />
-            <el-time-picker
-              v-model="localSettings.examTimes[subject].startTime"
-              placeholder="开始时间"
-              size="small"
-              format="HH:mm"
-              value-format="HH:mm"
-              class="w-full"
-            />
-            <el-time-picker
-              v-model="localSettings.examTimes[subject].endTime"
-              placeholder="结束时间"
-              size="small"
-              format="HH:mm"
-              value-format="HH:mm"
-              class="w-full"
-            />
+      <section class="time-section">
+        <h3 class="section-title">考试时间设置</h3>
+
+        <!-- 列标题 -->
+        <div class="table-header">
+          <div class="header-cell subject-col">科目</div>
+          <div class="header-cell date-col">考试日期</div>
+          <div class="header-cell time-col">开始时间</div>
+          <div class="header-cell time-col">结束时间</div>
+        </div>
+
+        <!-- 数据行 -->
+        <div class="table-body">
+          <div v-for="subject in examSubjects" :key="subject" class="table-row">
+            <div class="cell subject-col">
+              <span class="subject-name">{{ subject }}</span>
+            </div>
+            <div class="cell date-col">
+              <el-date-picker
+                v-model="localSettings.examTimes[subject].date"
+                type="date"
+                placeholder="选择日期"
+                size="default"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                class="w-full"
+              />
+            </div>
+            <div class="cell time-col">
+              <el-time-picker
+                v-model="localSettings.examTimes[subject].startTime"
+                placeholder="开始时间"
+                size="default"
+                format="HH:mm"
+                value-format="HH:mm"
+                class="w-full"
+              />
+            </div>
+            <div class="cell time-col">
+              <el-time-picker
+                v-model="localSettings.examTimes[subject].endTime"
+                placeholder="结束时间"
+                size="default"
+                format="HH:mm"
+                value-format="HH:mm"
+                class="w-full"
+              />
+            </div>
           </div>
         </div>
       </section>
 
       <!-- 自习时间设置 -->
-      <section>
-        <h3 class="text-base font-bold text-slate-800 mb-3">自习时间设置（选考科目）</h3>
-        <div class="space-y-2">
-          <div v-for="subject in selfStudySubjects" :key="subject"
-               class="grid grid-cols-[100px_1fr_1fr_1fr] gap-3 items-center p-2 bg-slate-50 rounded-lg">
-            <div class="font-bold text-slate-700">{{ subject }}</div>
-            <el-date-picker
-              v-model="localSettings.selfStudyTimes[subject].date"
-              type="date"
-              placeholder="选择日期"
-              size="small"
-              format="YYYY-MM-DD"
-              value-format="YYYY-MM-DD"
-              class="w-full"
-            />
-            <el-time-picker
-              v-model="localSettings.selfStudyTimes[subject].startTime"
-              placeholder="开始时间"
-              size="small"
-              format="HH:mm"
-              value-format="HH:mm"
-              class="w-full"
-            />
-            <el-time-picker
-              v-model="localSettings.selfStudyTimes[subject].endTime"
-              placeholder="结束时间"
-              size="small"
-              format="HH:mm"
-              value-format="HH:mm"
-              class="w-full"
-            />
+      <section class="time-section">
+        <h3 class="section-title">自习时间设置（选考科目）</h3>
+
+        <!-- 列标题 -->
+        <div class="table-header">
+          <div class="header-cell subject-col">科目</div>
+          <div class="header-cell date-col">自习日期</div>
+          <div class="header-cell time-col">开始时间</div>
+          <div class="header-cell time-col">结束时间</div>
+        </div>
+
+        <!-- 数据行 -->
+        <div class="table-body">
+          <div v-for="subject in selfStudySubjects" :key="subject" class="table-row">
+            <div class="cell subject-col">
+              <span class="subject-name">{{ subject }}</span>
+            </div>
+            <div class="cell date-col">
+              <el-date-picker
+                v-model="localSettings.selfStudyTimes[subject].date"
+                type="date"
+                placeholder="选择日期"
+                size="default"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                class="w-full"
+              />
+            </div>
+            <div class="cell time-col">
+              <el-time-picker
+                v-model="localSettings.selfStudyTimes[subject].startTime"
+                placeholder="开始时间"
+                size="default"
+                format="HH:mm"
+                value-format="HH:mm"
+                class="w-full"
+              />
+            </div>
+            <div class="cell time-col">
+              <el-time-picker
+                v-model="localSettings.selfStudyTimes[subject].endTime"
+                placeholder="结束时间"
+                size="default"
+                format="HH:mm"
+                value-format="HH:mm"
+                class="w-full"
+              />
+            </div>
           </div>
         </div>
       </section>
     </div>
 
     <template #footer>
-      <div class="flex justify-between w-full">
-        <el-button @click="resetToDefault">恢复默认</el-button>
-        <div class="flex gap-2">
+      <div class="dialog-footer">
+        <el-button @click="resetToDefault" class="reset-btn">
+          <i class="el-icon-refresh-left"></i>
+          恢复默认
+        </el-button>
+        <div class="action-buttons">
           <el-button @click="$emit('update:visible', false)">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+          <el-button type="primary" :loading="saving" @click="handleSave">
+            <i v-if="!saving" class="el-icon-check"></i>
+            保存
+          </el-button>
         </div>
       </div>
     </template>
@@ -99,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { GAOKAO_TIME_DEFAULTS, type GaokaoTimeSettings } from '@/types/gaokao'
@@ -124,6 +166,16 @@ const selfStudySubjects = ['化学', '地理', '政治', '生物']
 const localSettings = ref<GaokaoTimeSettings>(JSON.parse(JSON.stringify(props.settings)))
 const saving = ref(false)
 
+// 响应式对话框宽度
+const dialogWidth = computed(() => {
+  if (typeof window === 'undefined') return '900px'
+  const width = window.innerWidth
+  if (width < 768) return '95%'
+  if (width < 1024) return '85%'
+  if (width < 1280) return '900px'
+  return '1000px'
+})
+
 // Watch for external changes
 watch(() => props.visible, (isVisible) => {
   if (isVisible) {
@@ -134,6 +186,7 @@ watch(() => props.visible, (isVisible) => {
 // Methods
 const resetToDefault = () => {
   localSettings.value = JSON.parse(JSON.stringify(GAOKAO_TIME_DEFAULTS))
+  ElMessage.success('已恢复为默认时间设置')
 }
 
 const validateSettings = (): string | null => {
@@ -194,4 +247,241 @@ const handleSave = async () => {
   }
 }
 </script>
+
+<style scoped>
+.gaokao-time-dialog :deep(.el-dialog__body) {
+  padding: 20px 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* 信息横幅 */
+.info-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border-left: 4px solid #2196f3;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #424242;
+  line-height: 1.6;
+}
+
+.info-banner i {
+  color: #2196f3;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* 时间设置区域 */
+.time-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+/* 表格样式 */
+.table-header {
+  display: grid;
+  grid-template-columns: 100px 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+}
+
+.header-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.table-row:hover {
+  background: #f0f0f0;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+}
+
+.subject-col {
+  justify-content: center;
+}
+
+.subject-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #424242;
+  padding: 6px 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
+/* 底部按钮 */
+.dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 90px 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .subject-name {
+    font-size: 13px;
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .gaokao-time-dialog :deep(.el-dialog__body) {
+    padding: 16px;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: 80px 1fr 1fr 1fr;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .table-header {
+    padding: 8px 10px;
+  }
+
+  .table-row {
+    padding: 6px 10px;
+  }
+
+  .subject-name {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+
+  .section-title {
+    font-size: 14px;
+  }
+
+  .info-banner {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .dialog-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .action-buttons {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 70px 1fr 1fr 1fr;
+    gap: 4px;
+  }
+
+  .subject-name {
+    font-size: 11px;
+    padding: 3px 5px;
+  }
+
+  .gaokao-time-dialog :deep(.el-date-picker),
+  .gaokao-time-dialog :deep(.el-time-picker) {
+    font-size: 12px;
+  }
+}
+
+/* Element Plus 组件样式覆盖 */
+.gaokao-time-dialog :deep(.el-input__wrapper) {
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.gaokao-time-dialog :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #667eea inset;
+}
+
+.gaokao-time-dialog :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #667eea inset;
+}
+
+.gaokao-time-dialog :deep(.el-button) {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.gaokao-time-dialog :deep(.el-button--primary) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+}
+
+.gaokao-time-dialog :deep(.el-button--primary:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+</style>
 
