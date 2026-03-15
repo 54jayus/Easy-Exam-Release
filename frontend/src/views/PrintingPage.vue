@@ -1060,6 +1060,10 @@ watch(activeTab, async (val) => {
          await loadPreview()
       }
    }
+   // 如果数据来源为考场编排，切换tab时自动刷新数据
+   if (sourceType.value === 'schedule') {
+      await handleLoadFromSchedule()
+   }
    await nextTick()
    _measurePreviewBaseSize()
    _updatePreviewScale()
