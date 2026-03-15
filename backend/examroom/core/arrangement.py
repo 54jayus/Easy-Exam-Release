@@ -774,13 +774,17 @@ class ExamArrangement:
         result_df = unified_df[['班级', '学号', '考号', '姓名', self.subject_column]].copy()
 
         # 定义9个科目（按考试顺序）
-        subjects = ['语文', '数学', '英语', '物理', '化学', '地理', '政治', '生物']
+        subjects = ['语文', '数学', '英语', '物理历史', '化学', '地理', '政治', '生物']
 
         # 为每个科目添加4列：科目状态、考场号、考场、座位号
         for subject in subjects:
-            if subject in ['语文', '数学', '英语', '物理']:
+            if subject in ['语文', '数学', '英语', '物理历史']:
                 # 统考科目：从unified_df获取数据
-                result_df[f'{subject}科目'] = subject
+                if subject == '物理历史':
+                    # 根据学生的选科首选科目确定是物理还是历史
+                    result_df[f'{subject}科目'] = result_df[self.subject_column].str[0].map({'物': '物理', '史': '历史'})
+                else:
+                    result_df[f'{subject}科目'] = subject
                 result_df[f'{subject}考场号'] = unified_df['考场号']
                 result_df[f'{subject}考场'] = unified_df['考场']
                 result_df[f'{subject}座位号'] = unified_df['座位号']
@@ -905,12 +909,19 @@ class ExamArrangement:
                 export_df[col] = export_df[col].astype(str)
 
         # 确保考场号和座位号也是文本格式
-        subjects = ['语文', '数学', '英语', '物理', '化学', '地理', '政治', '生物']
+        subjects = ['语文', '数学', '英语', '物理历史', '化学', '地理', '政治', '生物']
         for subject in subjects:
             for suffix in ['考场号', '座位号']:
                 col_name = f'{subject}{suffix}'
                 if col_name in export_df.columns:
                     export_df[col_name] = export_df[col_name].astype(str)
+
+        # 按班级和学号排序（班级主排序，学号次排序）
+        if '班级' in export_df.columns and '学号' in export_df.columns:
+            # 转换为数值类型进行排序，无法转换的保持原值
+            export_df['_班级_sort'] = pd.to_numeric(export_df['班级'], errors='coerce').fillna(float('inf'))
+            export_df['_学号_sort'] = pd.to_numeric(export_df['学号'], errors='coerce').fillna(float('inf'))
+            export_df = export_df.sort_values(['_班级_sort', '_学号_sort']).drop(columns=['_班级_sort', '_学号_sort'])
 
         export_df.to_excel(writer, sheet_name="考场安排（学生）", index=False)
 
@@ -942,7 +953,7 @@ class ExamArrangement:
                 '语文': unified_df,
                 '数学': unified_df,
                 '英语': unified_df,
-                '物理': unified_df,
+                '物理历史': unified_df,
                 '化学': electives['化学'],
                 '地理': electives['地理'],
                 '政治': electives['政治'],
@@ -955,9 +966,18 @@ class ExamArrangement:
 
                 if not student_row.empty:
                     student_row = student_row.iloc[0]
-                    if subject in ['语文', '数学', '英语', '物理']:
-                        # 统考科目
+                    if subject in ['语文', '数学', '英语']:
+                        # 统考科目（语数英）
                         record[f'{subject}科目'] = subject
+                    elif subject == '物理历史':
+                        # 物理历史科目：根据学生选科确定
+                        student_subject = student_row.get(self.subject_column, '')
+                        if str(student_subject).startswith('物'):
+                            record[f'{subject}科目'] = '物理'
+                        elif str(student_subject).startswith('史'):
+                            record[f'{subject}科目'] = '历史'
+                        else:
+                            record[f'{subject}科目'] = subject
                     else:
                         # 选考科目
                         record[f'{subject}科目'] = student_row.get('科目类型', '自习')
@@ -1021,7 +1041,7 @@ class ExamArrangement:
         room_list = self._get_room_list()
 
         # 定义所有科目
-        subjects = ['语文', '数学', '英语', '物理', '化学', '地理', '政治', '生物']
+        subjects = ['语文', '数学', '英语', '物理历史', '化学', '地理', '政治', '生物']
 
         # 创建统计数据
         stats_records = []
@@ -1031,7 +1051,7 @@ class ExamArrangement:
 
             # 统计每个科目的人数
             for subject in subjects:
-                if subject in ['语文', '数学', '英语', '物理']:
+                if subject in ['语文', '数学', '英语', '物理历史']:
                     # 统考科目：从unified结果中统计
                     unified_df = self.gaokao_results['unified']
                     count = len(unified_df[unified_df['考场号'] == room_num])
