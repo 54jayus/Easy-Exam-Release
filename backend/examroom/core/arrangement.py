@@ -584,11 +584,14 @@ class ExamArrangement:
 
     def _get_room_list(self):
         """获取考场号列表（按顺序）"""
-        if self.room_setting_data is not None:
-            # 使用考场设置中的考场号
+        # 优先使用room_setting_df（DataFrame格式）
+        if hasattr(self, 'room_setting_df') and self.room_setting_df is not None:
+            return [str(row['考场号']) for _, row in self.room_setting_df.iterrows()]
+        # 兼容旧的room_setting_data（DataFrame格式）
+        elif self.room_setting_data is not None and hasattr(self.room_setting_data, 'iterrows'):
             return [str(row['考场号']) for _, row in self.room_setting_data.iterrows()]
+        # 如果都没有，使用1到total_rooms的顺序编号
         else:
-            # 如果没有考场设置，使用1到total_rooms的顺序编号
             return [str(i) for i in range(1, self.total_rooms + 1)]
 
     def _fill_rooms_sequential(self, students_list, start_room_index=0):
@@ -683,13 +686,22 @@ class ExamArrangement:
 
     def _get_room_name(self, room_num):
         """获取考场名称"""
-        if self.room_setting_data is not None:
-            # 从考场设置中查找
-            room_str = str(room_num).strip()
+        room_str = str(room_num).strip()
+
+        # 优先使用room_setting_df（DataFrame格式）
+        if hasattr(self, 'room_setting_df') and self.room_setting_df is not None:
+            for _, row in self.room_setting_df.iterrows():
+                setting_room_num = str(row.get('考场号', '')).strip()
+                if setting_room_num == room_str or setting_room_num.lstrip('0') == room_str.lstrip('0'):
+                    return str(row.get('考场', f'第{room_num}考场'))
+
+        # 兼容旧的room_setting_data（DataFrame格式）
+        elif self.room_setting_data is not None and hasattr(self.room_setting_data, 'iterrows'):
             for _, row in self.room_setting_data.iterrows():
                 setting_room_num = str(row.get('考场号', '')).strip()
                 if setting_room_num == room_str or setting_room_num.lstrip('0') == room_str.lstrip('0'):
                     return str(row.get('考场', f'第{room_num}考场'))
+
         return f'第{room_num}考场'
 
     def _arrange_elective_exam(self, subject):
