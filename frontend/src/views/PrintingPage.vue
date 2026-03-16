@@ -213,21 +213,24 @@
                    </div>
                    <div class="space-y-2">
                       <div class="flex items-center justify-between">
-                         <label class="text-xs text-slate-500">科目列表</label>
+                         <label class="text-xs text-slate-500">科目与时间</label>
                          <el-tooltip
                             v-if="sourceType === 'schedule' && isGaokaoMode"
-                            content="高考模式下科目信息由编排数据决定，无需手动设置"
+                            content="高考模式下科目与时间由编排数据决定，无需手动设置"
                             placement="top"
                          >
                             <el-button size="small" type="info" link disabled>编辑科目</el-button>
                          </el-tooltip>
                          <el-button v-else size="small" type="primary" link @click="openSubjectDialog">编辑科目</el-button>
                       </div>
-                      <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] flex flex-wrap gap-1">
-                         <el-tag v-for="(s, idx) in subjectPreview" :key="idx" size="small" type="info" effect="light" class="!border-none !bg-slate-100">{{ s }}</el-tag>
-                         <span v-if="subjectPreview.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
-                            {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目由编排数据决定' : '点击"编辑科目"添加' }}
-                         </span>
+                      <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] space-y-1">
+                         <div v-for="(row, idx) in subjectPreviewWithTime" :key="idx" class="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
+                            <span class="text-xs text-slate-700 truncate flex-1 font-medium">{{ row.name }}</span>
+                            <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '—' }}</span>
+                         </div>
+                         <div v-if="subjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
+                            {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目与时间由编排数据决定' : '未设置科目' }}
+                         </div>
                       </div>
                    </div>
                 </div>
@@ -235,7 +238,7 @@
                 <!-- Ticket Config -->
                 <div v-if="activeTab === 'ticket'" class="space-y-4 animate-fade-in bg-slate-50 rounded-xl p-4 border border-slate-100">
                    <div class="space-y-1">
-                      <label class="text-xs text-slate-500">考试名称</label>
+                      <label class="text-xs text-slate-500">大标题</label>
                       <el-input v-model="config.ticket.title" size="small" />
                    </div>
                    <div class="space-y-2">
@@ -300,7 +303,7 @@
                 </div>
                 <div class="flex gap-4 p-3 bg-slate-50/50 rounded-xl border border-slate-100">
                    <el-checkbox v-model="commonConfig.exportXlsx" label="Excel" size="small" />
-                   <el-checkbox v-model="commonConfig.exportPdf" label="PDF (实验性)" size="small" />
+                   <el-checkbox v-model="commonConfig.exportPdf" label="PDF (推荐)" size="small" />
                 </div>
              </section>
 
@@ -1092,8 +1095,8 @@ const tabs = [
 ]
 
 const commonConfig = reactive({
-   exportXlsx: true,
-   exportPdf: false
+   exportXlsx: false,
+   exportPdf: true
 })
 
 const config = reactive({
@@ -1544,10 +1547,10 @@ const handleResetPage = async () => {
    schedulePreviewCache.data = []
    schedulePreviewCache.total = 0
 
-   commonConfig.exportXlsx = true
-   commonConfig.exportPdf = false
+   commonConfig.exportXlsx = false
+   commonConfig.exportPdf = true
 
-   config.corner.title = '2025年秋季期末考试'
+   config.corner.title = 'xxx考试台角纸'
    config.desk.layoutRows = 7
    config.desk.layoutCols = 6
    config.desk.layoutName = '7行×6列'
@@ -1558,6 +1561,7 @@ const handleResetPage = async () => {
    config.table.title = 'xxx考试座位安排'
    config.table.includeSubjectFields = false
    config.table.groupMode = 'class'
+   config.examBag.schoolName = 'xxx学校'
 
    studentInfoTitles.class = config.table.title
    studentInfoTitles.examroom = config.table.title
@@ -2773,19 +2777,26 @@ const handleGenerate = async () => {
       return ElMessage.warning('请至少选择一种输出格式（Excel 或 PDF）')
    }
 
-   const defaultExt = exportPdf && !exportXlsx ? 'pdf' : 'xlsx'
    let tabName = tabs.find(t => t.id === activeTab.value)?.name || '生成结果'
    if (activeTab.value === 'table') {
       const mode = String(config.table.groupMode || 'class')
       tabName = mode === 'examroom' ? '考生信息表（考场）' : '考生信息表（班级）'
    }
+
+   // 当同时选择两种格式时，不显示扩展名，让用户只输入基础文件名
+   const bothFormats = exportXlsx && exportPdf
+   const defaultExt = bothFormats ? '' : (exportPdf ? 'pdf' : 'xlsx')
+   const defaultFileName = defaultExt ? `${tabName}_批量生成.${defaultExt}` : `${tabName}_批量生成`
+
    await saveAndRun({
       dialog: {
-         defaultPath: `${tabName}_批量生成.${defaultExt}`,
-         filters: [
-            ...(exportXlsx ? [{ name: 'Excel', extensions: ['xlsx'] }] : []),
-            ...(exportPdf ? [{ name: 'PDF', extensions: ['pdf'] }] : []),
-         ]
+         defaultPath: defaultFileName,
+         filters: bothFormats
+            ? [{ name: '所有文件', extensions: ['*'] }]
+            : [
+               ...(exportXlsx ? [{ name: 'Excel', extensions: ['xlsx'] }] : []),
+               ...(exportPdf ? [{ name: 'PDF', extensions: ['pdf'] }] : []),
+            ]
       },
       run: async (outputPath) => {
          generating.value = true
@@ -2875,7 +2886,8 @@ const handleGenerate = async () => {
 
             const paths = result?.paths
             if (Array.isArray(paths) && paths.length > 1) {
-               ElMessage.success(`生成成功：${paths.length} 个文件`)
+               const fileNames = paths.map(p => p.split(/[\\/]/).pop()).join('、')
+               ElMessage.success(`生成成功：${fileNames}`)
             } else {
                ElMessage.success('生成成功!')
             }
