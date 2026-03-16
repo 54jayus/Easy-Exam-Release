@@ -136,6 +136,9 @@ class PrintingService:
             elif type_ == "ticket":
                 # 准考证：传递 ea 对象，适配器会自动检测高考模式
                 data = load_examroom_data_for_ticket(ea) or []
+            elif type_ == "exam_bag_label":
+                # 试卷袋：传递 ea 对象，适配器会自动检测高考模式
+                data = load_examroom_data_for_exam_bag(ea) or []
             else:
                 # 考生信息表等其他类型：使用原有逻辑
                 df = ea.arranged_students.fillna("")
