@@ -11,7 +11,6 @@
     <!-- Header -->
     <HelpHeader
       v-model="searchQuery"
-      @export="handleExport"
     />
 
     <!-- Main Content Layout -->
@@ -58,7 +57,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import html2pdf from 'html2pdf.js'
 import HelpHeader from './HelpPage/HelpHeader.vue'
 import HelpSidebar from './HelpPage/HelpSidebar.vue'
 import HelpSearchResults from './HelpPage/HelpSearchResults.vue'
@@ -173,37 +171,6 @@ function scrollToAnchor(anchor: string) {
 function clearSearch() {
   searchQuery.value = ''
   clearSearchResults()
-}
-
-async function handleExport() {
-  if (!manualHtml.value) {
-    ElMessage.warning('暂无内容可导出')
-    return
-  }
-
-  try {
-    ElMessage.info('正在生成 PDF...')
-
-    const element = document.querySelector('.prose')
-    if (!element) {
-      ElMessage.error('无法找到内容元素')
-      return
-    }
-
-    const opt = {
-      margin: 1,
-      filename: '使用说明书.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    }
-
-    await html2pdf().set(opt).from(element).save()
-    ElMessage.success('导出成功')
-  } catch (e) {
-    console.error(e)
-    ElMessage.error('导出失败')
-  }
 }
 </script>
 

@@ -11,10 +11,15 @@
       <div class="flex flex-col justify-center space-y-8 pr-8">
         <div>
           <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
-            解锁<span class="text-primary-600">专业版</span>功能
+            <template v-if="licenseStatus.valid">
+              <span class="text-primary-600">专业版</span>已激活
+            </template>
+            <template v-else>
+              解锁<span class="text-primary-600">专业版</span>功能
+            </template>
           </h1>
           <p class="text-lg text-slate-500 leading-relaxed">
-            激活软件以使用体验，提升考务管理效率。
+            {{ licenseStatus.valid ? '感谢您的支持，所有专业版功能已解锁。' : '激活软件以解锁全部功能，提升考务管理效率。' }}
           </p>
         </div>
 
@@ -137,7 +142,7 @@
         <!-- Footer -->
         <div class="mt-8 pt-6 border-t border-slate-100 text-center">
           <el-button link type="info" size="small" @click="$router.push('/help')" class="!text-slate-400 hover:!text-primary-600">
-            遇到问题？联系技术支持
+            遇到问题？查阅使用说明
           </el-button>
         </div>
 
@@ -180,10 +185,10 @@ const openSocialLink = () => {
 
 // Features List
 const features = [
-  '智能排考：一键自动安排考场与监考',
-  '数据导出：支持 Excel/PDF 格式导出',
-  '灵活设置：自定义规则满足多样化需求',
-  '优先支持：专属技术支持服务'
+  '智能排考：智能编排考场座位与监考',
+  '数据导入：Excel一键导入，告别手动录入',
+  '打印中心：台角纸/准考证/考场袋等自动生成',
+  '批量导出：各类表格一键导出，实现自动化'
 ]
 
 // Machine Code & License State

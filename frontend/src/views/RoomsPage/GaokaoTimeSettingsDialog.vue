@@ -38,7 +38,7 @@
               </div>
               <div class="cell date-col">
                 <el-date-picker
-                  v-model="localSettings.examTimes[subject].date"
+                  v-model="(localSettings.examTimes as any)[subject].date"
                   type="date"
                   placeholder="选择日期"
                   size="default"
@@ -50,7 +50,7 @@
               <div class="cell time-col">
                 <div class="time-range">
                   <el-time-picker
-                    v-model="localSettings.examTimes[subject].startTime"
+                    v-model="(localSettings.examTimes as any)[subject].startTime"
                     placeholder="开始"
                     size="default"
                     format="HH:mm"
@@ -61,7 +61,7 @@
                   />
                   <span class="time-separator">-</span>
                   <el-time-picker
-                    v-model="localSettings.examTimes[subject].endTime"
+                    v-model="(localSettings.examTimes as any)[subject].endTime"
                     placeholder="结束"
                     size="default"
                     format="HH:mm"
@@ -87,7 +87,7 @@
               <div v-if="customSelfStudyTime[subject]" class="self-study-settings">
                 <div class="cell date-col">
                   <el-date-picker
-                    v-model="localSettings.selfStudyTimes[subject].date"
+                    v-model="(localSettings.selfStudyTimes as any)[subject].date"
                     type="date"
                     placeholder="选择日期"
                     size="small"
@@ -99,7 +99,7 @@
                 <div class="cell time-col">
                   <div class="time-range">
                     <el-time-picker
-                      v-model="localSettings.selfStudyTimes[subject].startTime"
+                      v-model="(localSettings.selfStudyTimes as any)[subject].startTime"
                       placeholder="开始"
                       size="small"
                       format="HH:mm"
@@ -110,7 +110,7 @@
                     />
                     <span class="time-separator">-</span>
                     <el-time-picker
-                      v-model="localSettings.selfStudyTimes[subject].endTime"
+                      v-model="(localSettings.selfStudyTimes as any)[subject].endTime"
                       placeholder="结束"
                       size="small"
                       format="HH:mm"
@@ -278,7 +278,7 @@ const handleSave = async () => {
   try {
     const res = await pythonBackend.request('rooms.setGaokaoTimeSettings', {
       settings: localSettings.value
-    })
+    }) as { error?: string }
 
     if (res?.error) {
       ElMessage.error(res.error)
