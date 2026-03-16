@@ -139,6 +139,7 @@ function createWindow() {
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'), // Try to use existing icon
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
+      webSecurity: false,
     },
   })
 
@@ -421,6 +422,7 @@ ipcMain.on('renderer-log', (_event, entry: any) => {
           preload: path.join(__dirname, 'preload.mjs'),
           nodeIntegration: false,
           contextIsolation: true,
+          webSecurity: false,
         },
       })
 

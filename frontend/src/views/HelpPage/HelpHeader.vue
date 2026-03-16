@@ -5,14 +5,11 @@
         <!-- Left: Title & Search -->
         <div class="flex items-center gap-6 flex-1 min-w-0">
           <!-- Title Group -->
-          <div class="flex items-start gap-4 shrink-0">
+          <div class="flex items-center gap-3 shrink-0">
             <div class="p-3 bg-white rounded-xl shadow-sm border border-slate-100 text-primary-600 ring-1 ring-slate-100/50">
               <el-icon :size="26"><Reading /></el-icon>
             </div>
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 tracking-tight">帮助中心</h1>
-              <p class="text-slate-500 text-sm mt-1">智能考务系统使用说明书</p>
-            </div>
+            <p class="text-base font-medium text-slate-600">使用说明书</p>
           </div>
 
           <!-- Search Box -->
@@ -31,21 +28,14 @@
           </div>
         </div>
 
-        <!-- Right: Export Button -->
-        <button
-          @click="$emit('export')"
-          class="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-primary-200 hover:bg-primary-50 text-slate-700 hover:text-primary-700 rounded-lg text-sm font-medium transition-all shadow-sm active:scale-95 whitespace-nowrap shrink-0"
-        >
-          <el-icon><Download /></el-icon>
-          <span class="hidden sm:inline">导出 PDF</span>
-        </button>
+        <!-- Right: Export Button - Removed -->
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Search, Download, Reading } from '@element-plus/icons-vue'
+import { Search, Reading } from '@element-plus/icons-vue'
 
 defineProps<{
   modelValue: string
@@ -53,6 +43,5 @@ defineProps<{
 
 defineEmits<{
   'update:modelValue': [value: string]
-  export: []
 }>()
 </script>
