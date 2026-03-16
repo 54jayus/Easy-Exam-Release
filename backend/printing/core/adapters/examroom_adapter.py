@@ -533,3 +533,74 @@ def _load_gaokao_data_for_corner(exam_arrangement):
 
     return data_list
 
+
+def load_examroom_data_for_exam_bag(exam_arrangement):
+    """
+    加载考场编排数据用于试卷袋标签
+
+    参数:
+        exam_arrangement: ExamArrangement 对象
+
+    返回:
+        list[dict]: [{"room": "考场名", "subject": "科目名", "count": 人数}, ...]
+    """
+    # 只支持高考模式
+    if not is_gaokao_mode(exam_arrangement):
+        return []
+
+    gaokao_results = exam_arrangement.gaokao_results
+    unified_df = gaokao_results.get('unified')
+    electives_dict = gaokao_results.get('electives')
+
+    if unified_df is None or unified_df.empty:
+        return []
+
+    # 获取实际使用的考场列表
+    used_rooms = unified_df['考场号'].unique()
+    all_room_list = exam_arrangement._get_room_list()
+    room_list = [room for room in all_room_list if room in used_rooms]
+
+    # 获取科目列表（将"物理历史"拆分为"物理"和"历史"）
+    raw_subjects = exam_arrangement._get_subject_order()
+    subjects = []
+    for s in raw_subjects:
+        if s == '物理历史':
+            subjects.extend(['物理', '历史'])
+        else:
+            subjects.append(s)
+
+    # 构建结果列表
+    result = []
+
+    for room_num in room_list:
+        room_name = exam_arrangement._get_room_name(room_num)
+
+        # 统计每个科目的人数
+        for subject in subjects:
+            count = 0
+
+            if subject in ['语文', '数学', '英语']:
+                # 统考科目：从unified结果中统计
+                count = len(unified_df[unified_df['考场号'] == room_num])
+            elif subject in ['物理', '历史']:
+                # 物理/历史：从unified结果中按选科首字母区分
+                prefix = '物' if subject == '物理' else '史'
+                room_students = unified_df[unified_df['考场号'] == room_num]
+                count = len(room_students[room_students[exam_arrangement.subject_column].str.startswith(prefix)])
+            else:
+                # 选考科目：从electives结果中统计（只统计考试人数，不包括自习）
+                if electives_dict and subject in electives_dict:
+                    elective_df = electives_dict[subject]
+                    room_df = elective_df[elective_df['考场号'] == room_num]
+                    count = len(room_df[room_df['科目类型'] == subject])
+
+            # 只添加人数大于0的记录
+            if count > 0:
+                result.append({
+                    "room": room_name,
+                    "subject": subject,
+                    "count": count
+                })
+
+    return result
+

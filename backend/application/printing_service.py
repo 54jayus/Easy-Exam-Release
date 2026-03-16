@@ -22,6 +22,7 @@ from backend.printing.core.adapters.examroom_adapter import (
     load_examroom_data_for_corner,
     load_examroom_data_for_student_info,
     load_examroom_data_for_ticket,
+    load_examroom_data_for_exam_bag,
 )
 from backend.printing.core.validators import check_desk_data_sort
 
@@ -240,8 +241,6 @@ class PrintingService:
                 else:
                     data_list = DataLoader.load_data(data_path, mapping)
             elif source_type == "schedule":
-                if type_ == "exam_bag_label":
-                    return {"error": '试卷袋标签暂不支持"考场编排"数据来源，请使用 Excel 导入'}
                 ea = self._get_exam_arrangement()
                 if not ea or ea.arranged_students is None:
                     return {"error": '暂无考场编排数据，请先在"考场编排"页面完成编排'}
@@ -255,6 +254,8 @@ class PrintingService:
                     data_list = load_examroom_data_for_student_info(df, include_subject_fields=config_data.get("includeSubjectFields", False)) or []
                 elif type_ == "desk":
                     data_list = load_examroom_data_for_corner(ea) or []
+                elif type_ == "exam_bag_label":
+                    data_list = load_examroom_data_for_exam_bag(ea) or []
                 else:
                     data_list = load_examroom_data_for_ticket(ea) or []
             elif source_type == "empty":
