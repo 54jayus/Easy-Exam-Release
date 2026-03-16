@@ -12,7 +12,11 @@ a = Analysis(
     [os.path.join(project_root, 'backend', '__main__.py')],
     pathex=[project_root],
     binaries=[('D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\ffi.dll', '.'), ('D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libcrypto-3-x64.dll', '.'), ('D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libssl-3-x64.dll', '.'), ('D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libexpat.dll', '.')],
-    datas=[(os.path.join(project_root, 'backend', 'resources'), 'backend/resources')],
+    datas=[
+        (os.path.join(project_root, 'backend', 'resources'), 'backend/resources'),
+        (os.path.join(project_root, '使用说明书.pdf'), '.'),
+        (os.path.join(project_root, '使用说明书.md'), '.')
+    ],
     hiddenimports=['backend', 'pandas', 'openpyxl', 'uvicorn', 'fastapi'],
     hookspath=[],
     hooksconfig={},
