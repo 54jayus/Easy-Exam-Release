@@ -170,34 +170,92 @@
           >
             <el-table-column type="index" label="序号" width="60" align="center" :index="resultsIndexMethod" fixed />
 
-            <el-table-column prop="班级" label="班级" min-width="80" align="center" sortable />
-            <el-table-column prop="学号" label="学号" min-width="100" align="center" sortable show-overflow-tooltip />
-            <el-table-column prop="姓名" label="姓名" min-width="100" align="center">
-              <template #default="{ row }">
-                <span class="font-medium text-slate-700">{{ row['姓名'] }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="考号" label="考号" min-width="120" align="center" sortable />
-            <el-table-column prop="选科" label="选科" min-width="100" show-overflow-tooltip />
-            <el-table-column prop="首选" label="首选" min-width="80" align="center" />
-            <el-table-column prop="选科1" label="选科1" min-width="80" align="center" />
-            <el-table-column prop="选科2" label="选科2" min-width="80" align="center" />
+            <!-- 高考模式表格列 -->
+            <template v-if="mode === 'gaokao'">
+              <el-table-column prop="班级" label="班级" min-width="80" align="center" sortable />
+              <el-table-column prop="姓名" label="姓名" min-width="80" align="center">
+                <template #default="{ row }">
+                  <span class="font-medium text-slate-700">{{ row['姓名'] }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="考号" label="考号" min-width="110" align="center" sortable />
+              <el-table-column prop="选科" label="选科" min-width="100" show-overflow-tooltip />
 
-            <el-table-column prop="考场" label="考场" min-width="120" align="center" show-overflow-tooltip />
-            <el-table-column prop="考场号" label="考场号" min-width="90" align="center" sortable>
-              <template #default="{ row }">
-                <div class="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-xs">
-                  {{ row['考场号'] }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="座位号" label="座位号" min-width="90" align="center" sortable>
-              <template #default="{ row }">
-                <span class="font-mono text-blue-600 font-bold text-sm">{{ String(row['座位号']).padStart(2, '0') }}</span>
-              </template>
-            </el-table-column>
+              <!-- 统考分组 -->
+              <el-table-column label="统考(语数英+物/史)">
+                <el-table-column label="科目" min-width="60" align="center">
+                  <template #default="{ row }">
+                    {{ row['物理历史科目'] }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="考场" min-width="100" align="center" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    {{ row['语文考场'] }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="考场号" min-width="70" align="center" sortable>
+                  <template #default="{ row }">
+                    <div class="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-xs">
+                      {{ row['语文考场号'] }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="座位号" min-width="70" align="center" sortable>
+                  <template #default="{ row }">
+                    <span class="font-mono text-blue-600 font-bold text-sm">{{ String(row['语文座位号']).padStart(2, '0') }}</span>
+                  </template>
+                </el-table-column>
+              </el-table-column>
 
-            <el-table-column v-if="mode === '3+1+2'" prop="考场选科组合" label="考场选科组合" min-width="120" show-overflow-tooltip />
+              <!-- 选考科目分组 -->
+              <el-table-column v-for="subject in gaokaoElectives" :key="subject" :label="subject">
+                <el-table-column label="考场号" min-width="70" align="center">
+                  <template #default="{ row }">
+                    <div class="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-xs">
+                      {{ row[subject + '考场号'] }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="座位号" min-width="70" align="center">
+                  <template #default="{ row }">
+                    <span class="font-mono text-blue-600 font-bold text-sm">{{ String(row[subject + '座位号']).padStart(2, '0') }}</span>
+                    <div v-if="row[subject + '科目'] === '自习'" class="text-xs text-slate-400 leading-tight">自习</div>
+                  </template>
+                </el-table-column>
+              </el-table-column>
+            </template>
+
+            <!-- 普通模式表格列 -->
+            <template v-else>
+              <el-table-column prop="班级" label="班级" min-width="80" align="center" sortable />
+              <el-table-column prop="学号" label="学号" min-width="100" align="center" sortable show-overflow-tooltip />
+              <el-table-column prop="姓名" label="姓名" min-width="100" align="center">
+                <template #default="{ row }">
+                  <span class="font-medium text-slate-700">{{ row['姓名'] }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="考号" label="考号" min-width="120" align="center" sortable />
+              <el-table-column prop="选科" label="选科" min-width="100" show-overflow-tooltip />
+              <el-table-column prop="首选" label="首选" min-width="80" align="center" />
+              <el-table-column prop="选科1" label="选科1" min-width="80" align="center" />
+              <el-table-column prop="选科2" label="选科2" min-width="80" align="center" />
+
+              <el-table-column prop="考场" label="考场" min-width="120" align="center" show-overflow-tooltip />
+              <el-table-column prop="考场号" label="考场号" min-width="90" align="center" sortable>
+                <template #default="{ row }">
+                  <div class="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-xs">
+                    {{ row['考场号'] }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column prop="座位号" label="座位号" min-width="90" align="center" sortable>
+                <template #default="{ row }">
+                  <span class="font-mono text-blue-600 font-bold text-sm">{{ String(row['座位号']).padStart(2, '0') }}</span>
+                </template>
+              </el-table-column>
+
+              <el-table-column v-if="mode === '3+1+2'" prop="考场选科组合" label="考场选科组合" min-width="120" show-overflow-tooltip />
+            </template>
           </el-table>
 
           <!-- Pagination for Results -->
@@ -248,6 +306,9 @@ defineEmits<{
   'reimport-students': []
   'open-logs': []
 }>()
+
+// Constants
+const gaokaoElectives = ['化学', '地理', '政治', '生物']
 
 // Computed
 const hasResults = computed(() => props.results.length > 0)
