@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Communication Language
+
+**IMPORTANT**: Always communicate with the user in Chinese (中文). All responses, explanations, and conversations should be in Chinese unless the user explicitly requests otherwise.
+
 ## Project Overview
 
 **Easy Exam (智能考务系统)** — A desktop application for exam administration. It manages exam room arrangement, proctoring schedules, printing of exam materials, and student registration. Built as an Electron app with a Vue 3 frontend and a Python backend communicating via JSON-RPC over stdin/stdout.

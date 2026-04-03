@@ -1145,11 +1145,22 @@ class ExamArrangement:
 
     def _export_gaokao_stats_table(self, writer):
         """导出考场人数统计表"""
-        # 获取所有考场号（按顺序）
-        room_list = self._get_room_list()
+        # 获取实际使用的考场号（从unified_df中获取，确保只统计有学生的考场）
+        unified_df = self.gaokao_results['unified']
+        used_rooms = unified_df['考场号'].unique()
 
-        # 按考试顺序获取科目列表
-        subjects = self._get_subject_order()
+        # 按考场号排序（保持顺序）
+        all_room_list = self._get_room_list()
+        room_list = [room for room in all_room_list if room in used_rooms]
+
+        # 按考试顺序获取科目列表，将"物理历史"拆分为"物理"和"历史"
+        raw_subjects = self._get_subject_order()
+        subjects = []
+        for s in raw_subjects:
+            if s == '物理历史':
+                subjects.extend(['物理', '历史'])
+            else:
+                subjects.append(s)
 
         # 创建统计数据
         stats_records = []
@@ -1157,28 +1168,75 @@ class ExamArrangement:
         for room_num in room_list:
             record = {'考场号': room_num, '考场': self._get_room_name(room_num)}
 
+            # 用于记录该考场所有科目的人数（包括自习）
+            room_counts = []
+
             # 统计每个科目的人数
             for subject in subjects:
-                if subject in ['语文', '数学', '英语', '物理历史']:
+                if subject in ['语文', '数学', '英语']:
                     # 统考科目：从unified结果中统计
-                    unified_df = self.gaokao_results['unified']
                     count = len(unified_df[unified_df['考场号'] == room_num])
+                    record[subject] = count
+                    room_counts.append(count)
+                elif subject in ['物理', '历史']:
+                    # 物理/历史：从unified结果中按选科首字母区分
+                    prefix = '物' if subject == '物理' else '史'
+                    room_students = unified_df[unified_df['考场号'] == room_num]
+                    count = len(room_students[room_students[self.subject_column].str.startswith(prefix)])
+                    record[subject] = count
+                    room_counts.append(count)
                 else:
-                    # 选考科目：从electives结果中统计考试人数（排除自习）
+                    # 选考科目：从electives结果中统计
                     elective_df = self.gaokao_results['electives'][subject]
-                    count = len(elective_df[(elective_df['考场号'] == room_num) & (elective_df['科目类型'] == subject)])
+                    room_df = elective_df[elective_df['考场号'] == room_num]
+                    exam_count = len(room_df[room_df['科目类型'] == subject])
+                    self_study_count = len(room_df[room_df['科目类型'] == '自习'])
 
-                record[subject] = count
+                    if exam_count > 0 and self_study_count > 0:
+                        # 混合考场（理论上不应该出现，但为了健壮性处理）
+                        record[subject] = f"{exam_count}+{self_study_count}（自习）"
+                        room_counts.append(exam_count + self_study_count)
+                    elif self_study_count > 0:
+                        # 纯自习考场：显示"x（自习）"
+                        record[subject] = f"{self_study_count}（自习）"
+                        # 自习人数也计入最大人数统计
+                        room_counts.append(self_study_count)
+                    elif exam_count > 0:
+                        # 纯考试考场
+                        record[subject] = exam_count
+                        room_counts.append(exam_count)
+                    else:
+                        # 该考场在该科目没有学生（不计入room_counts）
+                        record[subject] = 0
+
+            # 计算该考场的最大人数
+            record['最大人数'] = max(room_counts) if room_counts else 0
 
             stats_records.append(record)
 
         # 创建DataFrame
         stats_df = pd.DataFrame(stats_records)
 
-        # 添加总计行
+        # 添加总计行（统计所有人数，包括自习）
         total_record = {'考场号': '总计', '考场': ''}
         for subject in subjects:
-            total_record[subject] = stats_df[subject].sum()
+            col_values = stats_df[subject]
+            total = 0
+            for v in col_values:
+                if isinstance(v, (int, float)):
+                    total += int(v)
+                elif isinstance(v, str):
+                    # 处理包含"（自习）"标记的字符串，如"30（自习）"或"20+10（自习）"
+                    import re
+                    # 提取所有数字并求和
+                    numbers = re.findall(r'\d+', v)
+                    for num in numbers:
+                        total += int(num)
+            total_record[subject] = total
+
+        # 计算总计行的最大人数（对最大人数列求和）
+        max_counts = stats_df['最大人数']
+        total_record['最大人数'] = sum(max_counts) if len(max_counts) > 0 else 0
 
         # 使用concat而不是append
         stats_df = pd.concat([stats_df, pd.DataFrame([total_record])], ignore_index=True)

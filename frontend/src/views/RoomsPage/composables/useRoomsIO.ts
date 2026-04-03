@@ -1,6 +1,7 @@
 import { ElMessage } from 'element-plus'
 import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
+import { ref } from 'vue'
 import type { Ref } from 'vue'
 import type { RoomsConfig } from './useRoomsState'
 
@@ -17,6 +18,8 @@ export function useRoomsIO(deps: {
   logError: (msg: string) => void
   logFromText: (msg: string) => void
 }) {
+  // Loading state for export
+  const isExporting = ref(false)
   // Template Generation
   const handleGenerateTemplate = async (type: string) => {
     await saveAndRun({
@@ -114,7 +117,12 @@ export function useRoomsIO(deps: {
         defaultPath: '考场编排结果.xlsx'
       },
       run: async (path) => {
-        return await pythonBackend.request<any>('rooms.export', { path })
+        isExporting.value = true
+        try {
+          return await pythonBackend.request<any>('rooms.export', { path })
+        } finally {
+          isExporting.value = false
+        }
       },
       successText: '导出成功',
       errorText: '导出失败',
@@ -127,6 +135,7 @@ export function useRoomsIO(deps: {
     handleImportSettings,
     handleImportStudents,
     handleImportResults,
-    handleExport
+    handleExport,
+    isExporting
   }
 }

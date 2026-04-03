@@ -15,6 +15,7 @@
       :can-arrange="canArrange"
       :students-count="students.length"
       :seats-per-room-info="seatsPerRoomInfo"
+      :is-exporting="isExporting"
       @generate-template="handleGenerateTemplate"
       @import-settings="handleImportSettings"
       @import-students="handleImportStudents"
@@ -167,7 +168,8 @@ const {
   handleImportSettings,
   handleImportStudents,
   handleImportResults,
-  handleExport
+  handleExport,
+  isExporting
 } = useRoomsIO({
   roomSettings,
   students,

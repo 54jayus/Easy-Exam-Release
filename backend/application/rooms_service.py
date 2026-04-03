@@ -536,25 +536,26 @@ class RoomsService:
                     '选科': str(row.get('选科', ''))
                 }
 
-                # 处理统考科目
-                for subject in ['语文', '数学', '物理历史', '英语']:
-                    room_no_col = f'{subject}考场号'
-                    room_col = f'{subject}考场'
-                    seat_col = f'{subject}座位号'
+                # 处理统考科目：使用任意一个统考科目的考场信息（它们应该相同）
+                # 优先使用语文的考场信息，因为所有学生都参加语文考试
+                unified_subject = '语文'
+                room_no_col = f'{unified_subject}考场号'
+                room_col = f'{unified_subject}考场'
+                seat_col = f'{unified_subject}座位号'
 
-                    if room_no_col in df.columns and seat_col in df.columns:
-                        record = base_info.copy()
-                        record['考场号'] = str(row.get(room_no_col, ''))
-                        record['考场'] = str(row.get(room_col, ''))
-                        record['座位号'] = str(row.get(seat_col, ''))
-                        record['科目'] = subject
-                        unified_records.append(record)
+                if room_no_col in df.columns and seat_col in df.columns:
+                    record = base_info.copy()
+                    record['考场号'] = str(row.get(room_no_col, ''))
+                    record['考场'] = str(row.get(room_col, ''))
+                    record['座位号'] = str(row.get(seat_col, ''))
+                    unified_records.append(record)
 
                 # 处理选考科目
                 for subject in ['化学', '地理', '政治', '生物']:
                     room_no_col = f'{subject}考场号'
                     room_col = f'{subject}考场'
                     seat_col = f'{subject}座位号'
+                    subject_type_col = f'{subject}科目'
 
                     if room_no_col in df.columns and seat_col in df.columns:
                         room_no = str(row.get(room_no_col, '')).strip()
@@ -566,7 +567,13 @@ class RoomsService:
                             record['考场号'] = room_no
                             record['考场'] = str(row.get(room_col, ''))
                             record['座位号'] = seat_no
-                            record['科目'] = subject
+
+                            # 从"科目"列获取科目类型（可能是科目名或"自习"）
+                            subject_type = str(row.get(subject_type_col, subject)).strip()
+                            if not subject_type or subject_type == 'nan':
+                                subject_type = subject
+                            record['科目类型'] = subject_type
+
                             elective_records[subject].append(record)
 
             # 转换为DataFrame

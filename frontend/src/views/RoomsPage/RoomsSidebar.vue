@@ -212,9 +212,10 @@
             size="default"
             class="!w-full !h-10 !rounded-lg border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200"
             :disabled="!hasResults"
+            :loading="isExporting"
             @click="$emit('export')"
           >
-            <el-icon class="mr-1.5"><Download /></el-icon> 导出Excel
+            <el-icon v-if="!isExporting" class="mr-1.5"><Download /></el-icon> 导出Excel
           </el-button>
         </div>
       </section>
@@ -234,6 +235,7 @@ interface Props {
   hasResults: boolean
   canArrange: boolean
   studentsCount: number
+  isExporting?: boolean
   seatsPerRoomInfo: {
     isUniform: boolean
     value: number
