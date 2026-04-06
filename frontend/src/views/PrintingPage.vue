@@ -137,7 +137,7 @@
                          <template v-else>
                             <el-icon class="text-emerald-500"><DocumentChecked /></el-icon>
                             <span class="text-xs font-bold text-slate-700 truncate flex-1">{{ dataFileName }}</span>
-                            <el-icon class="text-slate-400 hover:text-rose-500 p-1" @click.stop="dataPath = ''"><Close /></el-icon>
+                            <el-icon class="text-slate-400 hover:text-rose-500 p-1" @click.stop="clearSelectedFile"><Close /></el-icon>
                          </template>
                       </div>
                       <div class="flex justify-between items-center px-0.5">
@@ -911,11 +911,13 @@ import {
   Refresh, Reading, Timer, InfoFilled, Notebook, Back, Right
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { usePageSessionState } from '@/composables/usePageSessionState'
 import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
 
 // --- State ---
-const getStored = (key: string, def: string) => sessionStorage.getItem(`printing_pref_${key}`) || def
+const storage = usePageSessionState('printing')
+const getStored = (key: string, def: string) => storage.getPref(key, def)
 
 const sidebarCollapsed = ref(getStored('sidebarCollapsed', 'false') === 'true')
 const activeTab = ref(getStored('activeTab', 'corner'))
@@ -1032,8 +1034,8 @@ function handlePreviewMouseDown(e: MouseEvent) {
 }
 
 // Persistence Watchers
-watch(sidebarCollapsed, (val) => sessionStorage.setItem('printing_pref_sidebarCollapsed', String(val)))
-watch(activeTab, (val) => sessionStorage.setItem('printing_pref_activeTab', val))
+watch(sidebarCollapsed, (val) => storage.setPref('sidebarCollapsed', String(val)))
+watch(activeTab, (val) => storage.setPref('activeTab', val))
 
 let _saveConfigTimer: ReturnType<typeof setTimeout> | null = null
 function _scheduleSaveConfig() {
@@ -1129,19 +1131,13 @@ watch(commonConfig, _scheduleSaveConfig, { deep: true })
 watch(totalCount, _scheduleSaveConfig)
 watch(sourceType, _scheduleSaveConfig)
 
-const studentInfoTitles = reactive<{ class: string; examroom: string }>({ class: '', examroom: '' })
-onMounted(() => {
-   const raw = sessionStorage.getItem('printing_pref_studentInfoTitles_v1')
-   if (raw) {
-      try {
-         const parsed = JSON.parse(raw)
-         studentInfoTitles.class = String(parsed?.class ?? '')
-         studentInfoTitles.examroom = String(parsed?.examroom ?? '')
-      } catch {}
-   }
-   if (!studentInfoTitles.class) studentInfoTitles.class = config.table.title
-   if (!studentInfoTitles.examroom) studentInfoTitles.examroom = config.table.title
+const storedStudentInfoTitles = storage.getJsonPref<{ class?: string; examroom?: string }>('studentInfoTitles_v1', {})
+const studentInfoTitles = reactive<{ class: string; examroom: string }>({
+   class: String(storedStudentInfoTitles.class ?? ''),
+   examroom: String(storedStudentInfoTitles.examroom ?? ''),
 })
+if (!studentInfoTitles.class) studentInfoTitles.class = config.table.title
+if (!studentInfoTitles.examroom) studentInfoTitles.examroom = config.table.title
 
 watch(() => config.table.groupMode, (mode) => {
    const m = mode === 'examroom' ? 'examroom' : 'class'
@@ -1154,7 +1150,7 @@ watch(() => config.table.groupMode, (mode) => {
 watch(() => config.table.title, (val) => {
    const m = config.table.groupMode === 'examroom' ? 'examroom' : 'class'
    studentInfoTitles[m] = String(val ?? '')
-   sessionStorage.setItem('printing_pref_studentInfoTitles_v1', JSON.stringify({ ...studentInfoTitles }))
+   storage.setJsonPref('studentInfoTitles_v1', { ...studentInfoTitles })
 })
 
 type SubjectRow = { name: string; time: string }
@@ -1176,19 +1172,13 @@ const subjectPreviewWithTime = computed(() => {
 })
 
 function _loadStoredSubjectRows(): SubjectRow[] | null {
-   try {
-      const raw = sessionStorage.getItem('printing_pref_subjectRows_v1')
-      if (!raw) return null
-      const parsed = JSON.parse(raw)
-      if (!Array.isArray(parsed)) return null
-      return parsed.map((r: any) => ({ name: String(r?.name ?? ''), time: String(r?.time ?? '') }))
-   } catch {
-      return null
-   }
+   const parsed = storage.getJsonPref<unknown>('subjectRows_v1', null)
+   if (!Array.isArray(parsed)) return null
+   return parsed.map((r: any) => ({ name: String(r?.name ?? ''), time: String(r?.time ?? '') }))
 }
 
 function _persistSubjectRows(rows: SubjectRow[]) {
-   sessionStorage.setItem('printing_pref_subjectRows_v1', JSON.stringify(rows))
+   storage.setJsonPref('subjectRows_v1', rows)
 }
 
 function _ensureSubjectRowsLen(rows: SubjectRow[], count: number): SubjectRow[] {
@@ -1348,11 +1338,14 @@ onMounted(async () => {
          }
 
          // Update filePreviewCache as well
-         filePreviewCache.dataPath = state.dataPath
-         filePreviewCache.headers = state.headers || []
-         filePreviewCache.mapping = state.mapping || {}
-         filePreviewCache.data = state.data || []
-         filePreviewCache.total = state.total || 0
+         Object.assign(filePreviewCache, {
+            dataPath: state.dataPath,
+            headers: state.headers || [],
+            mapping: state.mapping || {},
+            data: state.data || [],
+            total: state.total || 0,
+         })
+         storage.setJsonCache('filePreview_v1', { ...filePreviewCache })
       } else if (state && state.sourceType === 'schedule') {
          sourceType.value = 'schedule'
       }
@@ -1387,7 +1380,7 @@ onMounted(async () => {
       }
 
       // Re-sync studentInfoTitles from restored config.table.title if sessionStorage had no saved value
-      if (!sessionStorage.getItem('printing_pref_studentInfoTitles_v1')) {
+      if (!storage.hasPref('studentInfoTitles_v1')) {
          studentInfoTitles.class = config.table.title
          studentInfoTitles.examroom = config.table.title
       }
@@ -1467,7 +1460,7 @@ type FilePreviewCache = {
    total: number
 }
 
-const filePreviewCache = reactive<FilePreviewCache>({
+const emptyFilePreviewCache = (): FilePreviewCache => ({
    dataPath: '',
    headers: [],
    mapping: {},
@@ -1475,7 +1468,9 @@ const filePreviewCache = reactive<FilePreviewCache>({
    total: 0,
 })
 
-const schedulePreviewCache = reactive<{ data: any[]; total: number }>({ data: [], total: 0 })
+const filePreviewCache = reactive<FilePreviewCache>(
+   storage.getJsonCache<FilePreviewCache>('filePreview_v1', emptyFilePreviewCache())
+)
 
 function _snapshotMapping(): Record<string, string> {
    const snap: Record<string, string> = {}
@@ -1499,11 +1494,18 @@ function _cacheCurrentFileState() {
    filePreviewCache.mapping = _snapshotMapping()
    filePreviewCache.data = previewData.value.slice()
    filePreviewCache.total = previewTotal.value
+   storage.setJsonCache('filePreview_v1', { ...filePreviewCache })
 }
 
-function _cacheCurrentScheduleState() {
-   schedulePreviewCache.data = previewData.value.slice()
-   schedulePreviewCache.total = previewTotal.value
+function clearSelectedFile() {
+   dataPath.value = ''
+   headers.value = []
+   previewData.value = []
+   previewTotal.value = 0
+   showMappingDialog.value = false
+   for (const k of Object.keys(mapping)) delete (mapping as any)[k]
+   Object.assign(filePreviewCache, emptyFilePreviewCache())
+   storage.removeCache('filePreview_v1')
 }
 
 const handleResetPage = async () => {
@@ -1539,13 +1541,8 @@ const handleResetPage = async () => {
    previewTotal.value = 0
 
    for (const k of Object.keys(mapping)) delete (mapping as any)[k]
-   filePreviewCache.dataPath = ''
-   filePreviewCache.headers = []
-   filePreviewCache.mapping = {}
-   filePreviewCache.data = []
-   filePreviewCache.total = 0
-   schedulePreviewCache.data = []
-   schedulePreviewCache.total = 0
+   Object.assign(filePreviewCache, emptyFilePreviewCache())
+   storage.removeCache('filePreview_v1')
 
    commonConfig.exportXlsx = false
    commonConfig.exportPdf = true
@@ -1574,10 +1571,7 @@ const handleResetPage = async () => {
    _measurePreviewBaseSize()
    _updatePreviewScale()
 
-   sessionStorage.removeItem('printing_pref_sidebarCollapsed')
-   sessionStorage.removeItem('printing_pref_activeTab')
-   sessionStorage.removeItem('printing_pref_subjectRows_v1')
-   sessionStorage.removeItem('printing_pref_studentInfoTitles_v1')
+   storage.clearPrefs(['sidebarCollapsed', 'activeTab', 'subjectRows_v1', 'studentInfoTitles_v1'])
 }
 
 // --- Computed ---
@@ -2720,13 +2714,10 @@ const handleLoadFromSchedule = async () => {
         if (res.data) {
             previewData.value = res.data
             previewTotal.value = res.total
-            _cacheCurrentScheduleState()
             ElMessage.success(`成功加载 ${res.total} 条考场编排数据`)
         } else if (res.error) {
             previewData.value = []
             previewTotal.value = 0
-            schedulePreviewCache.data = []
-            schedulePreviewCache.total = 0
             const msg = String(res.error || '')
             if (msg.includes('暂无考场编排数据')) {
                ElMessage.warning(msg)
@@ -2737,8 +2728,6 @@ const handleLoadFromSchedule = async () => {
     } catch (e) {
         previewData.value = []
         previewTotal.value = 0
-        schedulePreviewCache.data = []
-        schedulePreviewCache.total = 0
         ElMessage.error('加载考场数据失败: ' + e)
     } finally {
         loadingSchedule.value = false
@@ -2911,7 +2900,6 @@ const handleGenerate = async () => {
 // Auto load schedule if mode selected
 watch(sourceType, (val, oldVal) => {
    if (oldVal === 'file') _cacheCurrentFileState()
-   if (oldVal === 'schedule') _cacheCurrentScheduleState()
 
    if (val === 'schedule') {
       previewData.value = []

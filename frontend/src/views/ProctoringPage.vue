@@ -700,13 +700,15 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { Document, Upload, Download, FolderOpened, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, ArrowDown, Fold, Expand, Setting, Check } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { usePageSessionState } from '@/composables/usePageSessionState'
 import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
 import dayjs from 'dayjs'
 
 // --- State ---
 // Persistence Helper
-const getStored = (key: string, def: string) => sessionStorage.getItem(`proctoring_pref_${key}`) || def
+const storage = usePageSessionState('proctoring')
+const getStored = (key: string, def: string) => storage.getPref(key, def)
 
 const sidebarCollapsed = ref(getStored('sidebarCollapsed', 'false') === 'true')
 const activeTab = ref(getStored('activeTab', 'overview'))
@@ -726,8 +728,8 @@ const schedulingStepText = ref('')
 const isScheduling = ref(false)
 
 // Persistence Watchers
-watch(sidebarCollapsed, (val) => sessionStorage.setItem('proctoring_pref_sidebarCollapsed', String(val)))
-watch(activeTab, (val) => sessionStorage.setItem('proctoring_pref_activeTab', val))
+watch(sidebarCollapsed, (val) => storage.setPref('sidebarCollapsed', String(val)))
+watch(activeTab, (val) => storage.setPref('activeTab', val))
 
 // Configuration matches Python structure
 const config = reactive({
@@ -1099,8 +1101,7 @@ const handleResetPage = async () => {
       // though it might reappear on reload.
    }
 
-   sessionStorage.removeItem('proctoring_pref_sidebarCollapsed')
-   sessionStorage.removeItem('proctoring_pref_activeTab')
+   storage.clearPrefs(['sidebarCollapsed', 'activeTab'])
 
    subjects.value = []
    teachers.value = []

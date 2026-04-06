@@ -111,9 +111,21 @@
 
       <!-- Scrollable Content -->
       <div class="flex-1 overflow-y-auto custom-scrollbar pt-6 px-6 md:pt-8 md:px-8">
-        <router-view v-slot="{ Component }">
+        <router-view v-slot="{ Component, route: currentRoute }">
+          <keep-alive :include="keepAliveInclude">
+            <component
+              :is="Component"
+              v-if="currentRoute.meta.keepAlive"
+              :key="String(currentRoute.name || currentRoute.path)"
+            />
+          </keep-alive>
+
           <transition name="fade-slide" mode="out-in">
-            <component :is="Component" />
+            <component
+              :is="Component"
+              v-if="!currentRoute.meta.keepAlive"
+              :key="currentRoute.fullPath"
+            />
           </transition>
         </router-view>
       </div>
@@ -333,6 +345,8 @@ const pageTitle = computed(() => {
 const showWizard = computed(() => {
   return workflowSteps.some(s => route.path.startsWith(s.path))
 })
+
+const keepAliveInclude = ['PrintingPage']
 
 function isNavItemDisabled(path: string) {
   if (!licenseStore.valid && path !== "/registration") {

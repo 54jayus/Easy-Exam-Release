@@ -138,7 +138,8 @@ const gaokaoTimeSettings = ref<GaokaoTimeSettings>(JSON.parse(JSON.stringify(GAO
 
 const {
   initializeFromStorage,
-  setupWatchers
+  setupWatchers,
+  clearAllStorage
 } = useRoomsPersistence()
 
 const {
@@ -235,10 +236,7 @@ const handleResetPage = async () => {
   clearLogs()
   showLogs.value = false
 
-  // Clear storage
-  sessionStorage.removeItem('rooms_cache_resultsPath')
-  sessionStorage.removeItem('rooms_pref_sidebarCollapsed')
-  sessionStorage.removeItem('rooms_pref_activeTab')
+  clearAllStorage()
 
   logInfo('已初始化考场编排页面')
   ElMessage.success('页面已初始化')

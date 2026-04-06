@@ -12,13 +12,13 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: "/", redirect: "/dashboard" },
-    { path: "/dashboard", component: DashboardPage },
-    { path: "/registration", component: RegistrationPage },
-    { path: "/subjects", component: SubjectsPage },
-    { path: "/proctoring", component: ProctoringPage },
-    { path: "/rooms", component: RoomsPage },
-    { path: "/printing", component: PrintingPage },
-    { path: "/help", component: HelpPage },
+    { path: "/dashboard", name: "dashboard", component: DashboardPage },
+    { path: "/registration", name: "registration", component: RegistrationPage },
+    { path: "/subjects", name: "subjects", component: SubjectsPage },
+    { path: "/proctoring", name: "proctoring", component: ProctoringPage },
+    { path: "/rooms", name: "rooms", component: RoomsPage },
+    { path: "/printing", name: "printing", component: PrintingPage, meta: { keepAlive: true } },
+    { path: "/help", name: "help", component: HelpPage },
   ],
 })
 

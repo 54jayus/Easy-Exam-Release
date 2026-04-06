@@ -402,6 +402,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { usePageSessionState } from '@/composables/usePageSessionState'
 import { 
   Download, Share, FolderOpened, Plus, Warning, WarningFilled,
   Calendar, Clock, Edit, Delete, Timer, Notebook, CollectionTag,
@@ -422,7 +423,8 @@ interface Subject {
 
 // State
 const sidebarCollapsed = ref(false)
-const getStored = (key: string, def: string) => sessionStorage.getItem(`subjects_pref_${key}`) || def
+const storage = usePageSessionState('subjects')
+const getStored = (key: string, def: string) => storage.getPref(key, def)
 
 const subjects = ref<Subject[]>([])
 const importedFromFile = ref(false)
@@ -436,7 +438,7 @@ const loading = ref(false)
 const logger = createLogger('subjects')
 
 // Persistence Watchers
-watch(viewMode, (val) => sessionStorage.setItem('subjects_pref_viewMode', val))
+watch(viewMode, (val) => storage.setPref('viewMode', val))
 
 // Dialog State
 const dialogVisible = ref(false)
@@ -669,7 +671,7 @@ const handleResetPage = async () => {
     return
   }
 
-  sessionStorage.removeItem('subjects_pref_viewMode')
+  storage.removePref('viewMode')
 
   subjects.value = []
   validationErrors.value = []

@@ -1,29 +1,32 @@
 import { watch, type Ref } from 'vue'
+import { usePageSessionState } from '@/composables/usePageSessionState'
 
 export function useRoomsPersistence() {
+  const storage = usePageSessionState('rooms')
+
   // Generic storage helpers
   const getStored = (key: string, def: string) => {
-    return sessionStorage.getItem(`rooms_pref_${key}`) || def
+    return storage.getPref(key, def)
   }
 
   const getCache = (key: string, def: string) => {
-    return sessionStorage.getItem(`rooms_cache_${key}`) || def
+    return storage.getCache(key, def)
   }
 
   const setStored = (key: string, value: string) => {
-    sessionStorage.setItem(`rooms_pref_${key}`, value)
+    storage.setPref(key, value)
   }
 
   const setCache = (key: string, value: string) => {
-    sessionStorage.setItem(`rooms_cache_${key}`, value)
+    storage.setCache(key, value)
   }
 
   const removeStored = (key: string) => {
-    sessionStorage.removeItem(`rooms_pref_${key}`)
+    storage.removePref(key)
   }
 
   const removeCache = (key: string) => {
-    sessionStorage.removeItem(`rooms_cache_${key}`)
+    storage.removeCache(key)
   }
 
   // Initialize state from storage
