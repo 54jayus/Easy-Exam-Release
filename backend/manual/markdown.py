@@ -51,6 +51,7 @@ def build_sections(markdown_text: str) -> list[dict[str, Any]]:
 
 def _md_inline_to_html(text: str) -> str:
     t = html.escape(text or "")
+    t = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r"<span>\1</span>", t)
     t = re.sub(
         r"`([^`]+)`",
         lambda m: f"<code style='background:#F3F4F6; padding:1px 4px; border-radius:4px;'>{m.group(1)}</code>",
@@ -58,7 +59,6 @@ def _md_inline_to_html(text: str) -> str:
     )
     t = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", t)
     t = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"<a href='\2'>\1</a>", t)
-    t = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r"<span>\1</span>", t)
     return t
 
 
@@ -75,6 +75,7 @@ def markdown_to_html(markdown_text: str, *, sections: list[dict[str, Any]] | Non
     in_ol = False
     in_table = False
     table_lines: list[str] = []
+    heading_occurrences: dict[tuple[int, str], int] = {}
 
     def close_lists() -> None:
         nonlocal in_ul, in_ol
@@ -156,11 +157,11 @@ def markdown_to_html(markdown_text: str, *, sections: list[dict[str, Any]] | Non
             close_lists()
             level = len(m.group(1))
             title = m.group(2).strip()
-            anchor = slugify(title)
-            for s in sections:
-                if s["title"] == title and s["level"] == level:
-                    anchor = s["anchor"]
-                    break
+            key = (level, title)
+            occurrence = heading_occurrences.get(key, 0)
+            heading_occurrences[key] = occurrence + 1
+            matches = [s for s in sections if s["title"] == title and s["level"] == level]
+            anchor = matches[occurrence]["anchor"] if occurrence < len(matches) else slugify(title)
             size = {1: 20, 2: 16, 3: 14, 4: 13, 5: 12, 6: 12}.get(level, 13)
             html_lines.append(f"<a name='{html.escape(anchor)}'></a>")
             html_lines.append(

@@ -20,7 +20,7 @@ def check_desk_data_sort(data_list):
             if room < last_room:
                 return False, f"第 {i+1} 行考场号乱序 ({room} < {last_room})"
         elif str(room) < str(last_room):
-            pass
+            return False, f"第 {i+1} 行考场号乱序 ({room} < {last_room})"
 
         if room == last_room:
             if isinstance(seat, int) and isinstance(last_seat, int):

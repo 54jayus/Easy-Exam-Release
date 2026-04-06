@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
+from backend.domain.models import PrintingConfig
 from backend.repository.interfaces import IStateRepository
 
 if TYPE_CHECKING:
@@ -39,5 +40,16 @@ class InMemoryStateRepository(IStateRepository):
                 state.rooms.student_path = rooms_data.get("student_path", "")
                 state.rooms.config = rooms_data.get("config", {})
                 state.rooms.results = rooms_data.get("results", [])
+                state.rooms.gaokao_results = rooms_data.get("gaokao_results", None)
             if "printing" in self._data:
-                state.printing = self._data["printing"]
+                printing_data = self._data["printing"] or {}
+                state.printing = PrintingConfig(
+                    source_type=printing_data.get("source_type", "empty"),
+                    data_path=printing_data.get("data_path", ""),
+                    headers=printing_data.get("headers", []),
+                    mapping=printing_data.get("mapping", {}),
+                    data=printing_data.get("data", []),
+                    total=printing_data.get("total", 0),
+                    config=printing_data.get("config", {}),
+                    common_config=printing_data.get("common_config", {}),
+                )
