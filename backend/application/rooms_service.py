@@ -139,9 +139,9 @@ class RoomsService:
 
     def set_gaokao_time_settings(self, params: dict) -> Any:
         """保存高考模式时间设置"""
-        settings = params.get("settings")
-        if not settings:
+        if "settings" not in params:
             return {"error": "缺少 settings 参数"}
+        settings = params.get("settings")
 
         # 验证数据结构
         if not isinstance(settings, dict):

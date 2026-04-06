@@ -1,0 +1,83 @@
+from __future__ import annotations
+
+from backend.application.subjects_service import SubjectsService
+from backend.domain.state import AppState
+from backend.subjects.core import Subject, SubjectImportResult
+
+
+def test_subjects_list_rebuilds_sequential_ids(recording_repo) -> None:
+    state = AppState()
+    state.subjects = [
+        {"name": "语文", "exam_date": "2026-06-07", "exam_time": "09:00-11:30"},
+        {"name": "数学", "exam_date": "2026-06-07", "exam_time": "15:00-17:00"},
+    ]
+    service = SubjectsService(state, recording_repo)
+
+    result = service.list({})
+
+    assert result == {
+        "subjects": [
+            {"id": "1", "name": "语文", "exam_date": "2026-06-07", "exam_time": "09:00-11:30"},
+            {"id": "2", "name": "数学", "exam_date": "2026-06-07", "exam_time": "15:00-17:00"},
+        ]
+    }
+
+
+def test_subjects_update_resets_proctoring_schedule_when_present(recording_repo) -> None:
+    state = AppState()
+    state.proctoring.schedule = {"items": [1]}
+    service = SubjectsService(state, recording_repo)
+
+    result = service.update(
+        {
+            "subjects": [
+                {"name": "英语", "exam_date": "2026-06-08", "exam_time": "09:00-11:00"}
+            ]
+        }
+    )
+
+    assert state.subjects == [{"name": "英语", "exam_date": "2026-06-08", "exam_time": "09:00-11:00"}]
+    assert state.proctoring.schedule is None
+    assert result == {"proctoringReset": True}
+    assert recording_repo.save_calls == 1
+
+
+def test_subjects_validate_uses_domain_rules(recording_repo) -> None:
+    service = SubjectsService(AppState(), recording_repo)
+
+    result = service.validate(
+        {
+            "subjects": [
+                {"name": "语文", "exam_date": "2026-06-07", "exam_time": "09:00-11:30"},
+                {"name": "数学", "exam_date": "2026-06-07", "exam_time": "10:00-12:00"},
+            ]
+        }
+    )
+
+    assert len(result["errors"]) == 1
+    assert "考试时间冲突" in result["errors"][0]
+
+
+def test_subjects_import_from_excel_updates_state(monkeypatch, recording_repo) -> None:
+    state = AppState()
+    state.proctoring.schedule = {"items": [1]}
+    service = SubjectsService(state, recording_repo)
+
+    monkeypatch.setattr(
+        "backend.application.subjects_service.import_subjects_from_excel",
+        lambda path: SubjectImportResult(
+            subjects=[
+                Subject(name="语文", exam_date="2026-06-07", exam_time="09:00-11:30", duration_minutes=150),
+                Subject(name="数学", exam_date="2026-06-07", exam_time="15:00-17:00", duration_minutes=120),
+            ],
+            errors=[],
+        ),
+    )
+
+    result = service.import_from_excel({"path": "subjects.xlsx"})
+
+    assert result["errors"] == []
+    assert result["proctoringReset"] is True
+    assert [item["id"] for item in result["subjects"]] == ["1", "2"]
+    assert state.subjects[0]["name"] == "语文"
+    assert recording_repo.save_calls == 1

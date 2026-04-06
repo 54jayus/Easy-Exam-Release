@@ -4,6 +4,7 @@ import os
 import sys
 from typing import Any
 
+from backend.domain.models import PrintingConfig
 from backend.domain.state import AppState
 from backend.repository.interfaces import IStateRepository
 
@@ -18,10 +19,7 @@ class SystemService:
         self._state.subjects = []
         self._state.proctoring = ProctoringState()
         self._state.rooms = RoomsState()
-        self._state.printing = {
-            "sourceType": "empty", "dataPath": "", "headers": [],
-            "mapping": {}, "data": [], "total": 0,
-        }
+        self._state.printing = PrintingConfig()
         self._state.exam_arrangement = None
         self._repo.delete()
         return {"success": True}

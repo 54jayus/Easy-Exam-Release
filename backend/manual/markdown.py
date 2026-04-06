@@ -8,6 +8,7 @@ from typing import Any
 def slugify(text: str) -> str:
     safe = re.sub(r"\s+", "-", (text or "").strip())
     safe = re.sub(r"[^\w\u4e00-\u9fff\-]+", "", safe)
+    safe = re.sub(r"-{2,}", "-", safe).strip("-")
     return safe[:60] or "section"
 
 

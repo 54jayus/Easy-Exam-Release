@@ -555,11 +555,6 @@ def load_examroom_data_for_exam_bag(exam_arrangement):
     if unified_df is None or unified_df.empty:
         return []
 
-    # 获取实际使用的考场列表
-    used_rooms = unified_df['考场号'].unique()
-    all_room_list = exam_arrangement._get_room_list()
-    room_list = [room for room in all_room_list if room in used_rooms]
-
     # 获取科目列表（将"物理历史"拆分为"物理"和"历史"）
     raw_subjects = exam_arrangement._get_subject_order()
     subjects = []
@@ -568,6 +563,24 @@ def load_examroom_data_for_exam_bag(exam_arrangement):
             subjects.extend(['物理', '历史'])
         else:
             subjects.append(s)
+
+    # 获取实际使用的考场列表
+    used_rooms = {str(room) for room in unified_df['考场号'].dropna().astype(str).tolist() if str(room).strip()}
+    if electives_dict:
+        for subject, elective_df in electives_dict.items():
+            if elective_df is None or elective_df.empty or subject not in subjects:
+                continue
+            exam_rows = elective_df[elective_df['科目类型'] == subject]
+            used_rooms.update(
+                str(room)
+                for room in exam_rows['考场号'].dropna().astype(str).tolist()
+                if str(room).strip()
+            )
+
+    all_room_list = [str(room) for room in exam_arrangement._get_room_list()]
+    room_list = [room for room in all_room_list if room in used_rooms]
+    extra_rooms = sorted((room for room in used_rooms if room not in room_list), key=safe_int_sort_key)
+    room_list.extend(extra_rooms)
 
     # 构建结果列表
     result = []
