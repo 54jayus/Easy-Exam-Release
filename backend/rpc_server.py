@@ -9,13 +9,11 @@ from typing import Any, Callable
 from backend.domain.errors import DomainError, ErrorCode
 from backend.domain.state import AppState
 from backend.repository.state_repository import StateRepository
-from backend.assistant import AssistantEngine
 from backend.licensing import LicenseManager
 from backend.rpc.dispatcher import RpcDispatcher
 from backend.application import (
     SubjectsService,
     LicensingService,
-    AssistantService,
     ProctoringService,
     RoomsService,
     PrintingService,
@@ -60,7 +58,6 @@ def build_dispatcher() -> RpcDispatcher:
     # 创建 Services
     subjects_svc = SubjectsService(state, repo)
     licensing_svc = LicensingService(LicenseManager())
-    assistant_svc = AssistantService(AssistantEngine())
     proctoring_svc = ProctoringService(state, repo)
     rooms_svc = RoomsService(state, repo)
     printing_svc = PrintingService(state, repo)
@@ -78,11 +75,6 @@ def build_dispatcher() -> RpcDispatcher:
     dispatcher.register("licensing.machineCode", licensing_svc.machine_code)
     dispatcher.register("licensing.verify", licensing_svc.verify)
     dispatcher.register("licensing.register", licensing_svc.register)
-
-    # Assistant
-    dispatcher.register("assistant.generateReply", assistant_svc.generate_reply)
-    dispatcher.register("assistant.checkConfig", assistant_svc.check_config)
-    dispatcher.register("assistant.configure", assistant_svc.configure)
 
     # Dashboard
     dispatcher.register("dashboard.getStats", dashboard_svc.get_stats)

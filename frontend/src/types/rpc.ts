@@ -24,20 +24,6 @@ export type RpcMethods = {
     result: { success: boolean; message: string }
   }
 
-  // Assistant
-  "assistant.generateReply": {
-    params: { message?: string; userText?: string; history?: any[]; uiContextText?: string; attachments?: any[]; context?: any }
-    result: { reply: string }
-  }
-  "assistant.checkConfig": {
-    params: {}
-    result: { configured: boolean }
-  }
-  "assistant.configure": {
-    params: { apiKey: string }
-    result: { success: boolean; error?: string }
-  }
-
   // Dashboard
   "dashboard.getStats": {
     params: {}

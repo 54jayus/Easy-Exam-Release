@@ -126,7 +126,6 @@ process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
 let win: BrowserWindow | null
-let assistantWin: BrowserWindow | null = null
 
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
@@ -157,10 +156,6 @@ function createWindow() {
 
   win.on('closed', () => {
     win = null
-    // Close assistant window when main window closes
-    if (assistantWin) {
-      assistantWin.close()
-    }
   })
 
   // Enable right-click context menu
@@ -306,7 +301,6 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
 
     const sendToAll = (channel: string, data: any) => {
       if (win && !win.isDestroyed()) win.webContents.send(channel, data)
-      if (assistantWin && !assistantWin.isDestroyed()) assistantWin.webContents.send(channel, data)
     }
 
     cmd.stdout?.on('data', (data) => {
@@ -389,136 +383,6 @@ ipcMain.on('renderer-log', (_event, entry: any) => {
   const message = typeof entry?.message === 'string' ? entry.message : safeJson(entry?.message)
   log(level, scope, message, entry?.data)
 })
-
-  // --- Assistant Window Management ---
-  
-  ipcMain.handle('assistant:open', () => {
-    log('info', 'assistant', '收到打开助手窗口请求')
-    try {
-      if (assistantWin && !assistantWin.isDestroyed()) {
-        log('info', 'assistant', '助手窗口已存在，切换到前台')
-        if (assistantWin.isMinimized()) {
-          assistantWin.restore()
-        }
-        assistantWin.show()
-        assistantWin.focus()
-        return
-      }
-
-      log('info', 'assistant', '创建助手窗口')
-      assistantWin = new BrowserWindow({
-        width: 380,
-        height: 600,
-        minWidth: 320,
-        minHeight: 450,
-        frame: false,
-        transparent: true,
-        alwaysOnTop: false, // Default to false as per user request
-        resizable: true,
-        hasShadow: true,
-        skipTaskbar: false,
-        focusable: true,
-        webPreferences: {
-          preload: path.join(__dirname, 'preload.mjs'),
-          nodeIntegration: false,
-          contextIsolation: true,
-          webSecurity: false,
-        },
-      })
-
-      const loadUrl = VITE_DEV_SERVER_URL 
-        ? `${VITE_DEV_SERVER_URL}#/assistant?window=assistant`
-        : path.join(process.env.DIST, 'index.html')
-
-      log('info', 'assistant', '加载助手窗口页面', { url: loadUrl })
-
-      if (VITE_DEV_SERVER_URL) {
-        assistantWin.loadURL(loadUrl)
-      } else {
-        assistantWin.loadFile(loadUrl, { hash: 'assistant?window=assistant' })
-      }
-
-      // Explicitly show window
-      assistantWin.once('ready-to-show', () => {
-        log('info', 'assistant', '助手窗口已就绪')
-        assistantWin?.show()
-      })
-
-      // Ensure window comes to front when focused
-      assistantWin.on('focus', () => {
-        assistantWin?.moveTop()
-      })
-
-      // Fallback force show
-      setTimeout(() => {
-        if (assistantWin && !assistantWin.isDestroyed() && !assistantWin.isVisible()) {
-          log('warn', 'assistant', '助手窗口未显示，尝试强制显示')
-          assistantWin.show()
-        }
-      }, 500)
-
-      assistantWin.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-        log('error', 'assistant', '助手窗口加载失败', { errorCode, errorDescription })
-      })
-
-      assistantWin.on('closed', () => {
-        assistantWin = null
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('assistant:closed')
-        }
-      })
-    } catch (error) {
-      log('error', 'assistant', '打开助手窗口时发生异常', { error: error instanceof Error ? error.message : String(error) })
-      throw error
-    }
-  })
-
-  ipcMain.handle('assistant:close', () => {
-    if (assistantWin && !assistantWin.isDestroyed()) {
-      assistantWin.close()
-    }
-  })
-
-  ipcMain.handle('assistant:move', (_, { x, y }) => {
-    if (assistantWin && !assistantWin.isDestroyed()) {
-      const [currentX, currentY] = assistantWin.getPosition()
-      assistantWin.setPosition(currentX + x, currentY + y)
-    }
-  })
-
-  ipcMain.handle('assistant:minimize', () => {
-    if (assistantWin && !assistantWin.isDestroyed()) {
-      assistantWin.minimize()
-      // Notify main window to reset toggle button state
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('assistant:closed')
-      }
-    }
-  })
-
-  ipcMain.handle('assistant:resize', (_, { width, height }) => {
-    if (assistantWin && !assistantWin.isDestroyed()) {
-      assistantWin.setSize(Math.round(width), Math.round(height))
-    }
-  })
-
-  ipcMain.handle('assistant:set-always-on-top', (_, flag: boolean) => {
-    if (assistantWin && !assistantWin.isDestroyed()) {
-      assistantWin.setAlwaysOnTop(flag, 'screen-saver') // Higher level to ensure it stays on top
-      log('info', 'assistant', '设置助手窗口置顶', { alwaysOnTop: flag })
-    }
-  })
-
-  // --- Context Sharing ---
-  let cachedUiContext = "主窗口未连接"
-
-  ipcMain.on('update-ui-context', (_, context) => {
-    cachedUiContext = context
-  })
-
-  ipcMain.handle('get-ui-context', () => {
-    return cachedUiContext
-  })
 
   ipcMain.handle('dialog:open', async (_, options) => {
     try {

@@ -106,7 +106,6 @@ Electron 主进程代码位于 `frontend/electron/main.ts`。
 - `LicensingService`
 - `SystemService`
 - `DashboardService`
-- `AssistantService`
 
 ### 5.2 domain
 
@@ -149,7 +148,6 @@ Electron 主进程代码位于 `frontend/electron/main.ts`。
 
 - `system.*`
 - `licensing.*`
-- `assistant.*`
 - `dashboard.*`
 - `subjects.*`
 - `proctoring.*`

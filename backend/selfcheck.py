@@ -8,7 +8,6 @@ import tempfile
 def main() -> int:
     import backend  # noqa: F401
 
-    from backend.assistant import AssistantEngine  # noqa: F401
     from backend.licensing import LicenseManager  # noqa: F401
     from backend.manual import export_manual_pdf, load_manual_markdown  # noqa: F401
     from backend.proctoring import (  # noqa: F401

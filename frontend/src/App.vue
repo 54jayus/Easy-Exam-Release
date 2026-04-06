@@ -1,8 +1,5 @@
 <template>
-  <div v-if="isStandaloneAssistant" class="h-screen w-screen bg-transparent flex flex-col overflow-hidden">
-    <router-view />
-  </div>
-  <div v-else class="flex h-screen w-full bg-surface-50 overflow-hidden font-sans text-slate-900">
+  <div class="flex h-screen w-full bg-surface-50 overflow-hidden font-sans text-slate-900">
     <!-- Immersive Sidebar -->
     <aside class="w-64 flex-shrink-0 bg-primary-900 flex flex-col transition-[width,transform] duration-300 relative z-20 shadow-2xl">
       <!-- Brand -->
@@ -122,9 +119,6 @@
       </div>
     </main>
 
-    <!-- Global AI Assistant -->
-    <!-- <AiAssistant v-if="!isStandaloneAssistant" /> -->
-    
     <!-- User Settings Dialog -->
     <el-dialog
       v-model="showSettings"
@@ -218,9 +212,8 @@
 import { computed, watch, ref, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLicenseStore } from "./stores/license"
-import AiAssistant from "@/components/AiAssistant.vue"
 import { 
-  Monitor, Notebook, User, School, Printer, 
+  Notebook, User, School, Printer, 
   QuestionFilled, Setting, DataBoard, Key, Check, Clock
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -314,42 +307,6 @@ watch(developerMode, (val) => {
 watch(showOptimizationDetails, (val) => {
   localStorage.setItem('show_optimization_details', val ? 'true' : 'false')
 })
-
-
-const isStandaloneAssistant = computed(() => {
-  return route.path === '/assistant' || route.query.window === 'assistant' || window.location.hash.includes('assistant')
-})
-
-// --- Context Sharing Logic ---
-const updateContext = () => {
-  if (isStandaloneAssistant.value) return // Assistant window doesn't report its own context
-
-  // Wait for DOM to likely be ready if called immediately
-  requestAnimationFrame(() => {
-    const pageTitle = document.title
-    const currentPath = route.path
-    const headerText = document.querySelector('header h2')?.textContent || ''
-    
-    // Try to find primary buttons or actions
-    const buttons = Array.from(document.querySelectorAll('button'))
-      .filter(b => b.offsetParent !== null) // Visible buttons
-      .slice(0, 8) // Grab a few more
-      .map(b => b.textContent?.trim())
-      .filter(Boolean)
-      .join(', ')
-
-    const context = `Current Page: ${headerText || pageTitle} (Path: ${currentPath})\nVisible Actions: ${buttons}`
-    
-    if (window.electron) {
-      window.electron.ipcRenderer.send('update-ui-context', context)
-    }
-  })
-}
-
-// Watch route changes to update context
-watch(() => route.path, () => {
-  setTimeout(updateContext, 500) // Small delay for DOM update
-}, { immediate: true })
 
 const navItems = [
   { path: '/dashboard', label: '工作台', icon: DataBoard },

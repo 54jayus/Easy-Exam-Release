@@ -5,17 +5,14 @@ const ALLOWED_INVOKE_CHANNELS = [
   'backend_project_root', 'app_exe_dir',
   'open_path', 'open_external',
   'dialog:open', 'dialog:save',
-  'assistant:open', 'assistant:close', 'assistant:move',
-  'assistant:minimize', 'assistant:resize', 'assistant:set-always-on-top',
-  'get-ui-context',
 ] as const
 
 const ALLOWED_ON_CHANNELS = [
   'python-stdout', 'python-stderr', 'python-exit', 'python-error',
-  'main-process-message', 'assistant:closed',
+  'main-process-message',
 ] as const
 
-const ALLOWED_SEND_CHANNELS = ['renderer-log', 'update-ui-context'] as const
+const ALLOWED_SEND_CHANNELS = ['renderer-log'] as const
 
 type InvokeChannel = typeof ALLOWED_INVOKE_CHANNELS[number]
 type OnChannel = typeof ALLOWED_ON_CHANNELS[number]

@@ -7,7 +7,6 @@ import PrintingPage from "./views/PrintingPage.vue"
 import RoomsPage from "./views/RoomsPage.vue"
 import SubjectsPage from "./views/SubjectsPage.vue"
 import RegistrationPage from "./views/RegistrationPage.vue"
-import AssistantWindow from "./views/AssistantWindow.vue"
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -20,7 +19,6 @@ export const router = createRouter({
     { path: "/rooms", component: RoomsPage },
     { path: "/printing", component: PrintingPage },
     { path: "/help", component: HelpPage },
-    { path: "/assistant", component: AssistantWindow },
   ],
 })
 
