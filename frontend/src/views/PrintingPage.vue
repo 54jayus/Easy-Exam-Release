@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="h-[calc(100vh-8rem)] flex flex-col animate-fade-in bg-slate-50">
     <div class="h-14 bg-white border-b border-slate-200 px-4 flex items-center shrink-0 shadow-sm z-20">
        <div class="flex-1 flex justify-center">
@@ -53,7 +53,7 @@
                       <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">数据来源</span>
                    </div>
                    <div class="px-2 py-0.5 rounded text-[10px] font-bold transition-colors" :class="previewTotal > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'">
-                      {{ previewTotal > 0 ? `${previewTotal} 条` : '未加载' }}
+                       {{ previewTotal > 0 ? `${previewTotal} 条` : '未加载' }}
                    </div>
                 </div>
                 
@@ -179,7 +179,7 @@
                          <el-icon><Grid /></el-icon>
                       </div>
                       <div class="flex flex-col min-w-0">
-                         <span class="text-sm font-medium text-slate-700 group-hover:text-slate-900">座位布局</span>
+                          <span class="text-sm font-medium text-slate-700 group-hover:text-slate-900">座位布局</span>
                          <span class="text-[10px] text-slate-400 truncate">{{ deskLayoutSummary }}</span>
                       </div>
                    </div>
@@ -191,7 +191,7 @@
              <section class="space-y-4">
                 <div class="flex items-center gap-2 mb-2">
                    <div class="w-1 h-3 bg-indigo-500 rounded-full"></div>
-                   <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">参数配置</span>
+                    <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">参数配置</span>
                 </div>
 
                 <!-- Exam Bag Config -->
@@ -215,7 +215,7 @@
                       <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] space-y-1">
                          <div v-for="(row, idx) in subjectPreviewWithTime" :key="idx" class="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
                             <span class="text-xs text-slate-700 truncate flex-1 font-medium">{{ row.name }}</span>
-                            <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '—' }}</span>
+                            <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '--' }}</span>
                          </div>
                          <div v-if="subjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
                             {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目与时间由高级设置决定' : '未设置科目' }}
@@ -248,7 +248,7 @@
                       <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] space-y-1">
                          <div v-for="(row, idx) in subjectPreviewWithTime" :key="idx" class="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
                             <span class="text-xs text-slate-700 truncate flex-1 font-medium">{{ row.name }}</span>
-                            <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '—' }}</span>
+                            <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '--' }}</span>
                          </div>
                          <div v-if="subjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
                             {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目与时间由编排数据决定' : '未设置科目' }}
@@ -278,7 +278,7 @@
                       <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] space-y-1">
                          <div v-for="(row, idx) in subjectPreviewWithTime" :key="idx" class="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
                             <span class="text-xs text-slate-700 truncate flex-1 font-medium">{{ row.name }}</span>
-                            <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '—' }}</span>
+                            <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '--' }}</span>
                          </div>
                          <div v-if="subjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
                             {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目与时间由编排数据决定' : '未设置科目' }}
@@ -321,11 +321,11 @@
              <section class="space-y-3">
                 <div class="flex items-center gap-2 mb-2">
                    <div class="w-1 h-3 bg-emerald-500 rounded-full"></div>
-                   <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">输出格式</span>
+                    <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">输出格式</span>
                 </div>
                 <div class="flex gap-4 p-3 bg-slate-50/50 rounded-xl border border-slate-100">
                    <el-checkbox v-model="commonConfig.exportXlsx" label="Excel" size="small" />
-                   <el-checkbox v-model="commonConfig.exportPdf" label="PDF (推荐)" size="small" />
+                    <el-checkbox v-model="commonConfig.exportPdf" label="PDF（推荐）" size="small" />
                 </div>
              </section>
 
@@ -394,15 +394,15 @@
                                            </tr>
                                            <tr>
                                               <td class="corner-td corner-label-td">考场</td>
-                                              <td class="corner-td">{{ item.考场 }}</td>
+                                              <td class="corner-td">{{ item['考场'] }}</td>
                                               <td class="corner-td corner-label-td">考场号</td>
-                                              <td class="corner-td">{{ item.考场号 }}</td>
+                                              <td class="corner-td">{{ item['考场号'] }}</td>
                                            </tr>
                                            <tr>
                                               <td class="corner-td"></td>
                                               <td class="corner-td"></td>
                                               <td class="corner-td corner-label-td">座位号</td>
-                                              <td class="corner-td">{{ item.座位号 }}</td>
+                                              <td class="corner-td">{{ item['座位号'] }}</td>
                                            </tr>
                                            <tr>
                                               <td class="corner-td corner-label-td">科目</td>
@@ -433,26 +433,26 @@
                                         </colgroup>
                                         <tbody>
                                            <tr>
-                                              <td class="ticket-xlsx-td ticket-xlsx-title-td" colspan="5">{{ config.ticket.title || 'xxx考试准考证' }}</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-title-td" colspan="5">{{ config.ticket.title || 'xxx考试准考证' }}</td>
                                            </tr>
                                            <tr>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td">考号</td>
-                                              <td class="ticket-xlsx-td">{{ item.考生考号 }}</td>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td" colspan="2">班级</td>
-                                              <td class="ticket-xlsx-td">{{ (item as any)['班级'] }}</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td">考号</td>
+                                               <td class="ticket-xlsx-td">{{ item['考生考号'] }}</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td" colspan="2">班级</td>
+                                               <td class="ticket-xlsx-td">{{ (item as any)['班级'] }}</td>
                                            </tr>
                                            <tr>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td">姓名</td>
-                                              <td class="ticket-xlsx-td">{{ item.考生姓名 }}</td>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td" colspan="2">学号</td>
-                                              <td class="ticket-xlsx-td">{{ (item as any)['学号'] }}</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td">姓名</td>
+                                               <td class="ticket-xlsx-td">{{ item['考生姓名'] }}</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td" colspan="2">学号</td>
+                                               <td class="ticket-xlsx-td">{{ (item as any)['学号'] }}</td>
                                            </tr>
                                            <tr>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td">科目</td>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td">时间</td>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td">考场</td>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td">考场号</td>
-                                              <td class="ticket-xlsx-td ticket-xlsx-label-td">座位号</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td">科目</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td">时间</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td">考场</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td">考场号</td>
+                                               <td class="ticket-xlsx-td ticket-xlsx-label-td">座位号</td>
                                            </tr>
                                      <tr v-for="(row, idx) in ticketSubjectRowsForPrint" :key="idx">
                                               <td class="ticket-xlsx-td">{{ row.name }}</td>
@@ -488,15 +488,15 @@
                                   </tr>
                                   <tr>
                                      <td class="corner-td corner-label-td">考场</td>
-                                     <td class="corner-td">{{ cornerPreview.考场 }}</td>
+                                     <td class="corner-td">{{ cornerPreview['考场'] }}</td>
                                      <td class="corner-td corner-label-td">考场号</td>
-                                     <td class="corner-td">{{ cornerPreview.考场号 }}</td>
+                                     <td class="corner-td">{{ cornerPreview['考场号'] }}</td>
                                   </tr>
                                   <tr>
                                      <td class="corner-td"></td>
                                      <td class="corner-td"></td>
                                      <td class="corner-td corner-label-td">座位号</td>
-                                     <td class="corner-td">{{ cornerPreview.座位号 }}</td>
+                                     <td class="corner-td">{{ cornerPreview['座位号'] }}</td>
                                   </tr>
                                   <tr>
                                      <td class="corner-td corner-label-td">科目</td>
@@ -532,15 +532,15 @@
                                   </tr>
                                   <tr>
                                      <td class="ticket-xlsx-td ticket-xlsx-label-td">考号</td>
-                                     <td class="ticket-xlsx-td">{{ ticketPreview.考生考号 }}</td>
+                                     <td class="ticket-xlsx-td">{{ ticketPreview['考生考号'] }}</td>
                                      <td class="ticket-xlsx-td ticket-xlsx-label-td" colspan="2">班级</td>
-                                     <td class="ticket-xlsx-td">{{ ticketPreview.班级 }}</td>
+                                     <td class="ticket-xlsx-td">{{ ticketPreview['班级'] }}</td>
                                   </tr>
                                   <tr>
                                      <td class="ticket-xlsx-td ticket-xlsx-label-td">姓名</td>
-                                     <td class="ticket-xlsx-td">{{ ticketPreview.考生姓名 }}</td>
+                                     <td class="ticket-xlsx-td">{{ ticketPreview['考生姓名'] }}</td>
                                      <td class="ticket-xlsx-td ticket-xlsx-label-td" colspan="2">学号</td>
-                                     <td class="ticket-xlsx-td">{{ ticketPreview.学号 }}</td>
+                                     <td class="ticket-xlsx-td">{{ ticketPreview['学号'] }}</td>
                                   </tr>
                                   <tr>
                                      <td class="ticket-xlsx-td ticket-xlsx-label-td">科目</td>
@@ -564,7 +564,7 @@
                          <div class="w-full h-full flex flex-col">
                             <div class="w-full flex justify-center mb-4 shrink-0">
                                <div class="w-full h-12 border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-500 text-sm font-bold tracking-wider">
-                                  讲台
+                                   讲台
                                </div>
                             </div>
                             <div 
@@ -729,208 +729,43 @@
        </div>
     </div>
 
-    <!-- Mapping Dialog -->
-    <el-dialog v-model="showMappingDialog" title="字段映射" width="500px">
-       <div class="space-y-4">
-          <p class="text-sm text-slate-500">请将 Excel 列映射到系统字段:</p>
-          <div v-for="(target, key) in requiredFields" :key="key" class="flex items-center gap-4">
-             <div class="w-24 text-sm font-bold text-right text-slate-700">{{ target.label }} <span v-if="target.required" class="text-rose-500">*</span></div>
-             <el-select v-model="mapping[key]" placeholder="选择列" size="small" class="flex-1" clearable>
-                <el-option v-for="h in headers" :key="h" :label="h" :value="h" />
-             </el-select>
-          </div>
-       </div>
-       <template #footer>
-          <span class="dialog-footer">
-             <el-button @click="showMappingDialog = false">取消</el-button>
-             <el-button type="primary" @click="handleConfirmMapping">确认并预览</el-button>
-          </span>
-       </template>
-    </el-dialog>
+    <PrintingMappingDialog
+      v-model="showMappingDialog"
+      :required-fields="requiredFields"
+      :headers="headers"
+      :mapping="mapping"
+      @confirm="handleConfirmMapping"
+    />
 
-    <el-dialog v-model="showSubjectDialog" title="科目与时间设置" width="720px" class="!rounded-2xl" align-center append-to-body>
-       <div class="flex flex-col h-[520px]">
-          <!-- Top Control Bar -->
-          <div class="flex items-center justify-between p-1 mb-4 bg-slate-50 border border-slate-100 rounded-xl">
-             <div class="flex items-center gap-4 px-3">
-                <span class="text-sm font-bold text-slate-600">科目数量</span>
-                <el-input-number v-model="subjectDraftCount" :min="1" :max="20" size="small" class="!w-32" controls-position="right" />
-             </div>
-             <el-button type="primary" link :loading="syncingSubjects" @click="handleSyncSubjects" class="!px-4 !py-2 !h-9 hover:!bg-white hover:shadow-sm rounded-lg transition-all">
-                <el-icon class="mr-1.5"><Notebook /></el-icon> 从科目设置同步
-             </el-button>
-          </div>
+    <PrintingSubjectsDialog
+      v-model="showSubjectDialog"
+      v-model:subject-draft-count="subjectDraftCount"
+      :syncing-subjects="syncingSubjects"
+      :subject-draft-rows="subjectDraftRows"
+      :get-row-date="getRowDate"
+      :set-row-date="setRowDate"
+      :get-row-time-range="getRowTimeRange"
+      :set-row-time-range="setRowTimeRange"
+      @sync-subjects="handleSyncSubjects"
+      @save-subjects="handleSaveSubjects"
+    />
 
-          <!-- Main List -->
-          <div class="flex-1 rounded-xl border border-slate-200 overflow-hidden bg-white flex flex-col shadow-sm">
-             <!-- Header -->
-             <div class="grid grid-cols-[56px_1fr_0.9fr_1fr] gap-0 bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider backdrop-blur-sm z-10">
-                <div class="py-2.5 text-center border-r border-slate-100">序号</div>
-                <div class="py-2.5 px-4 border-r border-slate-100">科目名称</div>
-                <div class="py-2.5 px-4 border-r border-slate-100">日期</div>
-                <div class="py-2.5 px-4">时间段</div>
-             </div>
-             
-             <!-- Scrollable Area -->
-             <div class="flex-1 overflow-y-auto custom-scrollbar p-0 bg-slate-50/30">
-                <transition-group name="list" tag="div" class="space-y-px">
-                   <div 
-                     v-for="(row, idx) in subjectDraftRows" 
-                     :key="idx" 
-                     class="grid grid-cols-[56px_1fr_0.9fr_1fr] gap-0 items-center bg-white group hover:bg-blue-50/50 transition-colors duration-200"
-                   >
-                      <div class="py-2 text-center text-xs font-mono text-slate-400 group-hover:text-primary-500 font-bold border-r border-transparent group-hover:border-blue-100/50">
-                         {{ String(idx + 1).padStart(2, '0') }}
-                      </div>
-                      <div class="p-1.5 border-r border-transparent group-hover:border-blue-100/50">
-                         <el-input 
-                           v-model="row.name" 
-                           placeholder="科目名" 
-                           class="!w-full"
-                           :class="{'font-bold text-slate-700': row.name}"
-                         >
-                            <template #prefix>
-                               <el-icon class="text-slate-300 group-hover:text-primary-400 transition-colors"><Reading /></el-icon>
-                            </template>
-                         </el-input>
-                      </div>
-                      <div class="p-1.5 border-r border-transparent group-hover:border-blue-100/50">
-                         <el-input 
-                          :model-value="getRowDate(row)"
-                          placeholder="如: 6月7日"
-                          class="!w-full"
-                          @update:model-value="(v: string) => setRowDate(row, v)"
-                         >
-                            <template #prefix>
-                              <el-icon class="text-slate-300 group-hover:text-primary-400 transition-colors"><Calendar /></el-icon>
-                            </template>
-                         </el-input>
-                      </div>
-                      <div class="p-1.5">
-                         <el-time-picker
-                           :model-value="getRowTimeRange(row)"
-                           is-range
-                           value-format="HH:mm"
-                           format="HH:mm"
-                           range-separator="-"
-                           start-placeholder="开始时间"
-                           end-placeholder="结束时间"
-                           :prefix-icon="Timer"
-                           class="!w-full"
-                           @update:model-value="(v: any) => setRowTimeRange(row, v)"
-                         />
-                      </div>
-                   </div>
-                </transition-group>
-                
-                <!-- Empty State/Padding -->
-                <div v-if="subjectDraftRows.length === 0" class="h-full flex flex-col items-center justify-center text-slate-400 py-12">
-                   <el-icon size="32" class="mb-2 opacity-50"><FolderOpened /></el-icon>
-                   <span class="text-xs">暂无科目</span>
-                </div>
-             </div>
-          </div>
-          
-          <!-- Hint -->
-          <div class="mt-2 flex items-center gap-2 text-[10px] text-slate-400 px-1">
-             <el-icon><InfoFilled /></el-icon>
-             <span>提示：拖动滑块或输入数字可调整科目总数；点击"从系统同步"可获取最新考试安排。</span>
-          </div>
-       </div>
-       <template #footer>
-          <span class="dialog-footer">
-             <el-button @click="showSubjectDialog = false">取消</el-button>
-             <el-button type="primary" @click="handleSaveSubjects">保存设置</el-button>
-          </span>
-       </template>
-    </el-dialog>
-
-    <el-dialog v-model="showDeskLayoutDialog" title="设置座位布局" width="720px" class="!rounded-2xl" align-center append-to-body>
-       <div class="space-y-6 px-6 py-4">
-          <div class="grid grid-cols-2 gap-8">
-             <div class="space-y-2">
-                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">布局方式</label>
-                <el-select v-model="deskLayoutDraft.layoutName" class="!w-full" size="default">
-                   <el-option v-for="opt in deskLayoutOptions" :key="opt.name" :label="opt.name" :value="opt.name" />
-                   <el-option label="自定义" value="自定义" />
-                </el-select>
-             </div>
-             <div class="space-y-2">
-                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">排列方式</label>
-                <el-select v-model="deskLayoutDraft.layoutPattern" class="!w-full" size="default">
-                   <el-option label="S型横排" value="S型横排" />
-                   <el-option label="S型竖排" value="S型竖排" />
-                   <el-option label="Z型横排" value="Z型横排" />
-                   <el-option label="Z型竖排" value="Z型竖排" />
-                </el-select>
-             </div>
-          </div>
-
-          <div v-if="deskLayoutDraft.layoutName === '自定义'" class="space-y-2 animate-fade-in">
-             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">自定义每列人数</label>
-             <el-input v-model="deskLayoutDraft.customCountsText" placeholder="例如：7,7,8,8" size="default">
-                <template #prefix>
-                   <el-icon class="text-slate-400"><Grid /></el-icon>
-                </template>
-             </el-input>
-             <div class="text-[10px] text-slate-400 flex items-center gap-1.5">
-                <el-icon><InfoFilled /></el-icon>
-                <span>将自动计算行数=最大列人数，列数=输入列数。</span>
-             </div>
-          </div>
-
-          <div class="space-y-2">
-             <div class="flex items-center justify-between">
-                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">起始位</label>
-             </div>
-             <div class="grid grid-cols-2 gap-3">
-                <div 
-                   class="cursor-pointer border-2 rounded-xl p-3 flex flex-col items-center gap-2 transition-all duration-200 hover:shadow-md"
-                   :class="deskLayoutDraft.startPos === 'left' ? 'border-primary-500 bg-primary-50/50' : 'border-slate-100 bg-white hover:border-slate-200'"
-                   @click="deskLayoutDraft.startPos = 'left'"
-                >
-                   <span class="text-sm font-bold" :class="deskLayoutDraft.startPos === 'left' ? 'text-primary-700' : 'text-slate-700'">左手位</span>
-                   <span class="text-[10px] text-center leading-tight" :class="deskLayoutDraft.startPos === 'left' ? 'text-primary-600/80' : 'text-slate-400'">
-                      监考人员面向考生，左手方向靠边第一个座位为起始位置
-                   </span>
-                </div>
-                
-                <div 
-                   class="cursor-pointer border-2 rounded-xl p-3 flex flex-col items-center gap-2 transition-all duration-200 hover:shadow-md"
-                   :class="deskLayoutDraft.startPos === 'right' ? 'border-primary-500 bg-primary-50/50' : 'border-slate-100 bg-white hover:border-slate-200'"
-                   @click="deskLayoutDraft.startPos = 'right'"
-                >
-                   <span class="text-sm font-bold" :class="deskLayoutDraft.startPos === 'right' ? 'text-primary-700' : 'text-slate-700'">右手位</span>
-                   <span class="text-[10px] text-center leading-tight" :class="deskLayoutDraft.startPos === 'right' ? 'text-primary-600/80' : 'text-slate-400'">
-                      监考人员面向考生，右手方向靠边第一个座位为起始位置
-                   </span>
-                </div>
-             </div>
-             <div class="flex justify-end pt-1">
-                <span class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-1">
-                   <el-icon><InfoFilled /></el-icon>
-                   仅影响座位布局预览
-                </span>
-             </div>
-          </div>
-       </div>
-       <template #footer>
-          <span class="dialog-footer">
-             <el-button @click="showDeskLayoutDialog = false" size="default">取消</el-button>
-             <el-button type="primary" @click="applyDeskLayoutDraft" size="default">应用设置</el-button>
-          </span>
-       </template>
-    </el-dialog>
+    <PrintingDeskLayoutDialog
+      v-model="showDeskLayoutDialog"
+      :desk-layout-options="deskLayoutOptions"
+      :desk-layout-draft="deskLayoutDraft"
+      @apply="applyDeskLayoutDraft"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onActivated, nextTick } from 'vue'
 import { 
-  Printer, VideoPlay, FolderOpened, DocumentChecked, Close, 
+  Printer, VideoPlay, DocumentChecked, Close, 
   Document, Minus, Plus, FullScreen, Grid, DataLine, Select, 
   Calendar, CircleCheckFilled, Download, Upload, Setting, Fold, Expand, Delete, School,
-  Refresh, Reading, Timer, InfoFilled, Notebook, Back, Right
+  Refresh, Back, Right
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePageSessionState } from '@/composables/usePageSessionState'
@@ -943,6 +778,9 @@ import { usePrintingPreview } from './PrintingPage/composables/usePrintingPrevie
 import { usePrintingPreviewData } from './PrintingPage/composables/usePrintingPreviewData'
 import { usePrintingScheduleSource } from './PrintingPage/composables/usePrintingScheduleSource'
 import { usePrintingSubjects } from './PrintingPage/composables/usePrintingSubjects'
+import PrintingMappingDialog from './PrintingPage/components/PrintingMappingDialog.vue'
+import PrintingSubjectsDialog from './PrintingPage/components/PrintingSubjectsDialog.vue'
+import PrintingDeskLayoutDialog from './PrintingPage/components/PrintingDeskLayoutDialog.vue'
 
 // --- State ---
 const storage = usePageSessionState('printing')
@@ -956,13 +794,13 @@ const activeTab = ref(getStored('activeTab', 'corner'))
 const sourceType = ref('empty') // 'empty' | 'file' | 'schedule'
 const totalCount = ref(800)
 const loadingSchedule = ref(false)
-const scheduleArrangementMode = ref('') // 考场编排模式：'gaokao_mode' | 'normal_mode' | 'subject_mode' | 'random_mode'
+const scheduleArrangementMode = ref('') // 考场编排模式: 'gaokao_mode' | 'normal_mode' | 'subject_mode' | 'random_mode'
 
 const dataPath = ref('')
 const isGaokaoMode = computed(() => scheduleArrangementMode.value === 'gaokao_mode')
 const examBagConfigHint = computed(() => {
    if (sourceType.value === 'empty') {
-      return '说明：当前为试卷袋样式预览。切换到“导入数据”或“考场编排”后，可根据实际数据生成试卷袋。'
+      return '说明：当前为空白试卷袋样式预览。切换到“导入数据”或“考场编排”后，可根据实际数据生成试卷袋。'
    }
    if (sourceType.value === 'file') {
       return '说明：导入 Excel 数据时，第一列为“考场”，后续列为“科目”（单元格值为人数）。系统会按学科分组生成试卷袋。'
@@ -1032,7 +870,7 @@ watch(activeTab, async (val) => {
          await loadPreview()
       }
    }
-   // 如果数据来源为考场编排，切换tab时自动刷新数据
+   // 如果数据来源是考场编排，切换标签时自动刷新数据
    if (sourceType.value === 'schedule') {
       await handleLoadFromSchedule()
    }
@@ -1190,7 +1028,7 @@ function _formatMonthDay(examDate: string): string {
    if (!m) return ''
    const month = String(parseInt(m[2], 10))
    const day = String(parseInt(m[3], 10))
-   return `${month}月${day}日`
+    return `${month}月${day}日`
 }
 
 function _parseSubjectTime(raw: string): { dateText: string; range?: [string, string] } {
@@ -1699,7 +1537,7 @@ watch(subjectRows, async () => {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-family: SimSun, "宋体", serif;
+  font-family: SimSun, "瀹嬩綋", serif;
   font-size: 10pt;
   color: #000;
 }
@@ -1733,7 +1571,7 @@ watch(subjectRows, async () => {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-family: SimSun, "宋体", serif;
+  font-family: SimSun, "瀹嬩綋", serif;
   font-size: 10pt;
   color: #000;
 }
@@ -1763,7 +1601,7 @@ watch(subjectRows, async () => {
   height: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-family: SimSun, "宋体", serif;
+  font-family: SimSun, "瀹嬩綋", serif;
   font-size: 9pt;
   color: #000;
 }

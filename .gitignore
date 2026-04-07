@@ -33,6 +33,7 @@ frontend/.env.local
 frontend/.env.*.local
 frontend/debug.log
 frontend/debug*.log
+frontend/debug.log.*
 frontend/dev.log
 
 # IDE
@@ -55,3 +56,5 @@ license.cert
 *.tmp
 *.bak
 *.cache
+/试卷袋_批量生成.pdf
+/试卷袋_批量生成.xlsx

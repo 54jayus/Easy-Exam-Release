@@ -1,8 +1,8 @@
-# 开发与调试手册
+﻿# 开发与调试手册
 
 ## 1. 环境建议
 
-项目当前主要面向 Windows 桌面环境开发，建议使用：
+当前项目主要面向 Windows 桌面环境开发，建议使用：
 
 - Windows 10 或 Windows 11
 - Node.js
@@ -25,203 +25,146 @@ npm install
 pip install -r backend/requirements.txt
 ```
 
-## 3. 配置本地 Python
+## 3. 本地 Python 配置
 
 开发时通常通过 `frontend/.env.development` 指定 Python 路径。
-
-先复制模板：
 
 ```bash
 cd frontend
 copy .env.development.example .env.development
 ```
 
-然后填写：
+示例：
 
 ```env
 VITE_PYTHON_PATH=D:/Anaconda3/envs/exam_scheduler/python.exe
 ```
 
-如果系统环境里直接可用 `python`，也可以写：
+根目录 `package.py` 也会优先读取：
 
 ```env
-VITE_PYTHON_PATH=python
+EXAM_PYTHON_PATH=D:/Anaconda3/envs/exam_scheduler/python.exe
 ```
 
-## 4. 启动与构建
+## 4. 常用命令
 
-### 4.1 开发启动
+### 4.1 前端开发与构建
+
+PowerShell 下建议统一使用 `npm.cmd`：
 
 ```bash
 cd frontend
-npm run dev
-```
-
-当前仓库里 `frontend/package.json` 的 `dev` 和 `electron:dev` 脚本等价。调试启动链路时，建议同时看：
-
-- `frontend/electron/main.ts`
-- `frontend/src/lib/pythonBackend.ts`
-
-### 4.2 后端单独检查
-
-如果只想做 Python 语法检查，可以在仓库根目录执行：
-
-```bash
-python -m py_compile backend/application/rooms_service.py backend/examroom/core/arrangement.py
-```
-
-也可以替换成你当前正在修改的后端文件。
-
-### 4.3 前端构建检查
-
-```bash
-cd frontend
+npm.cmd run dev
+npm.cmd run test
 npm.cmd run build
 ```
 
-在 PowerShell 下优先使用 `npm.cmd`。直接运行 `npm run build` 可能受到执行策略影响。
+### 4.2 后端测试
+
+在仓库根目录下执行：
+
+```bash
+$env:PYTHONPATH='.'
+pytest
+```
+
+按模块跑测试时常用命令：
+
+```bash
+$env:PYTHONPATH='.'
+pytest backend/tests/test_proctoring_service.py backend/tests/test_rpc_dispatcher.py
+
+$env:PYTHONPATH='.'
+pytest backend/tests/test_rooms_service.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py
+
+$env:PYTHONPATH='.'
+pytest backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py
+```
 
 ## 5. 调试入口
 
-### 5.1 前端排查
+### 5.1 前端日志
 
-重点目录：
+前端页面日志主要来自：
 
-- `frontend/src/router.ts`
-- `frontend/src/views/`
-- `frontend/src/components/`
-- `frontend/src/lib/pythonBackend.ts`
+- 浏览器控制台 / Electron 控制台
+- `createLogger(...)`
+- 页面内日志抽屉，例如 `SubjectsPage`、`PrintingPage`
 
-适用场景：
+### 5.2 后端日志
 
-- 页面展示异常
-- 交互问题
-- 请求未发出
-- 前端状态未刷新
+前端通过 `pythonBackend.onLog(...)` 监听后端 stdout/stderr。
 
-复杂页面建议优先按“入口页 / 子目录 / composable”三层看结构。例如打印页当前应优先看：
+如果页面出现：
 
-- `frontend/src/views/PrintingPage.vue`
-- `frontend/src/views/PrintingPage/composables/usePrintingFileSource.ts`
-- `frontend/src/views/PrintingPage/composables/usePrintingPreview.ts`
-- `frontend/src/views/PrintingPage/composables/usePrintingPreviewData.ts`
-- `frontend/src/views/PrintingPage/composables/usePrintingGenerate.ts`
-- `frontend/src/views/PrintingPage/composables/usePrintingSubjects.ts`
-- `frontend/src/views/PrintingPage/composables/usePrintingDeskLayout.ts`
-- `frontend/src/views/PrintingPage/composables/usePrintingScheduleSource.ts`
-
-### 5.2 Electron 排查
-
-重点文件：
-
-- `frontend/electron/main.ts`
-
-适用场景：
-
-- Python 后端起不来
-- IPC 失效
-- 打开目录 / 外链失败
-- 日志文件写入失败
-
-### 5.3 后端排查
-
-重点文件：
-
-- `backend/rpc_server.py`
-- `backend/application/*.py`
-- `backend/examroom/core/arrangement.py`
-- `backend/printing/`
-
-适用场景：
-
-- 导入导出报错
-- 业务结果异常
-- 高考模式统计不正确
-- 打印生成失败
-
-## 6. 日志与常见输出
-
-Electron 主进程会写本地日志：
-
-- 开发态通常在 `frontend/debug.log`
-- 日志轮转后可能出现 `frontend/debug.log.1`
-
-日志里常见内容：
-
-- 前端发出的 RPC 请求
-- Python 标准错误输出
-- 子进程启动与退出信息
-- 文件打开或外链失败信息
-
-## 7. 常见问题排查路径
-
-### 7.1 Python 后端无法启动
+- 导入失败
+- 导出失败
+- RPC 超时
+- 打印预览为空
+- 监考生成异常
 
 优先检查：
 
-1. `frontend/.env.development` 中的 `VITE_PYTHON_PATH`
-2. 本机 Python / Conda 环境是否存在
-3. `backend/requirements.txt` 是否安装完成
-4. `frontend/debug.log` 中是否有启动异常
+1. 页面对应 composable 的日志入口
+2. `frontend/src/lib/pythonBackend.ts`
+3. 对应的 `backend/application/*_service.py`
+4. 具体领域模块
 
-### 7.2 页面点了按钮但没反应
+## 6. 当前推荐的排查路径
 
-排查顺序：
+### 6.1 打印相关问题
 
-1. 页面模板是否正确触发事件
-2. 对应 composable 是否更新了本地状态
-3. 如果需要后端数据，对应 composable 是否调用了 `pythonBackend.request(...)`
-4. 对应 RPC 是否在 `backend/rpc_server.py` 注册
-5. 对应 Service 是否真正处理了请求
+优先查看：
 
-### 7.3 导入 Excel 报错
+1. `frontend/src/views/PrintingPage.vue`
+2. `frontend/src/views/PrintingPage/composables/`
+3. `backend/application/printing_service.py`
+4. `backend/printing/`
+5. `backend/tests/test_printing_*`
 
-排查重点：
+### 6.2 监考相关问题
 
-- 列名是否和模板一致
-- pandas 读取后的列类型是否符合预期
-- 中文列名、空值、`nan` 字符串是否被正确处理
-- 导入流程是否与当前模式匹配
+优先查看：
 
-### 7.4 导出结果不正确
+1. `frontend/src/views/ProctoringPage.vue`
+2. `frontend/src/views/ProctoringPage/composables/`
+3. `backend/application/proctoring_service.py`
+4. `backend/proctoring/core/`
+5. `backend/tests/test_proctoring_*`
 
-排查重点：
+### 6.3 考场相关问题
 
-- `rooms_service.py` 是否正确构造运行时数据
-- `examroom/core/arrangement.py` 是否按当前模式导出
-- `printing` 模块是否使用了错误的数据适配器
-- 前端生成前校验是否和后端生成器假设一致
+优先查看：
 
-### 7.5 打印页改动后异常
+1. `frontend/src/views/RoomsPage.vue`
+2. `frontend/src/views/RoomsPage/composables/`
+3. `backend/application/rooms_service.py`
+4. `backend/examroom/core/`
+5. `backend/tests/test_rooms_*` 和 `backend/tests/test_exam_arrangement*`
 
-建议优先按职责定位问题：
+### 6.4 科目页相关问题
 
-- 文件导入 / 字段映射：`usePrintingFileSource.ts`
-- 预览缩放 / 拖拽：`usePrintingPreview.ts`
-- 预览内容不对：`usePrintingPreviewData.ts`
-- 科目与时间不同步：`usePrintingSubjects.ts`
-- 座位布局异常：`usePrintingDeskLayout.ts`
-- 从编排加载失败：`usePrintingScheduleSource.ts`
-- 点击生成后失败：`usePrintingGenerate.ts`
+优先查看：
 
-### 7.6 打包失败
+1. `frontend/src/views/SubjectsPage.vue`
+2. `frontend/src/views/SubjectsPage/composables/`
+3. `backend/application/subjects_service.py`
 
-排查重点：
+## 7. 当前重构约定
 
-- `package.py` 里的 Python 路径是否为本机真实路径
-- `frontend/engine.spec` 是否仍与目录结构匹配
-- 是否有正在运行的应用占用了输出目录
+本轮代码治理必须遵守这些约定：
 
-## 8. 推荐调试策略
+- 只调整架构，不改业务逻辑
+- 不修改 RPC 方法名、参数结构、返回结构
+- 不顺手夹带业务需求
+- 每一轮重构后都先过构建和相关测试
+- 文档要跟着代码同步更新
 
-- 改前端交互时，先确认是不是纯 UI / 状态问题，不要急着改后端
-- 改业务结果时，优先抓一组最小样例 Excel 做重复验证
-- 改高考模式时，至少同时验证导入、统计和打印下游
-- 改导出功能时，同时看按钮 loading、保存路径和后端异常处理
-- 超过 800 到 1000 行的页面优先考虑拆 composable，而不是继续把逻辑堆回主页面
+## 8. 仓库卫生建议
 
-## 9. 开发时的安全建议
+当前工作区容易产生：
 
-- 不要轻易删除本地测试样例，尤其是能复现问题的 Excel
-- 提交前尽量只纳入与当前任务直接相关的文件
-- 日志、临时脚本、临时导出的 Excel / PDF 建议保持未跟踪状态，必要时加入 `.gitignore`
+- `frontend/debug.log.*`
+- 导出的 `pdf/xlsx`
+
+当前 `.gitignore` 已忽略常见调试日志与示例导出文件；如果后续新增产物目录，也应及时补充忽略规则或统一收敛到固定输出目录。

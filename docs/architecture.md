@@ -1,14 +1,14 @@
-# 架构说明
+﻿# 架构说明
 
 ## 1. 总体结构
 
-Easy Exam 是一个桌面端应用，采用 `Electron + Vue 3 + Python` 的分层架构。
+Easy Exam 是一个桌面端应用，采用 `Electron + Vue 3 + Python` 的分层结构。
 
-- Electron 主进程负责窗口、IPC、日志、系统能力和 Python 子进程管理
-- Vue 前端负责页面交互、状态展示和用户操作编排
-- Python 后端负责业务规则、Excel 处理、导出、打印和状态持久化
+- Electron 主进程负责窗口、IPC、日志、系统能力和 Python 子进程管理。
+- Vue 前端负责页面交互、状态展示、用户操作编排。
+- Python 后端负责业务规则、Excel 处理、导出、打印和状态持久化。
 
-整体调用链大致如下：
+整体调用链如下：
 
 ```text
 用户操作
@@ -17,217 +17,171 @@ Easy Exam 是一个桌面端应用，采用 `Electron + Vue 3 + Python` 的分�
   -> Electron 主进程拉起并管理 Python 进程
   -> backend/rpc_server.py 分发 RPC
   -> application service
-  -> domain / repository / examroom / printing 等模块
-  -> 返回结果给前端
+  -> domain / examroom / proctoring / printing 等核心模块
+  -> 结果返回前端
 ```
 
-## 2. 前端层
+## 2. 前端结构
 
 前端代码主要位于 `frontend/src/`。
 
 ### 2.1 页面入口
 
-路由定义在 `frontend/src/router.ts`，当前主要页面包括：
+当前主要页面包括：
 
-- `/dashboard` 仪表盘
-- `/registration` 注册授权
-- `/subjects` 科目管理
-- `/proctoring` 监考编排
-- `/rooms` 考场编排
-- `/printing` 资料打印
-- `/help` 帮助中心
+- `DashboardPage.vue`
+- `RegistrationPage.vue`
+- `SubjectsPage.vue`
+- `ProctoringPage.vue`
+- `RoomsPage.vue`
+- `PrintingPage.vue`
+- `HelpPage.vue`
 
-### 2.2 前端与后端通信
+### 2.2 当前推荐组织方式
 
-`frontend/src/lib/pythonBackend.ts` 封装了前端调用后端的 RPC 客户端。
+经过本轮重构，项目已经逐步形成“页面入口 + 同名目录 + composables”的结构。
 
-它负责：
+典型模式如下：
+
+```text
+views/
+  PrintingPage.vue
+  PrintingPage/
+    composables/
+  ProctoringPage.vue
+  ProctoringPage/
+    composables/
+  SubjectsPage.vue
+  SubjectsPage/
+    composables/
+    types.ts
+```
+
+页面本身主要负责：
+
+- 页面级状态编排
+- 生命周期接线
+- 模板渲染
+- composable 之间的协调
+
+复杂逻辑优先下沉到 composable，例如：
+
+- 数据加载与导入导出
+- 日志处理
+- 预览数据加工
+- 座位布局与计算
+- 智能排监考流程编排
+- 页面重置与状态清理
+
+### 2.3 当前重构结果
+
+当前几个主要前端热点已经收敛到以下状态：
+
+- `frontend/src/views/PrintingPage.vue` 约 `1617` 行
+  已拆出 `usePrintingSubjects`、`usePrintingPreview`、`usePrintingFileSource`、`usePrintingGenerate`、`usePrintingPreviewData`、`usePrintingDeskLayout`、`usePrintingScheduleSource`
+  并已拆出 `PrintingMappingDialog`、`PrintingSubjectsDialog`、`PrintingDeskLayoutDialog`
+- `frontend/src/views/ProctoringPage.vue` 约 `964` 行
+  已拆出 `useProctoringDataManagement`、`useProctoringViewData`、`useProctoringBootstrap`、`useProctoringOptimizationMetrics`、`useProctoringScheduling`、`useProctoringSwap`
+- `frontend/src/views/SubjectsPage.vue` 约 `532` 行
+  已拆出 `useSubjectsLogs`、`useSubjectsData`、`useSubjectsForm`、`useSubjectsReset`
+
+这说明前端已经从“重业务页全堆在单文件”过渡到“页面编排层 + composable 逻辑层”的结构。
+
+同时，前端工程层也已经补上：
+
+- 路由懒加载
+- `manualChunks` 拆包
+- `Vitest` 最小单测基线
+
+## 3. 前端与后端通信
+
+`frontend/src/lib/pythonBackend.ts` 封装了前端调用后端的 RPC 客户端，负责：
 
 - 启动和连接 Python 后端
-- 维护请求序号和超时
-- 监听标准输出 / 标准错误
+- 管理请求序号与超时
+- 监听 stdout / stderr
 - 解析 JSON-RPC 风格响应
 - 在后端退出时清理挂起请求
 
-前端通常以这种方式调用后端：
+前端页面不直接接触 Python 进程管理，统一通过 `pythonBackend.request(...)` 发起调用。
 
-```ts
-pythonBackend.request("rooms.export", { path })
-```
+## 4. 后端结构
 
-方法名与后端 `backend/rpc_server.py` 中注册的 RPC 一一对应。
+后端主要分成四层：
 
-### 2.3 页面组织方式
+- `backend/application/`
+  对外服务入口，负责 RPC 对应的应用服务编排
+- `backend/proctoring/`
+  监考编排核心逻辑
+- `backend/examroom/`
+  考场编排核心逻辑
+- `backend/printing/`
+  打印、导出和适配器逻辑
 
-当前前端页面主要有两种组织方式：
+### 4.1 proctoring 当前结构
 
-- 简单页面直接使用单个 `*.vue` 文件，例如 `DashboardPage.vue`、`RegistrationPage.vue`
-- 复杂页面使用“页面入口 + 同名目录”的方式拆分，例如：
-- `frontend/src/views/RoomsPage.vue` + `frontend/src/views/RoomsPage/`
-- `frontend/src/views/HelpPage.vue` + `frontend/src/views/HelpPage/`
-- `frontend/src/views/PrintingPage.vue` + `frontend/src/views/PrintingPage/composables/`
+`backend/proctoring/core/` 当前已经拆分为：
 
-同名目录通常承载：
+- `entities.py`
+- `balance.py`
+- `selectors.py`
+- `swap.py`
+- `optimizer.py`
+- `postprocess.py`
+- `scheduler.py`
+- `statistics.py`
+- `validators.py`
+- `models.py`
 
-- 子组件
-- composable
-- 与页面强相关但不适合继续堆在主页面中的局部逻辑
+其中：
 
-目前 `PrintingPage.vue` 已调整为“页面编排层”，主要负责模板、状态接线和模块协调；核心逻辑已经拆到 `frontend/src/views/PrintingPage/composables/`。
+- `models.py` 当前约 `145` 行，主要保留兼容入口
+- 原本超大的调度、优化、交换、统计和校验逻辑已经拆出
 
-## 3. Electron 主进程
+### 4.2 examroom 当前结构
 
-Electron 主进程代码位于 `frontend/electron/main.ts`。
+`backend/examroom/core/` 当前已经拆分为：
 
-主要职责：
+- `helpers.py`
+- `gaokao_helpers.py`
+- `gaokao_exports.py`
+- `sequential_strategy.py`
+- `subject_strategy.py`
+- `standard_exports.py`
+- `stats_sheet.py`
+- `arrangement.py`
 
-- 创建桌面窗口
-- 提供 IPC 能力
-- 管理本地日志文件 `frontend/debug.log`
-- 启动、写入、终止 Python 子进程
-- 为前端提供应用目录、打开路径、打开外链等系统能力
+其中：
 
-与后端联动较强的 IPC 包括：
+- `arrangement.py` 当前约 `303` 行
+- 高考辅助、高考导出、顺序策略、选科策略、普通导出都已经拆出
 
-- `backend_project_root`
-- `app_exe_dir`
-- `spawn_python`
-- `write_python`
-- `kill_python`
+### 4.3 application service 当前结构
 
-## 4. Python 后端
+`backend/application/rooms_service.py` 当前约 `313` 行，并已拆出：
 
-后端入口是 `backend/__main__.py`，实际主循环位于 `backend/rpc_server.py`。
+- `rooms_input_importers.py`
+- `rooms_result_importers.py`
+- `rooms_templates.py`
 
-后端启动后会：
+说明 `application service` 也在逐步回到“入口编排层”的定位。
 
-1. 初始化日志
-2. 创建应用状态 `AppState`
-3. 从状态仓库恢复数据
-4. 创建各类 Service
-5. 注册 RPC 方法
-6. 从标准输入按行读取 JSON 请求
-7. 将结果以 JSON 写回标准输出
+## 5. 当前仍需继续优化的地方
 
-## 5. 后端分层
+虽然主结构已经明显变清晰，但后续仍有一些“可继续优化”而非“尚未完成”的方向：
 
-### 5.1 application
+- `PrintingPage.vue` 仍然是当前前端最大页面，后续还可以继续细化子组件
+- 前端自动化测试已经起步，但覆盖面仍可继续扩大
+- 打包脚本已改成环境变量优先，后续还可以继续接入 CI
+- `element-plus` 相关 chunk 仍偏大，后续可继续做包体治理
 
-`backend/application/` 是后端应用服务层，对外提供 RPC 入口对应的业务方法。
+## 6. 当前的重构边界
 
-当前主要服务包括：
+本轮优化遵循同一原则：
 
-- `SubjectsService`
-- `ProctoringService`
-- `RoomsService`
-- `PrintingService`
-- `LicensingService`
-- `SystemService`
-- `DashboardService`
-
-### 5.2 domain
-
-`backend/domain/` 放领域模型、状态对象和业务错误定义，例如：
-
-- `AppState`
-- 各模块状态对象
-- 业务错误类型
-
-### 5.3 repository
-
-`backend/repository/` 负责状态持久化。当前项目以文件持久化为主，而不是数据库。
-
-### 5.4 examroom
-
-`backend/examroom/` 负责考场编排核心算法与导出逻辑，是考场业务的核心模块。
-
-其中 `backend/examroom/core/arrangement.py` 负责：
-
-- 常规编排
-- 随机编排
-- 选科模式编排
-- 高考模式编排
-- 结果导出
-- 统计表生成
-
-### 5.5 printing
-
-`backend/printing/` 负责打印数据适配、预览和 PDF / Excel 生成。
-
-前端对应页面为 `frontend/src/views/PrintingPage.vue`。当前这页已经拆成以下前端模块：
-
-- `usePrintingFileSource.ts`
-  负责文件选择、字段映射、预览缓存与文件数据源恢复
-- `usePrintingPreview.ts`
-  负责预览缩放、拖拽、自适应和预览容器交互
-- `usePrintingPreviewData.ts`
-  负责角标、准考证、考生信息表、试卷袋等预览数据加工
-- `usePrintingGenerate.ts`
-  负责生成导出流程与生成前校验
-- `usePrintingSubjects.ts`
-  负责科目与时间配置、同步与编辑弹窗
-- `usePrintingDeskLayout.ts`
-  负责座位布局草稿、排位算法与桌贴预览
-- `usePrintingScheduleSource.ts`
-  负责从考场编排结果加载打印预览数据
-
-### 5.6 licensing
-
-`backend/licensing/` 负责机器码、注册、证书文件路径和授权状态管理。
-
-## 6. RPC 方法分布
-
-RPC 方法集中注册在 `backend/rpc_server.py`。
-
-主要命名空间：
-
-- `system.*`
-- `licensing.*`
-- `dashboard.*`
-- `subjects.*`
-- `proctoring.*`
-- `rooms.*`
-- `printing.*`
-
-这种组织方式的优点是：
-
-- 前端调用语义清晰
-- 模块边界相对稳定
-- 新功能扩展时容易找到挂载点
-
-## 7. 状态与持久化
-
-项目当前不是数据库驱动，而是以内存状态 + 文件持久化为主。
-
-关键点：
-
-- 应用运行时状态集中在 `AppState`
-- 部分数据通过 `StateRepository` 保存到 `state.json`
-- `exam_arrangement` 是运行时对象，不直接整体持久化
-- 某些页面会根据持久化数据重新构建运行时对象
-
-## 8. 打包形态
-
-打包时项目分为两部分：
-
-1. Python 后端通过 PyInstaller 打成 sidecar
-2. 前端与桌面壳通过 Electron Builder 打包
-
-根目录 `package.py` 会串联这两个步骤。
-
-## 9. 当前架构特征与注意事项
-
-### 9.1 优点
-
-- 前后端职责划分明确
-- Python 适合处理 Excel 和复杂编排逻辑
-- Electron 适合提供桌面能力和安装包
-- 无数据库依赖，部署门槛较低
-
-### 9.2 维护注意点
-
-- 很多业务逻辑在 Python 后端，修功能时不要只看前端页面
-- `rooms` 和 `printing` 之间耦合较强，打印通常依赖编排结果
-- 状态恢复、导入导出和高考模式会改变数据结构，改动时要带样例验证
-- 复杂前端页面优先继续采用“页面入口 + 同名目录 + composable”的拆分方式
-- Windows 下要持续注意编码、中文路径和 PowerShell / `npm.cmd` 的兼容性
+- 只做架构调整
+- 不修改 RPC 名称与参数结构
+- 不修改业务规则
+- 不修改导入导出语义
+- 不修改排序、分配、打印结果语义
+- 每一轮拆分后都先过构建和相关测试

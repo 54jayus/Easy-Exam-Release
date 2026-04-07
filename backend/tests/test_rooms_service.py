@@ -226,3 +226,32 @@ def test_import_results_gaokao_reconstructs_gaokao_state(tmp_path, recording_rep
         }
     ]
     assert recording_repo.save_calls == 1
+
+
+def test_import_results_prefers_known_result_sheet_name(tmp_path, recording_repo) -> None:
+    state = AppState()
+    state.rooms.config = {"mode": "normal"}
+    state.rooms.student_path = "students.xlsx"
+    service = RoomsService(state, recording_repo)
+
+    path = tmp_path / "multi-sheet-results.xlsx"
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame([{"说明": "ignore"}]).to_excel(writer, sheet_name="说明", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "班级": "1",
+                    "学号": "01",
+                    "考号": "240001",
+                    "姓名": "张三",
+                    "考场号": "001",
+                    "座位号": "01",
+                }
+            ]
+        ).to_excel(writer, sheet_name="学生编排结果", index=False)
+
+    result = service.import_results({"path": str(path)})
+
+    assert result["message"] == "导入成功，共 1 人"
+    assert state.rooms.results[0]["考场号"] == "001"
+    assert recording_repo.save_calls == 1

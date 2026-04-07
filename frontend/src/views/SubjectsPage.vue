@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="h-full flex bg-slate-50/50 animate-fade-in relative overflow-hidden font-sans text-slate-600">
     <!-- Background Pattern -->
     <div class="absolute inset-0 z-0 pointer-events-none opacity-[0.03]"
@@ -58,7 +58,7 @@
                       v-if="importedFromFile"
                       class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-sky-600 hover:bg-sky-100 transition-colors duration-200"
                       @click.stop.prevent="handleClearImport"
-                   >×</span>
+                   >x</span>
                 </button>
                 <button
                   class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group"
@@ -104,7 +104,7 @@
              </el-button>
              
              <div v-if="subjects.length > 0" class="text-center">
-                <el-popconfirm title="确定清空所有科目数据?" @confirm="handleClearAll">
+                <el-popconfirm title="确定清空所有科目数据？" @confirm="handleClearAll">
                   <template #reference>
                     <el-button link type="danger" size="small" class="opacity-60 hover:opacity-100">
                        <el-icon class="mr-1"><Delete /></el-icon> 清空所有数据
@@ -134,7 +134,7 @@
           <div class="flex items-center gap-4 flex-shrink min-w-0">
              <h2 class="text-base font-bold text-slate-700 truncate">科目列表</h2>
              <div class="flex items-center gap-2 px-2.5 py-1 bg-slate-100/80 rounded-full border border-slate-200/50 hidden md:flex">
-                <span class="text-xs text-slate-500">状态:</span>
+                <span class="text-xs text-slate-500">状态</span>
                 <span 
                    class="text-xs font-bold"
                    :class="subjects.length > 0 ? (validationErrors.length === 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'"
@@ -213,7 +213,7 @@
                       <button class="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" @click.stop="handleEdit(subject, index)">
                          <el-icon><Edit /></el-icon>
                       </button>
-                      <el-popconfirm title="确定删除?" @confirm="handleDelete(index)">
+                      <el-popconfirm title="确定删除？" @confirm="handleDelete(index)">
                          <template #reference>
                             <button class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
                                <el-icon><Delete /></el-icon>
@@ -295,7 +295,7 @@
                 <el-table-column label="操作" width="120" align="center" fixed="right">
                    <template #default="{ row, $index }">
                       <el-button link type="primary" @click="handleEdit(row, $index)">编辑</el-button>
-                      <el-popconfirm title="确定删除?" @confirm="handleDelete($index)">
+                      <el-popconfirm title="确定删除？" @confirm="handleDelete($index)">
                          <template #reference>
                             <el-button link type="danger">删除</el-button>
                          </template>
@@ -400,29 +400,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { usePageSessionState } from '@/composables/usePageSessionState'
-import { 
+import {
   Download, Upload, Plus, Warning, WarningFilled,
   Calendar, Clock, Edit, Delete, Timer, Notebook, CollectionTag,
   List, Grid, Fold, Expand
 } from '@element-plus/icons-vue'
-import { open, saveAndRun } from '@/lib/dialog'
-import { pythonBackend } from '@/lib/pythonBackend'
 import { createLogger } from '@/lib/logger'
-import { applyPageReset } from '@/composables/useAppCacheControl'
-import dayjs from 'dayjs'
+import { useSubjectsLogs } from './SubjectsPage/composables/useSubjectsLogs'
+import { useSubjectsData } from './SubjectsPage/composables/useSubjectsData'
+import { useSubjectsForm } from './SubjectsPage/composables/useSubjectsForm'
+import { useSubjectsReset } from './SubjectsPage/composables/useSubjectsReset'
+import type { Subject } from './SubjectsPage/types'
 
-interface Subject {
-  name: string
-  exam_date: string
-  exam_time: string
-  duration_minutes: number
-  remark: string
-}
-
-// State
 const sidebarCollapsed = ref(false)
 const storage = usePageSessionState('subjects')
 const getStored = (key: string, def: string) => storage.getPref(key, def)
@@ -431,363 +422,89 @@ const subjects = ref<Subject[]>([])
 const importedFromFile = ref(false)
 const validationErrors = ref<string[]>([])
 const showErrors = ref(false)
-const showLogs = ref(false)
-const viewMode = ref(getStored('viewMode', 'grid')) // 'grid' | 'list'
-type UiLogLevel = 'info' | 'success' | 'warning' | 'error'
-const logs = ref<{ time: string; level: UiLogLevel; msg: string }[]>([])
+const viewMode = ref(getStored('viewMode', 'grid'))
 const loading = ref(false)
 const logger = createLogger('subjects')
 
-// Persistence Watchers
+const {
+  showLogs,
+  logs,
+  logInfo,
+  logSuccess,
+  logWarning,
+  pushLog,
+  attachBackendLogs,
+  logFromText,
+} = useSubjectsLogs()
+
+const {
+  syncToBackend,
+  loadFromBackend,
+  validateData,
+  handleImport,
+  handleExport,
+  handleTemplate,
+} = useSubjectsData({
+  subjects,
+  importedFromFile,
+  validationErrors,
+  showErrors,
+  loading,
+  logInfo,
+  logSuccess,
+  logWarning,
+  logError: (msg: string) => pushLog('error', msg),
+  logFromText,
+  logger,
+})
+
 watch(viewMode, (val) => storage.setPref('viewMode', val))
 
-// Dialog State
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const editingIndex = ref(-1)
-const formRef = ref()
-const form = reactive<Subject>({
-  name: '',
-  exam_date: '',
-  exam_time: '',
-  duration_minutes: 0,
-  remark: ''
+const {
+  dialogVisible,
+  isEdit,
+  formRef,
+  form,
+  rules,
+  handleAdd,
+  handleEdit,
+  handleDelete,
+  handleClearAll,
+  submitForm,
+  examTimeRange,
+  resetFormState,
+} = useSubjectsForm({
+  subjects,
+  syncToBackend,
+  validateData,
+  logInfo,
 })
 
-const rules = {
-  name: [{ required: true, message: '请输入科目名称', trigger: 'blur' }],
-  exam_date: [{ required: true, message: '请选择考试日期', trigger: 'change' }],
-  exam_time: [
-    { required: true, message: '请选择考试时间段', trigger: 'change' },
-    { pattern: /^\d{1,2}:\d{2}-\d{1,2}:\d{2}$/, message: '格式应为 HH:mm-HH:mm', trigger: 'change' }
-  ]
-}
-
-// Logging
-const pushLog = (level: UiLogLevel, msg: string) => {
-  logs.value.unshift({ time: dayjs().format('HH:mm:ss'), level, msg })
-}
-const logInfo = (msg: string) => pushLog('info', msg)
-const logSuccess = (msg: string) => pushLog('success', msg)
-const logWarning = (msg: string) => pushLog('warning', msg)
-const logError = (msg: string) => pushLog('error', msg)
-const logFromText = (msg: string) => {
-  const m = String(msg || '')
-  if (m.includes('失败') || m.includes('异常') || m.includes('错误')) return logError(m)
-  if (m.includes('警告')) return logWarning(m)
-  if (m.includes('成功') || m.includes('完成')) return logSuccess(m)
-  return logInfo(m)
-}
-
-// Methods
-const syncToBackend = async () => {
-   try {
-      const res = await pythonBackend.request<any>('subjects.update', { subjects: subjects.value })
-      if (res?.proctoringReset) {
-         ElMessage.warning('科目已更新，原监考编排结果已自动清除')
-         logInfo('科目变更，监考编排结果已自动重置')
-      }
-   } catch (e) {
-      logger.error('同步科目数据失败', e)
-   }
-}
-
-const loadFromBackend = async () => {
-   try {
-      const res = await pythonBackend.request('subjects.list')
-      if (res && res.subjects) {
-         subjects.value = res.subjects as any
-         if (res.subjects.length > 0) importedFromFile.value = true
-      }
-   } catch (e) {
-      logger.error('读取科目数据失败', e)
-   }
-}
-
-const validateData = async () => {
-  if (subjects.value.length === 0) {
-    validationErrors.value = []
-    return
-  }
-  try {
-    const res = await pythonBackend.request('subjects.validate', {
-      subjects: subjects.value
-    })
-    validationErrors.value = res.errors
-    if (res.errors.length > 0) {
-      ElMessage.warning(`发现 ${res.errors.length} 个潜在问题`)
-      logWarning(`数据校验发现 ${res.errors.length} 个问题`)
-    } else {
-      logSuccess('数据校验通过')
-    }
-  } catch (err) {
-    logger.error('数据校验失败', err)
-  }
-}
-
-const handleImport = async () => {
-  try {
-    logInfo('正在打开文件选择器')
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: 'Excel Files', extensions: ['xlsx', 'xls'] }]
-    })
-    
-    if (selected) {
-      logInfo(`已选择文件：${selected}`)
-      loading.value = true
-      logInfo('正在导入科目数据')
-      const res = await pythonBackend.request('subjects.import', {
-        path: selected
-      })
-      
-      if (res.subjects && res.subjects.length > 0) {
-        subjects.value = res.subjects
-        importedFromFile.value = true
-        ElMessage.success(`成功导入 ${res.subjects.length} 个科目`)
-        logSuccess(`成功导入 ${res.subjects.length} 个科目`)
-        if (res.proctoringReset) {
-          ElMessage.warning('科目已更新，原监考编排结果已自动清除')
-          logInfo('科目变更，监考编排结果已自动重置')
-        }
-      }
-      
-      validationErrors.value = res.errors
-      if (res.errors.length > 0) {
-        showErrors.value = true
-        logError(`导入发现 ${res.errors.length} 个错误`)
-      }
-    }
-  } catch (err) {
-    ElMessage.error('导入失败: ' + err)
-    logError(`导入失败：${err}`)
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleClearImport = async () => {
-  try {
-    await ElMessageBox.confirm(
-      '确定要清除所有科目数据吗？',
-      '清除科目数据',
-      { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' }
-    )
-  } catch {
-    return
-  }
-  subjects.value = []
-  importedFromFile.value = false
-  validationErrors.value = []
-  await pythonBackend.request('subjects.update', { subjects: [] })
-  logInfo('已清除科目数据')
-}
-
-const handleExport = async () => {
-  if (subjects.value.length === 0) {
-    ElMessage.warning('没有数据可导出')
-    return
-  }
-  
-  logInfo('正在打开文件保存对话框')
-  await saveAndRun({
-    dialog: {
-      filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],
-      defaultPath: '科目信息.xlsx'
-    },
-    run: async (path) => {
-      logInfo('正在导出科目数据')
-      return await pythonBackend.request('subjects.export', {
-        path,
-        subjects: subjects.value
-      })
-    },
-    successText: '导出成功',
-    errorText: '导出失败',
-    openFolderTitle: '导出成功',
-    onLog: logFromText
-  })
-}
-
-const handleTemplate = async () => {
-  logInfo('正在打开文件保存对话框')
-  await saveAndRun({
-    dialog: {
-      filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],
-      defaultPath: '科目导入模板.xlsx'
-    },
-    run: async (path) => {
-      return await pythonBackend.request('subjects.template', { path })
-    },
-    successText: '模板下载成功',
-    errorText: '模板下载失败',
-    openFolderTitle: '模板下载成功',
-    onLog: logFromText
-  })
-}
-
-const handleAdd = () => {
-  isEdit.value = false
-  editingIndex.value = -1
-  Object.assign(form, {
-    name: '',
-    exam_date: '',
-    exam_time: '',
-    duration_minutes: 0,
-    remark: ''
-  })
-  dialogVisible.value = true
-}
-
-const handleEdit = (row: Subject, index: number) => {
-  isEdit.value = true
-  editingIndex.value = index
-  Object.assign(form, { ...row })
-  dialogVisible.value = true
-}
-
-const handleDelete = async (index: number) => {
-  const deletedName = subjects.value[index].name
-  subjects.value.splice(index, 1)
-  await syncToBackend()
-  logInfo(`删除科目：${deletedName}`)
-  validateData()
-}
-
-const handleClearAll = async () => {
-  subjects.value = []
-  await syncToBackend()
-  logInfo('已清空全部科目数据')
-  validationErrors.value = []
-}
-
-const handleResetPage = async () => {
-  try {
-    await ElMessageBox.confirm(
-      '确定要初始化当前页面吗？这将清除所有数据与设置（科目数据、校验状态、日志、视图偏好等）。',
-      '初始化页面',
-      { type: 'warning', confirmButtonText: '初始化', cancelButtonText: '取消' }
-    )
-  } catch {
-    return
-  }
-
-  subjects.value = []
-  importedFromFile.value = false
-  validationErrors.value = []
-  showErrors.value = false
-  showLogs.value = false
-  logs.value = []
-  loading.value = false
-
-  dialogVisible.value = false
-  isEdit.value = false
-  editingIndex.value = -1
-  Object.assign(form, {
-    name: '',
-    exam_date: '',
-    exam_time: '',
-    duration_minutes: 0,
-    remark: ''
-  })
-
-  viewMode.value = 'grid'
-  sidebarCollapsed.value = false
-
-  try {
-    await pythonBackend.request('subjects.update', { subjects: [] })
-  } catch (e) {
-    logger.error('初始化时同步科目数据失败', e)
-    logWarning('初始化时同步科目数据失败，重新进入页面时可能恢复旧状态')
-  }
-
-  try {
-    await pythonBackend.request('proctoring.clearState')
-  } catch (e) {
-    logger.error('初始化时重置监考编排失败', e)
-    logWarning('初始化时重置监考编排失败，重新进入页面时可能恢复旧状态')
-  }
-
-  applyPageReset('subjects')
-  logSuccess('页面已初始化，相关监考与打印依赖已同步失效')
-  ElMessage.success('页面已初始化，相关监考与打印依赖已同步失效')
-}
-
-const submitForm = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate(async (valid: boolean) => {
-    if (valid) {
-      const newSubject = { ...form }
-      if (isEdit.value && editingIndex.value > -1) {
-        subjects.value[editingIndex.value] = newSubject
-        logInfo(`更新科目：${newSubject.name}`)
-      } else {
-        subjects.value.push(newSubject)
-        logInfo(`新增科目：${newSubject.name}`)
-      }
-      await syncToBackend()
-      dialogVisible.value = false
-      validateData()
-    }
-  })
-}
-
-function calculateDuration() {
-  if (!form.exam_time) return
-  const m = form.exam_time.match(/^(\d{1,2}):(\d{2})\s*[-~]\s*(\d{1,2}):(\d{2})$/)
-  if (!m) return
-
-  const start = Number(m[1]) * 60 + Number(m[2])
-  const end = Number(m[3]) * 60 + Number(m[4])
-  if (Number.isNaN(start) || Number.isNaN(end)) return
-
-  let diff = end - start
-  if (diff < 0) diff += 24 * 60
-  form.duration_minutes = diff
-}
-
-const examTimeRange = computed<[string, string] | undefined>({
-  get() {
-    const m = form.exam_time.match(/^(\d{1,2}:\d{2})\s*[-~]\s*(\d{1,2}:\d{2})$/)
-    if (!m) return undefined
-    return [m[1], m[2]]
-  },
-  set(val) {
-    if (Array.isArray(val) && val.length === 2 && val[0] && val[1]) {
-      form.exam_time = `${val[0]}-${val[1]}`
-      calculateDuration()
-      return
-    }
-    form.exam_time = ''
-    form.duration_minutes = 0
-  }
+const {
+  handleClearImport,
+  handleResetPage,
+} = useSubjectsReset({
+  subjects,
+  importedFromFile,
+  validationErrors,
+  showErrors,
+  showLogs,
+  logs,
+  loading,
+  viewMode,
+  sidebarCollapsed,
+  logger,
+  logInfo,
+  logWarning,
+  logSuccess,
+  resetFormState,
 })
 
-// Initialize
 let logCleanup: (() => void) | null = null
 
 onMounted(() => {
   loadFromBackend()
-
-  logCleanup = pythonBackend.onLog((msg, type) => {
-    // Filter raw RPC JSON to reduce noise, but show everything else
-    if (type === 'stdout') {
-      try {
-        const obj = JSON.parse(msg)
-        if (obj.id !== undefined && (obj.result !== undefined || obj.error !== undefined)) {
-           if (obj.error) {
-             logError(`后端 RPC 失败：${String(obj.error)}`)
-           }
-           // Skip success RPC raw messages
-           return
-        }
-      } catch {}
-    }
-    
-    // Truncate very long messages
-    const displayMsg = msg.length > 300 ? msg.slice(0, 300) + '...' : msg
-    pushLog(type === 'stderr' ? 'warning' : 'info', `后端${type === 'stderr' ? 'stderr' : 'stdout'}：${displayMsg}`)
-  })
+  logCleanup = attachBackendLogs()
 })
 
 onUnmounted(() => {
@@ -811,3 +528,5 @@ onUnmounted(() => {
   background-color: rgba(148, 163, 184, 0.8);
 }
 </style>
+
+

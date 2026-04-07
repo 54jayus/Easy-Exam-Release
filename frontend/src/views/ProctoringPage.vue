@@ -697,13 +697,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, watch, onMounted } from 'vue'
 import { Upload, Download, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, Fold, Expand, Setting, Check } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePageSessionState } from '@/composables/usePageSessionState'
-import { applyPageReset } from '@/composables/useAppCacheControl'
-import { open, saveAndRun } from '@/lib/dialog'
-import { pythonBackend } from '@/lib/pythonBackend'
+import { useProctoringBootstrap } from '@/views/ProctoringPage/composables/useProctoringBootstrap'
+import { useProctoringDataManagement } from '@/views/ProctoringPage/composables/useProctoringDataManagement'
+import { useProctoringOptimizationMetrics } from '@/views/ProctoringPage/composables/useProctoringOptimizationMetrics'
+import { useProctoringScheduling } from '@/views/ProctoringPage/composables/useProctoringScheduling'
+import { useProctoringSwap } from '@/views/ProctoringPage/composables/useProctoringSwap'
+import { useProctoringViewData } from '@/views/ProctoringPage/composables/useProctoringViewData'
 import dayjs from 'dayjs'
 
 // --- State ---
@@ -748,26 +750,26 @@ const schedule = ref<any[]>([]) // [{subjectId, rooms: [{id, teachers: []}]}]
 const selectedSubjectId = ref('')
 
 // --- Computed ---
-const subjectCount = computed(() => subjects.value.length)
-const canSchedule = computed(() => teachers.value.length > 0 && config.roomCount > 0 && subjectCount.value > 0)
-const hasSchedule = computed(() => schedule.value.length > 0)
-const missingSlots = computed(() => {
-   if (!hasSchedule.value) return 0
-   const requiredSlots = config.mode === 'double' ? 2 : 1
-   let missing = 0
-   for (const sub of subjects.value) {
-      const session = schedule.value.find(s => s.subjectId === sub.id)
-      for (let roomId = 1; roomId <= config.roomCount; roomId++) {
-         const room = session?.rooms?.find((r: any) => r.id === roomId)
-         const ts: any[] = room?.teachers || []
-         const filled = ts.filter(t => t).length
-         if (filled < requiredSlots) missing += (requiredSlots - filled)
-      }
-   }
-   return missing
+const {
+   subjectCount,
+   canSchedule,
+   hasSchedule,
+   missingSlots,
+   canContinue,
+   canOptimize,
+   getTeacherText,
+   getTeacherTextClass,
+   getUnavailableNames,
+   matrixData,
+   teacherStats,
+   subjectTableData,
+} = useProctoringViewData({
+   config,
+   subjects,
+   teachers,
+   schedule,
+   selectedSubjectId,
 })
-const canContinue = computed(() => hasSchedule.value && missingSlots.value > 0)
-const canOptimize = computed(() => hasSchedule.value && missingSlots.value === 0)
 
 const getRoomRecord = (subjectId: string, roomNum: number) => {
    const session = schedule.value.find((s: any) => s.subjectId === subjectId)
@@ -781,134 +783,6 @@ const getTeacherObj = (subjectId: string, roomNum: number, idx: number) => {
    if (config.mode === 'double') return ts[idx] || null
    return ts.find((t) => t) || null
 }
-
-function sortRemaining(a: any, b: any) {
-  const ra = Number(a?.maxSessions ?? 0) - Number(a?.sessions ?? 0)
-  const rb = Number(b?.maxSessions ?? 0) - Number(b?.sessions ?? 0)
-  return ra - rb
-}
-
-const getTeacherText = (subjectId: string, roomNum: number, idx: number) => {
-   const t = getTeacherObj(subjectId, roomNum, idx)
-   if (!t) return ''
-   if (t.isLocked) return `${t.name}[锁]`
-   if (t.presetRoom && Number(t.presetRoom) === roomNum) return `${t.name}[预]`
-   return t.name
-}
-
-const getTeacherTextClass = (subjectId: string, roomNum: number, idx: number) => {
-   const t = getTeacherObj(subjectId, roomNum, idx)
-   if (!t) return 'text-slate-300'
-   
-   // Base class for teacher name
-   let classes = []
-   
-   // Color based on status/gender
-   if (t.isLocked) classes.push('text-rose-600 font-semibold')
-   else if (t.presetRoom && Number(t.presetRoom) === roomNum) classes.push('text-emerald-600 font-semibold')
-   else if (t.gender === 'M') classes.push('text-blue-600')
-   else if (t.gender === 'F') classes.push('text-fuchsia-600')
-   else classes.push('text-slate-700')
-   
-   return classes.join(' ')
-}
-
-const getUnavailableNames = (unavailable: any[]) => {
-   if (!unavailable || !Array.isArray(unavailable) || unavailable.length === 0) return ''
-   return unavailable.map(u => {
-      const sub = subjects.value.find(s => s.id === u || s.name === u)
-      return sub ? sub.name : u
-   }).join('、')
-}
-
-// Matrix Data for Overview
-const matrixData = computed(() => {
-   if (!schedule.value.length) return []
-   const rows = []
-   for (let i = 1; i <= config.roomCount; i++) {
-      const row: any = { roomId: i }
-      subjects.value.forEach(sub => {
-         if (config.mode === 'double') {
-            row[`sub_${sub.id}_1`] = ''
-            row[`sub_${sub.id}_2`] = ''
-         } else {
-            row[`sub_${sub.id}`] = ''
-         }
-      })
-      rows.push(row)
-   }
-   return rows
-})
-
-// Stats Data
-const teacherStats = computed(() => {
-   return teachers.value.map(t => {
-      const status: any = {}
-      subjects.value.forEach(sub => {
-         // Check if assigned
-         const assigned = schedule.value.some(s => 
-            s.subjectId === sub.id && 
-            s.rooms.some((r: any) => r.teachers.some((tr: any) => tr && tr.id === t.id))
-         )
-         status[sub.id] = assigned
-      })
-      
-      return {
-         ...t,
-         subjectStatus: status
-      }
-   })
-})
-
-// Subject Table Data
-const subjectTableData = computed(() => {
-   if (!selectedSubjectId.value) return []
-   const session = schedule.value.find(s => s.subjectId === selectedSubjectId.value)
-   if (!session) return []
-   
-   return session.rooms.map((r: any) => {
-      const roomNum = Number(r.roomNum ?? r.id)
-      const row: any = { roomLabel: `考场${roomNum}` }
-      const ts = r.teachers
-      if (config.mode === 'double') {
-         if (ts[0]) {
-            row.t1_name = ts[0].isLocked ? `${ts[0].name}[锁]` : (ts[0].presetRoom && Number(ts[0].presetRoom) === roomNum ? `${ts[0].name}[预]` : ts[0].name)
-            row.t1_gender = ts[0].gender === 'M' ? '男' : '女'
-            row.t1_source = ts[0].isInternal ? '本校' : '外校'
-            row.t1_class = ts[0].isLocked ? 'text-rose-600 font-semibold' : (ts[0].presetRoom && Number(ts[0].presetRoom) === roomNum ? 'text-emerald-600 font-semibold' : (ts[0].gender === 'M' ? 'text-blue-600' : (ts[0].gender === 'F' ? 'text-fuchsia-600' : 'text-slate-700')))
-         } else {
-            row.t1_name = ''
-            row.t1_gender = ''
-            row.t1_source = ''
-            row.t1_class = 'text-slate-300'
-         }
-         if (ts[1]) {
-            row.t2_name = ts[1].isLocked ? `${ts[1].name}[锁]` : (ts[1].presetRoom && Number(ts[1].presetRoom) === roomNum ? `${ts[1].name}[预]` : ts[1].name)
-            row.t2_gender = ts[1].gender === 'M' ? '男' : '女'
-            row.t2_source = ts[1].isInternal ? '本校' : '外校'
-            row.t2_class = ts[1].isLocked ? 'text-rose-600 font-semibold' : (ts[1].presetRoom && Number(ts[1].presetRoom) === roomNum ? 'text-emerald-600 font-semibold' : (ts[1].gender === 'M' ? 'text-blue-600' : (ts[1].gender === 'F' ? 'text-fuchsia-600' : 'text-slate-700')))
-         } else {
-            row.t2_name = ''
-            row.t2_gender = ''
-            row.t2_source = ''
-            row.t2_class = 'text-slate-300'
-         }
-      } else {
-         if (ts[0]) {
-            row.t1_name = ts[0].isLocked ? `${ts[0].name}[锁]` : (ts[0].presetRoom && Number(ts[0].presetRoom) === roomNum ? `${ts[0].name}[预]` : ts[0].name)
-            row.t1_gender = ts[0].gender === 'M' ? '男' : '女'
-            row.t1_source = ts[0].isInternal ? '本校' : '外校'
-            row.t1_class = ts[0].isLocked ? 'text-rose-600 font-semibold' : (ts[0].presetRoom && Number(ts[0].presetRoom) === roomNum ? 'text-emerald-600 font-semibold' : (ts[0].gender === 'M' ? 'text-blue-600' : (ts[0].gender === 'F' ? 'text-fuchsia-600' : 'text-slate-700')))
-         } else {
-            row.t1_name = ''
-            row.t1_gender = ''
-            row.t1_source = ''
-            row.t1_class = 'text-slate-300'
-         }
-      }
-      return row
-   })
-})
 
 
 // --- Methods ---
@@ -928,675 +802,97 @@ const logFromText = (msg: string) => {
   return logInfo(m)
 }
 
-const formatVariance = (val: any) => {
-   if (val === undefined || val === null) return '-'
-   return Number(val).toFixed(2)
-}
+const { formatVariance, getDiff, getDiffClass } = useProctoringOptimizationMetrics()
 
-const getVal = (m: any, key: string) => {
-   if (!m) return 0
-   // key e.g. 'maxOverall' -> 'max_overall'
-   const snake = key.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`)
-   return Number(m[key] ?? m[snake] ?? 0)
-}
+const {
+   handleTemplate,
+   handleAddTeacher,
+   handlePresetDialog,
+   handleClearTeachers,
+   handleClearPreset,
+   handleClearSchedule,
+   handleResetPage,
+   handleGenerateEmptyTemplate,
+   handleImportPreset,
+   handleImportSchedule,
+   handleExport,
+} = useProctoringDataManagement({
+   config,
+   subjects,
+   teachers,
+   schedule,
+   logs,
+   showLogs,
+   presetVisible,
+   hasPreset,
+   adjustMode,
+   selectedCells,
+   selectedSubjectId,
+   optDetailVisible,
+   optDetail,
+   sidebarCollapsed,
+   activeTab,
+   schedulingProgress,
+   schedulingStatus,
+   schedulingStepText,
+   isScheduling,
+   logInfo,
+   logSuccess,
+   logWarning,
+   logError,
+   logFromText,
+})
 
-const getDiff = (before: any, after: any, key: string) => {
-   const v1 = getVal(before, key)
-   const v2 = getVal(after, key)
-   const diff = v2 - v1
-   if (Math.abs(diff) < 0.001) return ''
-   const txt = Number.isInteger(diff) ? String(diff) : diff.toFixed(2)
-   return diff > 0 ? `+${txt}` : `${txt}`
-}
+const { initializePage } = useProctoringBootstrap({
+   config,
+   subjects,
+   teachers,
+   schedule,
+   selectedSubjectId,
+   hasPreset,
+   logError,
+})
 
-const getDiffClass = (before: any, after: any, key: string) => {
-   const v1 = getVal(before, key)
-   const v2 = getVal(after, key)
-   // Lower is better for these metrics
-   return v2 < v1 ? 'text-emerald-600 font-bold' : (v2 > v1 ? 'text-rose-500 font-bold' : 'text-slate-400')
-}
+const { handleSmartSchedule, handleOptimize } = useProctoringScheduling({
+   config,
+   teachers,
+   subjects,
+   schedule,
+   hasPreset,
+   showLogs,
+   optDetailVisible,
+   optDetail,
+   schedulingProgress,
+   schedulingStatus,
+   schedulingStepText,
+   isScheduling,
+   logInfo,
+   logSuccess,
+   logWarning,
+   logError,
+})
 
-
-
-const handleTemplate = async () => {
-   await saveAndRun({
-      dialog: { filters: [{ name: 'Excel', extensions: ['xlsx'] }], defaultPath: '监考教师导入模板.xlsx' },
-      run: async (path) => {
-         return await pythonBackend.request('proctoring.template', { path })
-      },
-      successText: '教师模板下载成功',
-      errorText: '教师模板下载失败',
-      openFolderTitle: '教师模板下载成功',
-      onLog: logFromText,
-   })
-}
-
-const handleAddTeacher = async () => {
-   const path = await open({ filters: [{ name: 'Excel', extensions: ['xlsx'] }] })
-   if (path) {
-      try {
-         const res = await pythonBackend.request<any>('proctoring.importTeachers', {
-            path,
-            config: { ...config },
-            subjects: subjects.value
-         })
-         if (res?.errors?.length) {
-            logError('导入教师失败：' + res.errors.join('；'))
-            await ElMessageBox.alert(res.errors.join('\n'), '导入教师失败', { type: 'error' })
-            return
-         }
-         if (res?.warnings?.length) {
-            logWarning('导入教师警告：' + res.warnings.join('；'))
-            ElMessage.warning(res.warnings[0])
-         }
-         if (res?.teachers?.length) {
-            teachers.value = res.teachers
-            logSuccess(`已导入教师：${res.teachers.length} 人`)
-            ElMessage.success(`导入成功，共 ${res.teachers.length} 人`)
-         } else {
-            logError('导入教师失败：未返回教师数据')
-            ElMessage.error('导入教师失败：未返回教师数据')
-         }
-      } catch(e) { ElMessage.error('导入失败: ' + e) }
-   }
-}
-
-const handlePresetDialog = () => {
-   presetVisible.value = true
-}
-
-const resetScheduleState = () => {
-   schedule.value = []
-   hasPreset.value = false
-   presetVisible.value = false
-   adjustMode.value = false
-   selectedCells.value = []
-   selectedSubjectId.value = ''
-   optDetailVisible.value = false
-   optDetail.value = null
-}
-
-const handleClearTeachers = async () => {
-   try {
-      await ElMessageBox.confirm(
-         '确定要清除已导入的教师数据吗？这将同时清空当前监考安排与预设状态。',
-         '清除教师数据',
-         { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' }
-      )
-   } catch {
-      return
-   }
-   try {
-      // 清除后端教师和编排数据，但保留配置
-      await pythonBackend.request('proctoring.clearState', {
-         clearTeachers: true,
-         clearSchedule: true,
-         clearConfig: false
-      })
-   } catch (e) {
-      logWarning('清除后端状态失败：' + (e instanceof Error ? e.message : String(e)))
-   }
-   teachers.value = []
-   schedule.value = []
-   hasPreset.value = false
-   resetScheduleState()
-   logInfo('已清除教师数据')
-}
-
-const handleClearPreset = async () => {
-   try {
-      await ElMessageBox.confirm(
-         '确定要清除已导入的预设监考安排吗？这将清空当前监考安排。',
-         '清除预设监考',
-         { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' }
-      )
-   } catch {
-      return
-   }
-   try {
-      // 清除后端编排数据，但保留教师和配置
-      await pythonBackend.request('proctoring.clearState', {
-         clearTeachers: false,
-         clearSchedule: true,
-         clearConfig: false
-      })
-   } catch (e) {
-      logWarning('清除后端状态失败：' + (e instanceof Error ? e.message : String(e)))
-   }
-   hasPreset.value = false
-   resetScheduleState()
-   logInfo('已清除预设监考安排')
-}
-
-const handleClearSchedule = async () => {
-   try {
-      await ElMessageBox.confirm(
-         '确定要清除当前监考编排结果吗？（不会清除教师与科目信息）',
-         '清除当前编排',
-         { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' }
-      )
-   } catch {
-      return
-   }
-   resetScheduleState()
-  logInfo('已清除当前监考编排')
-}
-
-const handleResetPage = async () => {
-   try {
-      await ElMessageBox.confirm(
-         '确定要初始化当前页面吗？这将清除所有数据与设置（教师、科目、编排、预设、日志、参数等）。',
-         '初始化页面',
-         { type: 'warning', confirmButtonText: '初始化', cancelButtonText: '取消' }
-      )
-   } catch {
-      return
-   }
-
-   try {
-      // Clear backend state
-      await pythonBackend.request('proctoring.clearState')
-   } catch (e) {
-      logWarning('初始化后端状态失败：' + (e instanceof Error ? e.message : String(e)))
-      // We continue to clear frontend state even if backend fails, 
-      // though it might reappear on reload.
-   }
-
-   subjects.value = []
-   teachers.value = []
-   logs.value = []
-   showLogs.value = false
-
-   resetScheduleState()
-
-   config.roomCount = 0
-   config.mode = 'single'
-   config.balanceMode = 'duration'
-   config.genderMix = false
-   config.internalMix = false
-
-   sidebarCollapsed.value = false
-   activeTab.value = 'overview'
-
-   schedulingProgress.value = 0
-   schedulingStatus.value = ''
-   schedulingStepText.value = ''
-   isScheduling.value = false
-
-   applyPageReset('proctoring')
-   ElMessage.success('页面已初始化')
-}
-
-const handleGenerateEmptyTemplate = async () => {
-   await saveAndRun({
-      dialog: { filters: [{ name: 'Excel', extensions: ['xlsx'] }], defaultPath: '预设监考模板.xlsx' },
-      run: async (path) => {
-         return await pythonBackend.request('proctoring.export_empty_preset', { 
-            path, 
-            subjects: subjects.value, 
-            roomCount: config.roomCount,
-            mode: config.mode
-         })
-      },
-      successText: '预设模板下载成功',
-      errorText: '预设模板下载失败',
-      openFolderTitle: '预设模板下载成功',
-      onLog: logFromText,
-   })
-}
-
-const handleImportPreset = async () => {
-   const path = await open({ filters: [{ name: 'Excel', extensions: ['xlsx'] }] })
-   if (path) {
-      const importPreset = async () => {
-         return await pythonBackend.request<any>('proctoring.import_preset', {
-            path,
-            teachers: teachers.value,
-            subjects: subjects.value,
-            config: { ...config }
-         })
-      }
-
-      try {
-         const res = await importPreset()
-
-         const mismatch = res?.modeMismatch
-         if (res?.error && mismatch?.detected && mismatch?.current && mismatch?.detected !== mismatch?.current) {
-            const detectedMode = String(mismatch.detected)
-            const modeText = detectedMode === 'double' ? '双人监考' : '单人监考'
-            try {
-               await ElMessageBox.confirm(
-                  `检测到导入的表格为${modeText}模式，是否切换到${modeText}并继续导入？`,
-                  '导入预设安排',
-                  { type: 'warning', confirmButtonText: '切换并导入', cancelButtonText: '取消' }
-               )
-            } catch {
-               logInfo('已取消导入预设安排：未切换模式')
-               await ElMessageBox.alert(res.error, '导入预设安排失败', { type: 'error' })
-               return
-            }
-
-            config.mode = detectedMode
-            const retryRes = await importPreset()
-            if (retryRes?.error) {
-               logError('导入预设安排失败：' + retryRes.error)
-               await ElMessageBox.alert(retryRes.error, '导入预设安排失败', { type: 'error' })
-               return
-            }
-            if (retryRes?.schedule) {
-               schedule.value = retryRes.schedule
-               if (retryRes.teachers) teachers.value = retryRes.teachers
-               if (retryRes.detectedRoomCount) config.roomCount = retryRes.detectedRoomCount
-               hasPreset.value = true
-               logSuccess('导入预设安排成功')
-               presetVisible.value = false
-               return
-            }
-         }
-
-         if (res?.error) {
-            logError('导入预设安排失败：' + res.error)
-            await ElMessageBox.alert(res.error, '导入预设安排失败', { type: 'error' })
-            return
-         }
-         if (res?.schedule) {
-            schedule.value = res.schedule
-            if (res.teachers) teachers.value = res.teachers
-            if (res.detectedRoomCount) config.roomCount = res.detectedRoomCount
-            hasPreset.value = true
-            logSuccess('导入预设安排成功')
-            presetVisible.value = false
-         }
-      } catch (e) {
-         ElMessage.error('导入失败: ' + e)
-      }
-   }
-}
-
-const handleImportSchedule = async () => {
-   const path = await open({ filters: [{ name: 'Excel', extensions: ['xlsx'] }] })
-   if (path) {
-      try {
-         const res = await pythonBackend.request<any>('proctoring.importSchedule', {
-            path,
-            teachers: teachers.value,
-            subjects: subjects.value,
-            config
-         })
-         if (res.schedule) {
-            schedule.value = res.schedule
-            teachers.value = res.teachers // update stats
-            logSuccess('导入安排成功')
-         }
-      } catch(e) { ElMessage.error('导入失败: ' + e) }
-   }
-}
-
-const handleExport = async () => {
-   await saveAndRun({
-      dialog: { filters: [{ name: 'Excel', extensions: ['xlsx'] }], defaultPath: '监考安排.xlsx' },
-      run: async (path) => {
-         return await pythonBackend.request('proctoring.export', {
-            path,
-            teachers: teachers.value,
-            subjects: subjects.value,
-            schedule: schedule.value,
-            config
-         })
-      },
-      successText: '导出成功',
-      errorText: '导出失败',
-      openFolderTitle: '导出成功',
-      onLog: logFromText,
-   })
-}
-
-const handleSmartSchedule = async () => {
-   isScheduling.value = true
-   schedulingProgress.value = 0
-   schedulingStatus.value = ''
-   schedulingStepText.value = '准备开始...'
-   
-   try {
-      // Step 1: Schedule or Continue
-      const method = hasPreset.value ? 'proctoring.continue' : 'proctoring.generateSchedule'
-      const actionName = hasPreset.value ? '补全安排' : '智能编排'
-      
-      schedulingStepText.value = `正在进行${actionName}...`
-      schedulingProgress.value = 10
-      logInfo(`开始${actionName}`)
-
-      // Add delay for UI update
-      await new Promise(r => setTimeout(r, 500))
-
-      const res = await pythonBackend.request<any>(method, {
-         teachers: teachers.value,
-         subjects: subjects.value,
-         schedule: hasPreset.value ? schedule.value : undefined, // continue needs schedule
-         config
-      })
-
-      if (!res.schedule) throw new Error('未返回排班结果')
-      
-      schedule.value = res.schedule
-      teachers.value = res.teachers
-      schedulingProgress.value = 60
-      logSuccess(`${actionName}完成`)
-      
-      // Step 2: Deep Optimization
-      schedulingStepText.value = '正在进行优化...'
-      logInfo('开始深度优化')
-      
-      // Time-based progress simulation for optimization phase
-      const optStart = Date.now()
-      const optPhaseMin = 60     // 深度优化阶段起点
-      const optPhaseMax = 96     // 接近完成但保留一点空间给真正完成
-      const optExpectedMs = 60_000 // 平均耗时约 1 分钟
-      const progressTimer = setInterval(() => {
-         const elapsed = Date.now() - optStart
-         const ratio = Math.min(1, elapsed / optExpectedMs)
-         const eased = 0.15 + 0.85 * ratio
-         const target = Math.floor(optPhaseMin + (optPhaseMax - optPhaseMin) * eased)
-         if (schedulingProgress.value < target && schedulingProgress.value < optPhaseMax) {
-            schedulingProgress.value += 1
-         }
-      }, 600)
-
-      const optRes = await pythonBackend.request<any>('proctoring.optimize', {
-         teachers: teachers.value,
-         subjects: subjects.value,
-         schedule: schedule.value,
-         config
-      }, 180_000)
-      
-      clearInterval(progressTimer)
-
-      if (optRes?.error) {
-         logWarning(`二次均衡优化失败：${optRes.error}`)
-         // Don't fail the whole process, just show warning
-         ElMessage.warning('基础编排完成，但深度优化失败')
-      } else if (optRes.schedule) {
-         schedule.value = optRes.schedule
-         teachers.value = optRes.teachers
-         
-         // Store opt details
-         const info = optRes.optimization
-         const details = optRes.optimizationDetails
-         optDetail.value = {
-            swaps: Array.isArray(details?.swaps) ? details.swaps : [],
-            presetDetails: Array.isArray(details?.presetDetails) ? details.presetDetails : [],
-            before: info?.before,
-            after: info?.after,
-            earlyStopReason: info?.earlyStopReason
-         }
-         
-         logSuccess('二次均衡优化完成')
-      }
-
-      schedulingProgress.value = 100
-      schedulingStatus.value = 'success'
-      schedulingStepText.value = '全部完成！'
-      
-      await new Promise(r => setTimeout(r, 800))
-      isScheduling.value = false
-      
-      // Show summary or details
-      const isDev = localStorage.getItem('developer_mode') === 'true'
-      const showDetails = localStorage.getItem('show_optimization_details') === 'true'
-
-      if (optDetail.value && isDev && showDetails) optDetailVisible.value = true
-      else ElMessage.success('编排完成')
-
-   } catch(e: any) {
-      const msg = e?.message || String(e)
-      logError(`编排失败：${msg}`)
-      schedulingStatus.value = 'exception'
-      schedulingStepText.value = '发生错误'
-      ElMessage.error(`编排失败: ${msg}`)
-      await new Promise(r => setTimeout(r, 2000))
-      isScheduling.value = false
-   }
-}
-
-const handleOptimize = async () => {
-   logInfo('开始优化')
-   try {
-      const res = await pythonBackend.request<any>('proctoring.optimize', {
-         teachers: teachers.value,
-         subjects: subjects.value,
-         schedule: schedule.value,
-         config
-      }, 180_000)
-      if (res?.error) {
-         logError(`二次均衡优化失败：${res.error}`)
-         if (res.trace) logInfo(String(res.trace))
-         showLogs.value = true
-         await ElMessageBox.alert(res.error, '二次均衡优化失败', { type: 'error' })
-         return
-      }
-      if (res.schedule) {
-         schedule.value = res.schedule
-         teachers.value = res.teachers
-         const info = res.optimization
-         if (info) {
-            const parts = []
-            if (typeof info.swapCount === 'number') parts.push(`交换 ${info.swapCount} 次`)
-            if (typeof info.presetMoves === 'number' && info.presetMoves > 0) parts.push(`预设修复 ${info.presetMoves} 次`)
-            if (info.earlyStopReason) parts.push(`提前结束：${info.earlyStopReason}`)
-            logSuccess(`二次均衡优化完成${parts.length ? '（' + parts.join('，') + '）' : ''}`)
-         } else {
-            logSuccess('二次均衡优化完成')
-         }
-
-         const details = res.optimizationDetails
-         optDetail.value = {
-            swaps: Array.isArray(details?.swaps) ? details.swaps : [],
-            presetDetails: Array.isArray(details?.presetDetails) ? details.presetDetails : [],
-            before: info?.before,
-            after: info?.after,
-            earlyStopReason: info?.earlyStopReason
-         }
-         
-         const isDev = localStorage.getItem('developer_mode') === 'true'
-         const showDetails = localStorage.getItem('show_optimization_details') === 'true'
-         if (isDev && showDetails) {
-            optDetailVisible.value = true
-         }
-      }
-   } catch(e: any) {
-      const msg = e?.message ? String(e.message) : String(e)
-      logError(`二次均衡优化异常：${msg}`)
-      showLogs.value = true
-      ElMessage.error('优化失败')
-   }
-}
-
-const toggleAdjustMode = () => {
-   adjustMode.value = !adjustMode.value
-   selectedCells.value = []
-   if (adjustMode.value) {
-      ElMessageBox.alert('请在监考总览表中点击要交换的两个监考教师姓名。', '进入手动调整模式')
-   } else {
-      ElMessage.info('退出手动调整模式')
-   }
-}
-
-const getCellStyle = ({ row, column, rowIndex, columnIndex }: any) => {
-   // Highlight selected cells
-   // Use roomId instead of rowIndex for stability
-   const isSelected = selectedCells.value.some(cell => cell.roomId === row.roomId && cell.c === column.property)
-   if (isSelected) {
-      return { backgroundColor: '#fef08a' } // yellow-200
-   }
-   if (typeof column.property === 'string' && column.property.startsWith('sub_')) {
-      const parts = column.property.split('_')
-      const subjectId = parts[1]
-      const idx = config.mode === 'double' ? (Number(parts[2] || '1') - 1) : 0
-      const t = getTeacherObj(subjectId, Number(row.roomId), idx)
-      if (t?.isLocked) return { backgroundColor: '#fff1f2' }
-      if (t?.presetRoom && Number(t.presetRoom) === Number(row.roomId)) return { backgroundColor: '#ecfdf5' }
-   }
-   return {}
-}
-
-const handleCellClick = (row: any, column: any, cell: any, event: any) => {
-   if (!adjustMode.value) return
-   // Only allow clicking on teacher columns (starting with sub_)
-   if (!column.property.startsWith('sub_')) return
-   
-   // Use roomId for identification (more robust than indexOf)
-   const roomId = row.roomId
-   const cellKey = column.property
-   
-   // Check if already selected
-   const existingIdx = selectedCells.value.findIndex(c => c.roomId === roomId && c.c === cellKey)
-   if (existingIdx >= 0) {
-      selectedCells.value.splice(existingIdx, 1)
-   } else {
-      if (selectedCells.value.length >= 2) {
-         selectedCells.value.shift()
-      }
-      selectedCells.value.push({ roomId: roomId, c: cellKey })
-   }
-   
-   if (selectedCells.value.length === 2) {
-      swapCells()
-   }
-}
-
-const swapCells = async () => {
-   const [c1, c2] = selectedCells.value
-   
-   // Check for locked/preset teachers BEFORE calling backend
-   const checkProtected = (cell: {roomId: number, c: string}) => {
-      const parts = cell.c.split('_')
-      const subId = parts[1]
-      const tIdx = config.mode === 'double' ? (parseInt(parts[2]) - 1) : 0
-      const t = getTeacherObj(subId, cell.roomId, tIdx)
-      if (t?.isLocked) return `考场${cell.roomId}的${t.name}（已锁定）`
-      if (t?.presetRoom && Number(t.presetRoom) === cell.roomId) return `考场${cell.roomId}的${t.name}（预设）`
-      return null
-   }
-
-   const protect1 = checkProtected(c1)
-   const protect2 = checkProtected(c2)
-
-   if (protect1 || protect2) {
-      const msg = [protect1, protect2].filter(Boolean).join(' 和 ')
-      try {
-         await ElMessageBox.confirm(
-            `选中的 ${msg} 属于固定安排，强制交换可能违反预设规则。\n确定要继续吗？`,
-            '确认交换',
-            {
-               confirmButtonText: '强制交换',
-               cancelButtonText: '取消',
-               type: 'warning'
-            }
-         )
-      } catch {
-         selectedCells.value = []
-         return // User cancelled
-      }
-   }
-
-   // Logic to swap in backend
-   logInfo('开始交换监考安排')
-   try {
-      // Need to map row/col back to subject/room/teacherIndex
-      const parseCell = (roomId: number, prop: string) => {
-         const room = roomId
-         let subId, tIdx
-         if (config.mode === 'double') {
-            const parts = prop.split('_') // sub_1_1
-            subId = parts[1]
-            tIdx = parseInt(parts[2]) - 1
-         } else {
-            const parts = prop.split('_') // sub_1
-            subId = parts[1]
-            tIdx = 0
-         }
-         return { room, subId, tIdx }
-      }
-      
-      const p1 = parseCell(c1.roomId, c1.c)
-      const p2 = parseCell(c2.roomId, c2.c)
-      
-      const res = await pythonBackend.request<any>('proctoring.swap', {
-         p1, p2,
-         schedule: schedule.value,
-         teachers: teachers.value,
-         subjects: subjects.value,
-         config
-      })
-      
-      if (res.success) {
-         schedule.value = res.schedule
-         teachers.value = res.teachers
-      logSuccess('交换成功')
-         ElMessage.success('交换成功')
-      } else {
-      logWarning('交换失败：' + res.message)
-         ElMessage.warning(res.message)
-      }
-   } catch(e) {
-      const msg = e instanceof Error ? e.message : String(e)
-    logError('交换异常：' + msg)
-   }
-   selectedCells.value = []
-}
+const { toggleAdjustMode, getCellStyle, handleCellClick } = useProctoringSwap({
+   config,
+   adjustMode,
+   selectedCells,
+   schedule,
+   teachers,
+   subjects,
+   getTeacherObj,
+   logInfo,
+   logSuccess,
+   logWarning,
+   logError,
+})
 
 const handleRoomCountChange = () => {
    // Update subjects rooms? Or just config
    // Backend generate uses config.roomCount
 }
 
-const loadState = async () => {
-   try {
-      const res = await pythonBackend.request<any>('proctoring.getState')
-      if (res) {
-         if (res.teachers) teachers.value = res.teachers
-         if (res.schedule) schedule.value = res.schedule
-         if (res.config) {
-            Object.assign(config, res.config)
-         }
-         // 恢复预设导入高亮：只要 schedule 中存在 isLocked 的教师位置，说明曾导入过预设
-         if (res.schedule && Array.isArray(res.schedule)) {
-            hasPreset.value = res.schedule.some((subj: any) =>
-               subj.rooms?.some((room: any) =>
-                  room.teachers?.some((t: any) => t?.isLocked)
-               )
-            )
-         }
-      }
-   } catch (e) {
-      logError('读取监考编排状态失败：' + (e instanceof Error ? e.message : String(e)))
-   }
-}
-
-// Initialize subjects from backend or store
 onMounted(async () => {
-   // Fetch subjects from backend (simulated or real)
-   // In real app, might need to call python to get subjects from DB/File
-   // For now, let's assume we can get them or they are passed
-   // Try to fetch
-   try {
-      const res = await pythonBackend.request<any>('subjects.list')
-      if (res && res.subjects) {
-         subjects.value = res.subjects.map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            time: s.exam_time || s.time || '',
-            durationMinutes: Number(s.duration_minutes ?? s.durationMinutes ?? s.duration ?? 0) || 0
-         }))
-         if (subjects.value.length > 0) selectedSubjectId.value = subjects.value[0].id
-      }
-      
-      // Load saved state
-      await loadState()
-      
-   } catch(e) {
-      logError('初始化失败：' + (e instanceof Error ? e.message : String(e)))
-   }
+   await initializePage()
 })
 
 </script>

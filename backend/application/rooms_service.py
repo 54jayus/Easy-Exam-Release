@@ -8,15 +8,17 @@ from backend.domain.state import AppState
 from backend.repository.interfaces import IStateRepository
 from backend.examroom.core.arrangement import ExamArrangement
 from backend.examroom.core.gaokao_defaults import GAOKAO_TIME_DEFAULTS
-
-
-def _to_int(value: Any, default: int = 0) -> int:
-    try:
-        if value is None:
-            return default
-        return int(float(str(value).strip()))
-    except Exception:
-        return default
+from backend.application.rooms_result_importers import (
+    import_gaokao_results,
+    import_normal_results,
+    is_gaokao_results_dataframe,
+    load_results_dataframe,
+)
+from backend.application.rooms_input_importers import (
+    import_settings as import_room_settings,
+    import_students as import_room_students,
+)
+from backend.application.rooms_templates import generate_template as generate_rooms_template
 
 
 def _normalize_subject_priority_order(value: Any) -> list[str]:
@@ -66,22 +68,6 @@ def _build_exam_arrangement(settings: list, config: dict, student_path: str) -> 
     if room_setting_df is not None:
         ea.room_setting_df = room_setting_df
     return ea
-
-
-def _write_instructions(writer, columns, instructions, required_cols, wrap_left, required_cell, required_header, normal_header):
-    instr_row = [{col: instructions.get(col, "") for col in columns}]
-    df_desc = pd.DataFrame(instr_row)
-    df_desc.to_excel(writer, sheet_name="填写说明", index=False)
-    desc_ws = writer.sheets["填写说明"]
-    for i, col in enumerate(columns):
-        desc_ws.set_column(i, i, 20, wrap_left)
-    for idx, col in enumerate(columns):
-        fmt = required_header if col in required_cols else normal_header
-        desc_ws.write(0, idx, col, fmt)
-        text = instructions.get(col, "")
-        fmt = required_cell if col in required_cols else wrap_left
-        desc_ws.write(1, idx, text, fmt)
-    desc_ws.set_row(1, 100)
 
 
 class RoomsService:
@@ -223,153 +209,13 @@ class RoomsService:
         return {"settings": settings, "students": students, "results": results, "config": config, "studentPath": path}
 
     def generate_template(self, params: dict) -> Any:
-        type_ = params["type"]
-        path = params["path"]
-        try:
-            with pd.ExcelWriter(path, engine="xlsxwriter") as writer:
-                wb = writer.book
-                wrap_left = wb.add_format({"text_wrap": True, "align": "left", "valign": "top"})
-                required_cell = wb.add_format({"text_wrap": True, "align": "left", "valign": "top", "bg_color": "#FFC7CE"})
-                required_header = wb.add_format({"text_wrap": True, "align": "center", "valign": "vcenter", "bg_color": "#FFC7CE", "bold": True, "border": 1})
-                normal_header = wb.add_format({"text_wrap": True, "align": "center", "valign": "vcenter", "bold": 1, "border": 1})
-
-                if type_ == "settings":
-                    total_rooms = 30
-                    data = {
-                        "序号": list(range(1, total_rooms + 1)),
-                        "考场号": [f"{i:03d}" for i in range(1, total_rooms + 1)],
-                        "考场": [f"第{i}考场" for i in range(1, total_rooms + 1)],
-                        "考场人数": [30] * total_rooms,
-                    }
-                    df = pd.DataFrame(data)
-                    df.to_excel(writer, sheet_name="Sheet1", index=False)
-                    ws = writer.sheets["Sheet1"]
-                    ws.set_column(0, 0, 8); ws.set_column(1, 1, 10); ws.set_column(2, 2, 12); ws.set_column(3, 3, 10)
-                    instructions = {
-                        "序号": "必填。\n必须从1开始连续编号，不得缺失或重复。",
-                        "考场号": "必填。\n建议为三位如001、002。",
-                        "考场": "选填。\n设置考场名称，例如：高一1。",
-                        "考场人数": "必填。\n正整数，表示每个考场允许的最大人数。",
-                    }
-                    _write_instructions(writer, df.columns, instructions, {"序号", "考场号", "考场人数"}, wrap_left, required_cell, required_header, normal_header)
-
-                elif type_ == "student_normal":
-                    data = {"班级": ["1"]*5, "学号": ["1","2","3","4","5"], "考号": ["240001","240002","240003","240004","240005"], "姓名": ["张三","李四","王五","赵六","钱七"]}
-                    df = pd.DataFrame(data)
-                    df.to_excel(writer, sheet_name="Sheet1", index=False)
-                    ws = writer.sheets["Sheet1"]
-                    ws.set_column(0, 1, 10); ws.set_column(2, 3, 15)
-                    instructions = {
-                        "班级": "必填。\n仅允许数字（不允许字母/符号/小数）。\n示例：1",
-                        "学号": "必填。\n仅允许数字（不允许字母/符号/小数）。\n示例：1",
-                        "考号": "必填。\n不允许重复。",
-                        "姓名": "必填。\n示例：张三。",
-                    }
-                    _write_instructions(writer, df.columns, instructions, {"班级", "学号", "考号", "姓名"}, wrap_left, required_cell, required_header, normal_header)
-
-                elif type_ == "student_subject":
-                    data = {"班级": ["1"]*5, "学号": ["1","2","3","4","5"], "考号": ["240001","240002","240003","240004","240005"], "姓名": ["张三","李四","王五","赵六","钱七"], "选科": ["物化生","物化地","史政地","史化生","物生地"]}
-                    df = pd.DataFrame(data)
-                    df.to_excel(writer, sheet_name="Sheet1", index=False)
-                    ws = writer.sheets["Sheet1"]
-                    ws.set_column(0, 1, 10); ws.set_column(2, 3, 15); ws.set_column(4, 4, 25)
-                    instructions = {
-                        "班级": "必填。\n仅允许数字（不允许字母/符号/小数）。\n示例：1",
-                        "学号": "必填。\n仅允许数字（不允许字母/符号/小数）。\n示例：1",
-                        "考号": "必填。\n不允许重复。",
-                        "姓名": "必填。\n示例：张三。",
-                        "选科": "必填。\n支持缩写（如：物化生/史政地）或全称+分隔符。\n例如：物理+化学+生物",
-                    }
-                    _write_instructions(writer, df.columns, instructions, {"班级", "学号", "考号", "姓名", "选科"}, wrap_left, required_cell, required_header, normal_header)
-
-            return {}
-        except Exception as e:
-            return {"error": str(e)}
+        return generate_rooms_template(params["type"], params["path"])
 
     def import_settings(self, params: dict) -> Any:
-        path = params["path"]
-        try:
-            df = pd.read_excel(path, dtype=str)
-            required_cols = ["序号", "考场号", "考场人数"]
-            missing = [c for c in required_cols if c not in df.columns]
-            if missing:
-                return {"error": f"考场设置文件缺少必需的列: {', '.join(missing)}"}
-
-            seq_series = pd.to_numeric(df["序号"], errors="coerce")
-            if seq_series.isna().any():
-                return {"error": '"\u5e8f\u53f7"\u5217\u5305\u542b\u975e\u6570\u5b57\u5185\u5bb9'}
-            if seq_series.astype(int).tolist() != list(range(1, len(df) + 1)):
-                return {"error": "序号列必须从1开始顺序编号，不能有缺失或重复"}
-
-            cap_series = pd.to_numeric(df["考场人数"], errors="coerce")
-            if cap_series.isna().any():
-                return {"error": '"\u8003\u573a\u4eba\u6570"\u5217\u5305\u542b\u65e0\u6548\u6570\u636e\uff0c\u5fc5\u987b\u5168\u90e8\u4e3a\u6570\u5b57'}
-            if (cap_series <= 0).any():
-                return {"error": '"\u8003\u573a\u4eba\u6570"\u5fc5\u987b\u4e3a\u6b63\u6574\u6570'}
-
-            settings = []
-            for _, row in df.iterrows():
-                room_num = str(row.get("考场号", "")).strip()
-                room_name = str(row.get("考场", "")).strip()
-                capacity = row.get("考场人数")
-                if not room_num or room_num == "nan":
-                    continue
-                settings.append({
-                    "roomNum": room_num,
-                    "roomName": room_name if room_name and room_name != "nan" else f"第{room_num}考场",
-                    "capacity": int(float(capacity)),
-                })
-
-            self._state.rooms.settings_data = settings
-            merged_config = dict(self._state.rooms.config or {})
-            if settings:
-                merged_config["totalRooms"] = len(settings)
-                merged_config["seatsPerRoom"] = int(settings[0]["capacity"])
-            self._state.rooms.config = merged_config
-            self._repo.save(self._state)
-            return {"settings": settings}
-        except Exception as e:
-            return {"error": str(e)}
+        return import_room_settings(self._state, self._repo, params["path"])
 
     def import_students(self, params: dict) -> Any:
-        path = params["path"]
-        try:
-            ea = ExamArrangement(path)
-            success, msg = ea.load_data()
-            if not success:
-                return {"error": msg}
-
-            required_columns = ["班级", "学号", "考号", "姓名"]
-            missing_columns = [col for col in required_columns if col not in ea.students.columns]
-            if missing_columns:
-                return {"error": f"导入失败：缺少必要的列: {', '.join(missing_columns)}"}
-
-            if "考号" in ea.students.columns and not ea.students["考号"].is_unique:
-                duplicates = ea.students[ea.students.duplicated("考号", keep=False)]["考号"].unique()
-                return {"error": f"导入失败：存在重复的考号: {', '.join(map(str, duplicates[:5]))}{'...' if len(duplicates) > 5 else ''}"}
-
-            def digit_check(col_name):
-                if col_name in ea.students.columns:
-                    def custom_validator(value, student_name, index):
-                        val = str(value).strip()
-                        if val.isdigit():
-                            return True, ""
-                        return False, f'第{index+1}行数据，学生{student_name}的"{col_name}"只能填写数字'
-                    return ea.validate_column_data(col_name, {"custom_validator": custom_validator}, col_name)
-                return True, ""
-
-            for col in ["班级", "学号"]:
-                ok, err = digit_check(col)
-                if not ok:
-                    return {"error": err}
-
-            preview = ea.students.fillna("").to_dict("records")
-            self._state.rooms.students_preview = preview
-            self._state.rooms.student_path = path
-            self._repo.save(self._state)
-            return {"students": preview, "total": len(ea.students), "message": msg}
-        except Exception as e:
-            return {"error": str(e)}
+        return import_room_students(self._state, self._repo, params["path"])
 
     def arrange(self, params: dict) -> Any:
         student_path = params["studentPath"]
@@ -452,223 +298,16 @@ class RoomsService:
     def import_results(self, params: dict) -> Any:
         path = params["path"]
         try:
-            xl = pd.ExcelFile(path)
-            sheet_name = None
-            # 优先查找"考场安排（学生）"（高考模式导出的sheet名）
-            for cand in ["考场安排（学生）", "学生编排结果", "编排结果", "考场编排结果", "Sheet1"]:
-                if cand in xl.sheet_names:
-                    sheet_name = cand
-                    break
-            if sheet_name is None:
-                sheet_name = xl.sheet_names[0]
-            df = pd.read_excel(xl, sheet_name=sheet_name, dtype=str)
-        except Exception as e:
-            return {"error": f"读取Excel失败: {str(e)}"}
+            df = load_results_dataframe(path)
+        except ValueError as exc:
+            return {"error": str(exc)}
 
-        df.columns = [str(c).strip() for c in df.columns]
-        df = df.fillna("")
-        if df.empty:
-            return {"error": "导入失败：文件中没有可用数据"}
-
-        # 检测是否为高考模式（检查是否有科目特定的考场号列）
-        gaokao_subjects = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
-        is_gaokao_mode = any(f'{subj}考场号' in df.columns for subj in gaokao_subjects)
-
-        if is_gaokao_mode:
-            # 高考模式导入逻辑
+        if is_gaokao_results_dataframe(df):
             return self._import_gaokao_results(df, params)
-        else:
-            # 普通模式/科目模式导入逻辑
-            return self._import_normal_results(df, params)
+        return self._import_normal_results(df, params)
 
     def _import_gaokao_results(self, df: pd.DataFrame, params: dict) -> Any:
-        """导入高考模式的编排结果"""
-        # 1. 验证必需列
-        required_cols = ["考号"]
-        missing = [c for c in required_cols if c not in df.columns]
-        if missing:
-            return {"error": f"导入失败：缺少必要的列: {', '.join(missing)}"}
-
-        # 2. 检查考号唯一性
-        exam_id_series = df["考号"].astype(str).str.strip()
-        if not exam_id_series.is_unique:
-            duplicates = df[df.duplicated("考号", keep=False)]["考号"].astype(str).unique().tolist()
-            head = duplicates[:5]
-            suffix = "..." if len(duplicates) > 5 else ""
-            return {"error": f"导入失败：存在重复的考号: {', '.join(head)}{suffix}"}
-
-        # 3. 获取配置信息
-        settings = self._state.rooms.settings_data
-        config = self._state.rooms.config or {}
-        student_path = self._state.rooms.student_path or ""
-
-        # 4. 强制设置为高考模式
-        merged_config = dict(config)
-        merged_config["mode"] = "gaokao"
-        self._state.rooms.config = merged_config
-
-        # 5. 创建ExamArrangement对象
-        ea = _build_exam_arrangement(settings, merged_config, student_path)
-        ea.arranged_students = df.copy()
-        ea.arrangement_mode = "gaokao_mode"
-
-        # 6. 重建gaokao_results数据结构
-        try:
-            gaokao_subjects = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
-
-            # 统考科目（语文、数学、物理历史、英语）
-            unified_records = []
-            # 选考科目（化学、地理、政治、生物）
-            elective_records = {
-                '化学': [],
-                '地理': [],
-                '政治': [],
-                '生物': []
-            }
-
-            # 遍历每个学生，提取各科目的考场信息
-            for _, row in df.iterrows():
-                base_info = {
-                    '班级': str(row.get('班级', '')),
-                    '学号': str(row.get('学号', '')),
-                    '姓名': str(row.get('姓名', '')),
-                    '考号': str(row.get('考号', '')),
-                    '选科': str(row.get('选科', ''))
-                }
-
-                # 处理统考科目：使用任意一个统考科目的考场信息（它们应该相同）
-                # 优先使用语文的考场信息，因为所有学生都参加语文考试
-                unified_subject = '语文'
-                room_no_col = f'{unified_subject}考场号'
-                room_col = f'{unified_subject}考场'
-                seat_col = f'{unified_subject}座位号'
-
-                if room_no_col in df.columns and seat_col in df.columns:
-                    record = base_info.copy()
-                    record['考场号'] = str(row.get(room_no_col, ''))
-                    record['考场'] = str(row.get(room_col, ''))
-                    record['座位号'] = str(row.get(seat_col, ''))
-                    unified_records.append(record)
-
-                # 处理选考科目
-                for subject in ['化学', '地理', '政治', '生物']:
-                    room_no_col = f'{subject}考场号'
-                    room_col = f'{subject}考场'
-                    seat_col = f'{subject}座位号'
-                    subject_type_col = f'{subject}科目'
-
-                    if room_no_col in df.columns and seat_col in df.columns:
-                        room_no = str(row.get(room_no_col, '')).strip()
-                        seat_no = str(row.get(seat_col, '')).strip()
-
-                        # 只有当考场号和座位号都不为空时才添加记录
-                        if room_no and seat_no:
-                            record = base_info.copy()
-                            record['考场号'] = room_no
-                            record['考场'] = str(row.get(room_col, ''))
-                            record['座位号'] = seat_no
-
-                            # 从"科目"列获取科目类型（可能是科目名或"自习"）
-                            subject_type = str(row.get(subject_type_col, subject)).strip()
-                            if not subject_type or subject_type == 'nan':
-                                subject_type = subject
-                            record['科目类型'] = subject_type
-
-                            elective_records[subject].append(record)
-
-            # 转换为DataFrame
-            unified_df = pd.DataFrame(unified_records) if unified_records else pd.DataFrame()
-            elective_dfs = {
-                subject: pd.DataFrame(records) if records else pd.DataFrame()
-                for subject, records in elective_records.items()
-            }
-
-            # 保存到gaokao_results
-            ea.gaokao_results = {
-                'unified': unified_df,
-                'electives': elective_dfs
-            }
-
-        except Exception as e:
-            return {"error": f"重建高考模式数据结构失败: {str(e)}"}
-
-        # 7. 保存状态
-        self._state.exam_arrangement = ea
-        results = ea.arranged_students.fillna("").to_dict("records")
-        self._state.rooms.results = results
-        self._state.rooms.gaokao_results = ea.gaokao_results
-        self._repo.save(self._state)
-
-        return {"results": results, "message": f"导入成功（高考模式），共 {len(results)} 人"}
+        return import_gaokao_results(self._state, self._repo, _build_exam_arrangement, df, params)
 
     def _import_normal_results(self, df: pd.DataFrame, params: dict) -> Any:
-        """导入普通模式/科目模式的编排结果"""
-        # 验证必需列
-        required_cols = ["考号", "考场号", "座位号"]
-        missing = [c for c in required_cols if c not in df.columns]
-        if missing:
-            return {"error": f"导入失败：缺少必要的列: {', '.join(missing)}（请使用系统导出的结果文件作为模板）"}
-
-        has_subject_column = "选科" in df.columns
-
-        for col in ["班级", "学号", "考号", "考场号", "座位号"]:
-            if col in df.columns:
-                df[col] = df[col].astype(str).str.strip()
-
-        exam_id_series = df["考号"].astype(str).str.strip()
-        if not exam_id_series.is_unique:
-            duplicates = df[df.duplicated("考号", keep=False)]["考号"].astype(str).unique().tolist()
-            head = duplicates[:5]
-            suffix = "..." if len(duplicates) > 5 else ""
-            return {"error": f"导入失败：存在重复的考号: {', '.join(head)}{suffix}"}
-
-        pair_df = df[["考场号", "座位号"]].astype(str).apply(lambda s: s.str.strip())
-        dup_mask = pair_df.duplicated(keep=False)
-        if dup_mask.any():
-            samples = (
-                pair_df[dup_mask].head(5)
-                .apply(lambda r: f"{r['考场号']}-{r['座位号']}", axis=1)
-                .tolist()
-            )
-            return {"error": f"导入失败：存在重复的考场号+座位号: {', '.join(samples)}（请确保同一考场内座位号不重复）"}
-
-        settings = self._state.rooms.settings_data
-        config = self._state.rooms.config or {}
-        student_path = self._state.rooms.student_path or ""
-
-        mode_map = {"3+1+2": "subject_mode", "normal": "normal_mode", "random": "random_mode"}
-        mode = mode_map.get(config.get("mode", "normal"), "normal_mode")
-        if has_subject_column:
-            mode = "subject_mode"
-            merged_config = dict(self._state.rooms.config or {})
-            merged_config["mode"] = "3+1+2"
-            self._state.rooms.config = merged_config
-
-        ea = _build_exam_arrangement(settings, {**config, "mode": "3+1+2" if has_subject_column else config.get("mode", "normal")}, student_path)
-        ea.arranged_students = df.copy()
-        try:
-            ea._apply_room_names()
-        except Exception:
-            pass
-
-        if mode == "subject_mode" and ea.subject_column in ea.arranged_students.columns:
-            try:
-                parsed_subjects = ea.arranged_students[ea.subject_column].apply(ea.parse_subject_combination)
-                ea.arranged_students[["首选", "选科1", "选科2"]] = pd.DataFrame(parsed_subjects.tolist(), index=ea.arranged_students.index)
-            except Exception:
-                pass
-            try:
-                combo_map = (
-                    ea.arranged_students.groupby("考场号")[ea.subject_column]
-                    .apply(lambda s: ", ".join(sorted({str(v).strip() for v in s.tolist() if str(v).strip() and str(v).strip().lower() != "nan"})))
-                    .to_dict()
-                )
-                ea.arranged_students["考场选科组合"] = ea.arranged_students["考场号"].map(combo_map).fillna("")
-            except Exception:
-                pass
-
-        self._state.exam_arrangement = ea
-        results = ea.arranged_students.fillna("").to_dict("records")
-        self._state.rooms.results = results
-        self._repo.save(self._state)
-        return {"results": results, "message": f"导入成功，共 {len(results)} 人"}
+        return import_normal_results(self._state, self._repo, _build_exam_arrangement, df, params)

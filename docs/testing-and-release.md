@@ -1,154 +1,114 @@
-# 测试与发布说明
+﻿# 测试与发布说明
 
-## 1. 文档目标
+## 1. 测试原则
 
-本文件用于整理 Easy Exam 当前可执行的验证方式、构建检查和发布注意事项。项目目前以手工验证和构建校验为主，自动化测试覆盖仍然有限。
+当前项目的重构策略是：
 
-## 2. 变更前的基本判断
+- 先拆结构
+- 不改业务逻辑
+- 每一轮都做最小可验证闭环
 
-提交代码前，先判断这次改动属于哪一类:
+因此测试分为两层：
 
-- 纯前端展示或交互
-- Electron / IPC / 启动链路
-- Python 后端业务逻辑
-- Excel 导入导出
-- 打印与 PDF 生成
-- 授权与证书
+- 构建验证
+- 模块定向测试
 
-不同类型的改动，验证重点不同。
+## 2. 前端验证
 
-## 3. 最低验证要求
-
-### 3.1 前端改动
-
-建议至少执行:
+前端最低要求：
 
 ```bash
 cd frontend
+npm.cmd run test
 npm.cmd run build
 ```
 
-并手工确认:
+当前前端已经具备最小单测基线和路由拆包能力。构建可以通过，但会保留既有的 chunk size warning。这是现有包体偏大的提醒，不表示本轮重构失败。
 
-- 页面能正常打开
-- 按钮状态正确
-- 主要交互没有明显回归
+## 3. 后端定向测试
 
-### 3.2 后端 Python 改动
-
-建议至少执行:
+### 3.1 监考模块
 
 ```bash
-python -m py_compile <改动的 Python 文件>
+$env:PYTHONPATH='.'
+pytest backend/tests/test_proctoring_service.py backend/tests/test_rpc_dispatcher.py
 ```
 
-如果改动涉及导入导出或编排逻辑，建议再配一份样例数据手工验证。
-
-### 3.3 `rooms` / `examroom` 改动
-
-建议至少验证:
-
-- 导入考场设置
-- 导入考生名册
-- 执行编排
-- 导出结果
-- 若涉及高考模式，再验证统计表与打印下游
-
-### 3.4 `printing` 改动
-
-建议至少验证:
-
-- 从文件加载数据
-- 从编排结果加载数据
-- 数据预览
-- PDF 预览
-- 实际生成 Excel / PDF
-
-### 3.5 `licensing` 改动
-
-建议至少验证:
-
-- 获取机器码
-- 注册码校验
-- 证书文件读写路径
-- 打包态与开发态路径是否都能解释清楚
-
-## 4. 推荐手工回归清单
-
-每次影响较大的提交，建议按下面清单选择性验证:
-
-- 仪表盘能正常显示统计
-- 科目导入、编辑、导出可用
-- 监考教师导入和编排可用
-- 考场设置导入、学生导入和编排可用
-- 高考模式导入 / 导出无异常
-- 资料打印至少验证一种主要输出
-- 帮助中心能正常加载手册
-- 注册页面不报错
-
-## 5. 当前自动化测试现状
-
-从仓库当前结构看:
-
-- 已有构建检查能力
-- 有少量脚本和 smoke 风格文件
-- 还缺完整的自动化单元测试 / 集成测试体系
-
-因此当前比较现实的策略是:
-
-- 用构建检查兜底语法和类型问题
-- 用样例文件做关键业务手工验证
-- 对高风险模块保留可复用测试样例
-
-## 6. 打包流程
-
-推荐打包入口:
+如果本轮改动触及调度、优化、后处理或校验，还应补跑：
 
 ```bash
-python package.py
+$env:PYTHONPATH='.'
+pytest backend/tests/test_proctoring_scheduler.py backend/tests/test_proctoring_postprocess.py backend/tests/test_proctoring_optimizer.py backend/tests/test_proctoring_validators.py
 ```
 
-该脚本会:
+### 3.2 考场模块
 
-1. 清理旧的 Python 构建目录
-2. 使用 PyInstaller 构建 Python sidecar
-3. 执行 `npm run electron:build`
-4. 在 `frontend/release_v6` 下产出安装包
+```bash
+$env:PYTHONPATH='.'
+pytest backend/tests/test_rooms_service.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py
+```
 
-## 7. 打包前检查项
+如果本轮改动触及编排核心或高考导出，还应补跑：
 
-打包前建议确认:
+```bash
+$env:PYTHONPATH='.'
+pytest backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py backend/tests/test_printing_examroom_adapter.py
+```
 
-- `package.py` 中写死的 Python 路径适合当前机器
-- 没有正在运行的旧版本应用占用输出目录
-- `frontend/package.json` 中版本号正确
-- 本地工作区没有把日志、临时 Excel、调试脚本误加入提交
+### 3.3 打印模块
 
-## 8. 发布前检查项
+如果改动触及打印服务、打印预览适配或导出生成，应补跑对应打印测试。
 
-发布前建议确认:
+## 4. 当前测试策略
 
-- 当前分支已与远程同步
-- 提交信息清晰反映业务意图
-- 关键功能至少过一轮手工验证
-- 如变更了用户可见行为，同步更新使用说明书或帮助内容
-- 如变更了授权逻辑，同步复核证书路径说明
+### 4.1 characterization tests
 
-## 9. 风险最高的改动类型
+对于高风险重构，优先补“特征测试”，目的不是证明算法最优，而是锁定：
 
-以下改动最值得重点回归:
+- 输入不变时输出结构不变
+- 关键错误提示不变
+- 关键排序、映射、分配结果不变
 
-- 高考模式编排与导入导出
-- 打印数据适配器
-- 授权证书路径与注册逻辑
-- Electron 启动 Python 的流程
-- 状态恢复和持久化逻辑
+### 4.2 每轮重构的最低闭环
 
-## 10. 建议后续补强方向
+每一轮应至少满足：
 
-如果后续要提升工程稳定性，建议优先补:
+1. 代码拆分完成
+2. 原入口仍可用
+3. 前端构建通过
+4. 对应后端测试通过
+5. 文档同步更新
 
-- `backend/application` 层的单元测试
-- `rooms` / `printing` 的样例回归测试
-- 一组固定 Excel 样例数据集
-- 打包前自动检查脚本
+## 5. 发布前检查
+
+发布前建议至少确认：
+
+- 授权校验正常
+- 科目导入、导出正常
+- 监考生成、优化、交换正常
+- 考场编排与导出正常
+- 打印页预览、生成、导出正常
+- Electron 主进程与 Python 后端能正常连接
+
+## 6. 打包注意事项
+
+当前 `package.py` 已完成本轮环境变量化，优先按以下顺序解析 Python：
+
+- `EXAM_PYTHON_PATH`
+- `VITE_PYTHON_PATH`
+- `sys.executable`
+- `python` in PATH
+
+因此在换机或 CI 环境下，优先确认：
+
+- Python 路径是否可用
+- 打包命令是否能找到正确解释器
+- 授权证书路径在打包态是否正确
+
+## 7. 当前已知风险
+
+当前不是功能风险，而是工程风险更值得注意：
+
+- `element-plus` 相关 chunk 仍偏大
+- 前端自动化测试基线已建立，但覆盖率仍偏低
+- 仓库临时产物管理已收紧，但输出目录仍可继续统一

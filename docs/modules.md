@@ -1,19 +1,17 @@
-# 业务模块说明
+﻿# 业务模块说明
 
 ## 1. 模块总览
 
-当前产品工作流可以概括为：
+当前产品的主流程可以概括为：
 
 1. 配置考试科目
 2. 编排监考
 3. 编排考场
-4. 生成和打印资料
-5. 管理注册授权
-6. 在帮助中心查看内置手册
+4. 生成与打印资料
+5. 管理授权
+6. 在帮助中心查看内置说明
 
-下面按模块说明职责、主要入口和关键依赖。
-
-## 2. 仪表盘
+## 2. Dashboard
 
 前端页面：
 
@@ -25,149 +23,114 @@
 
 职责：
 
-- 汇总当前系统数据状态
+- 汇总系统状态
 - 展示工作流完成度
-- 给出科目、监考、考场、打印等统计摘要
+- 展示科目、监考、考场、打印等摘要信息
 
-依赖：
-
-- `subjects`
-- `proctoring`
-- `rooms`
-- `exam_arrangement`
-
-## 3. 注册授权
-
-前端页面：
-
-- `frontend/src/views/RegistrationPage.vue`
-
-后端服务：
-
-- `backend/application/licensing_service.py`
-- `backend/licensing/`
-
-主要 RPC：
-
-- `licensing.machineCode`
-- `licensing.verify`
-- `licensing.register`
-
-职责：
-
-- 获取机器码
-- 校验授权状态
-- 写入注册码和证书
-
-相关文档：
-
-- [授权证书文件路径说明](授权证书文件路径说明.md)
-
-## 4. 科目管理
+## 3. Subjects
 
 前端页面：
 
 - `frontend/src/views/SubjectsPage.vue`
+- `frontend/src/views/SubjectsPage/composables/`
 
 后端服务：
 
 - `backend/application/subjects_service.py`
 
-主要 RPC：
-
-- `subjects.list`
-- `subjects.update`
-- `subjects.import`
-- `subjects.export`
-- `subjects.template`
-- `subjects.validate`
-
 职责：
 
-- 维护考试科目、时间、时长等信息
-- 导入导出科目配置
-- 校验时间冲突与配置合法性
+- 导入和维护考试科目
+- 校验科目时间冲突
+- 导出科目数据
+- 为监考和打印模块提供基础科目数据
 
-它是后续监考编排与打印配置的重要前置依赖。
+当前前端已拆出的核心 composable：
 
-## 5. 监考编排
+- `useSubjectsLogs.ts`
+- `useSubjectsData.ts`
+- `useSubjectsForm.ts`
+- `useSubjectsReset.ts`
+
+## 4. Proctoring
 
 前端页面：
 
 - `frontend/src/views/ProctoringPage.vue`
+- `frontend/src/views/ProctoringPage/composables/`
 
 后端服务：
 
 - `backend/application/proctoring_service.py`
-- `backend/proctoring/`
-
-主要 RPC：
-
-- `proctoring.getState`
-- `proctoring.importTeachers`
-- `proctoring.generateSchedule`
-- `proctoring.optimize`
-- `proctoring.swap`
-- `proctoring.export`
-- `proctoring.importSchedule`
+- `backend/proctoring/core/`
 
 职责：
 
-- 导入教师名单
-- 基于科目与配置生成监考安排
-- 优化结果、手动调换、继续编排
-- 导出监考排班结果
+- 导入教师数据
+- 生成监考安排
+- 继续编排与优化
+- 手动交换监考
+- 导出监考结果
 
-特点：
+当前前端已拆出的核心 composable：
 
-- 业务规则较多
-- 对均衡性和约束条件比较敏感
-- 通常需要样例验证，而不只是看代码
+- `useProctoringBootstrap.ts`
+- `useProctoringDataManagement.ts`
+- `useProctoringOptimizationMetrics.ts`
+- `useProctoringScheduling.ts`
+- `useProctoringSwap.ts`
+- `useProctoringViewData.ts`
 
-## 6. 考场编排
+当前后端已拆出的核心模块：
+
+- `entities.py`
+- `balance.py`
+- `selectors.py`
+- `swap.py`
+- `optimizer.py`
+- `validators.py`
+- `statistics.py`
+- `postprocess.py`
+- `scheduler.py`
+
+## 5. Rooms / Exam Arrangement
 
 前端页面：
 
 - `frontend/src/views/RoomsPage.vue`
-- `frontend/src/views/RoomsPage/`
+- `frontend/src/views/RoomsPage/composables/`
 
 后端服务：
 
 - `backend/application/rooms_service.py`
-- `backend/examroom/`
-
-主要 RPC：
-
-- `rooms.getState`
-- `rooms.resetState`
-- `rooms.generateTemplate`
-- `rooms.importSettings`
-- `rooms.importStudents`
-- `rooms.arrange`
-- `rooms.export`
-- `rooms.importResults`
-- `rooms.getSubjectPriority`
-- `rooms.setSubjectPriority`
-- `rooms.getGaokaoTimeSettings`
-- `rooms.setGaokaoTimeSettings`
+- `backend/examroom/core/`
 
 职责：
 
-- 管理考场设置与考生导入
-- 执行多种编排模式
-- 导入已有编排结果
-- 导出考场结果与统计表
+- 导入考场设置
+- 导入学生名单
+- 按不同模式编排考场
+- 导出考场结果
+- 为打印模块提供下游结果
 
-编排模式大致包括：
+当前 `backend/examroom/core/` 的核心结构：
 
-- 普通顺序模式
-- 随机模式
-- 选科模式
-- 高考模式
+- `arrangement.py`
+- `helpers.py`
+- `gaokao_helpers.py`
+- `gaokao_exports.py`
+- `sequential_strategy.py`
+- `subject_strategy.py`
+- `standard_exports.py`
+- `stats_sheet.py`
 
-这是当前项目业务复杂度最高的模块之一，尤其是高考模式与导入导出链路。
+当前 `rooms_service.py` 已拆出的辅助模块：
 
-## 7. 资料打印
+- `rooms_input_importers.py`
+- `rooms_result_importers.py`
+- `rooms_templates.py`
+
+## 6. Printing
 
 前端页面：
 
@@ -179,109 +142,75 @@
 - `backend/application/printing_service.py`
 - `backend/printing/`
 
-主要 RPC：
+职责：
 
-- `printing.getState`
-- `printing.saveConfig`
-- `printing.resetState`
-- `printing.readHeaders`
-- `printing.previewData`
-- `printing.loadFromSchedule`
-- `printing.previewPdf`
-- `printing.generate`
+- 读取打印数据源
+- 加工预览数据
+- 生成准考证、角标、座位贴、试卷袋等打印内容
+- 与考场结果适配
+
+当前前端已拆出的核心 composable：
+
+- `usePrintingSubjects.ts`
+- `usePrintingPreview.ts`
+- `usePrintingFileSource.ts`
+- `usePrintingGenerate.ts`
+- `usePrintingPreviewData.ts`
+- `usePrintingDeskLayout.ts`
+- `usePrintingScheduleSource.ts`
+
+当前前端已拆出的模板子组件：
+
+- `components/PrintingMappingDialog.vue`
+- `components/PrintingSubjectsDialog.vue`
+- `components/PrintingDeskLayoutDialog.vue`
+
+## 7. Licensing
+
+前端页面：
+
+- `frontend/src/views/RegistrationPage.vue`
+
+后端服务：
+
+- `backend/application/licensing_service.py`
+- `backend/licensing/`
 
 职责：
 
-- 从文件或编排结果加载打印数据
-- 映射字段
-- 预览打印内容
-- 生成 Excel / PDF 材料
+- 读取机器码
+- 校验授权
+- 注册授权
 
-前端当前已拆分为以下职责模块：
-
-- `usePrintingFileSource.ts`
-  负责文件选择、字段映射、预览缓存与文件数据源恢复
-- `usePrintingPreview.ts`
-  负责预览缩放、拖拽、自适应和预览容器交互
-- `usePrintingPreviewData.ts`
-  负责角标、准考证、考生信息表、试卷袋等预览数据加工
-- `usePrintingGenerate.ts`
-  负责生成导出流程与生成前校验
-- `usePrintingSubjects.ts`
-  负责科目与时间配置、同步与编辑弹窗
-- `usePrintingDeskLayout.ts`
-  负责座位布局草稿、排位算法与桌贴预览
-- `usePrintingScheduleSource.ts`
-  负责从考场编排结果加载打印预览数据
-
-常见输出类型包括：
-
-- 考场角标
-- 准考证
-- 考生信息表
-- 试卷袋相关标签
-- 桌贴
-
-此模块与 `rooms` 模块强耦合，因为很多打印数据直接依赖考场编排结果。
-
-## 8. 帮助中心
+## 8. Help
 
 前端页面：
 
 - `frontend/src/views/HelpPage.vue`
-- `frontend/src/views/HelpPage/`
-
-后端服务：
-
-- `backend/application/system_service.py`
-
-主要 RPC：
-
-- `system.getHelpManual`
 
 职责：
 
-- 读取内置 Markdown 用户手册
-- 在前端提供搜索、目录和内容浏览能力
+- 提供内置帮助
+- 汇总使用说明入口
 
-## 9. 系统级能力
+## 9. 模块依赖关系
 
-后端系统服务：
-
-- `backend/application/system_service.py`
-
-主要 RPC：
-
-- `system.resetData`
-
-职责：
-
-- 重置系统状态
-- 清空主要业务数据
-
-这是高风险操作，运维或管理文档里应单独强调。
-
-## 10. 模块间依赖关系
-
-可以简化理解为：
+业务依赖大致如下：
 
 ```text
-科目管理 -> 监考编排
-科目管理 -> 考场编排
-考场编排 -> 资料打印
-系统服务 -> 帮助中心 / 数据重置 / 公共能力
-注册授权 -> 整个应用的可用状态
+Subjects
+  -> Proctoring
+  -> Printing
+
+Rooms / Exam Arrangement
+  -> Printing
+
+Licensing
+  -> 全局启动与授权检查
 ```
 
-其中最值得重点关注的是：
+也就是说：
 
-- `subjects` 是多个模块的上游输入
-- `rooms` 是打印模块的重要数据来源
-- `licensing` 会影响功能可用性
-
-## 11. 维护建议
-
-- 修业务问题时，先确认它属于哪条工作流
-- 改导入导出逻辑时，同时检查对应页面和打印适配器
-- 改高考模式时，优先联查 `rooms_service.py` 与 `examroom/core/arrangement.py`
-- 改打印内容时，不要只看前端，数据来源、预览适配和生成器都要一起检查
+- 科目是监考与打印的上游
+- 考场结果是打印的重要上游
+- 授权影响整个应用的可用性
