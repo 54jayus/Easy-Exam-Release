@@ -411,6 +411,7 @@ import {
 import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { createLogger } from '@/lib/logger'
+import { applyPageReset } from '@/composables/useAppCacheControl'
 import dayjs from 'dayjs'
 
 interface Subject {
@@ -671,9 +672,8 @@ const handleResetPage = async () => {
     return
   }
 
-  storage.removePref('viewMode')
-
   subjects.value = []
+  importedFromFile.value = false
   validationErrors.value = []
   showErrors.value = false
   showLogs.value = false
@@ -694,8 +694,23 @@ const handleResetPage = async () => {
   viewMode.value = 'grid'
   sidebarCollapsed.value = false
 
-  await syncToBackend()
-  logSuccess('页面已初始化')
+  try {
+    await pythonBackend.request('subjects.update', { subjects: [] })
+  } catch (e) {
+    logger.error('初始化时同步科目数据失败', e)
+    logWarning('初始化时同步科目数据失败，重新进入页面时可能恢复旧状态')
+  }
+
+  try {
+    await pythonBackend.request('proctoring.clearState')
+  } catch (e) {
+    logger.error('初始化时重置监考编排失败', e)
+    logWarning('初始化时重置监考编排失败，重新进入页面时可能恢复旧状态')
+  }
+
+  applyPageReset('subjects')
+  logSuccess('页面已初始化，相关监考与打印依赖已同步失效')
+  ElMessage.success('页面已初始化，相关监考与打印依赖已同步失效')
 }
 
 const submitForm = async () => {

@@ -701,6 +701,7 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { Document, Upload, Download, FolderOpened, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, ArrowDown, Fold, Expand, Setting, Check } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePageSessionState } from '@/composables/usePageSessionState'
+import { applyPageReset } from '@/composables/useAppCacheControl'
 import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
 import dayjs from 'dayjs'
@@ -1101,8 +1102,6 @@ const handleResetPage = async () => {
       // though it might reappear on reload.
    }
 
-   storage.clearPrefs(['sidebarCollapsed', 'activeTab'])
-
    subjects.value = []
    teachers.value = []
    logs.value = []
@@ -1123,7 +1122,8 @@ const handleResetPage = async () => {
    schedulingStatus.value = ''
    schedulingStepText.value = ''
    isScheduling.value = false
-   
+
+   applyPageReset('proctoring')
    ElMessage.success('页面已初始化')
 }
 

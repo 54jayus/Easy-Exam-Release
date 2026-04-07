@@ -90,6 +90,7 @@ import { onMounted, ref } from 'vue'
 import { Expand } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pythonBackend } from '@/lib/pythonBackend'
+import { applyPageReset } from '@/composables/useAppCacheControl'
 import RoomsSidebar from './RoomsPage/RoomsSidebar.vue'
 import RoomsDataTabs from './RoomsPage/RoomsDataTabs.vue'
 import SubjectPriorityDialog from './RoomsPage/SubjectPriorityDialog.vue'
@@ -138,8 +139,7 @@ const gaokaoTimeSettings = ref<GaokaoTimeSettings>(JSON.parse(JSON.stringify(GAO
 
 const {
   initializeFromStorage,
-  setupWatchers,
-  clearAllStorage
+  setupWatchers
 } = useRoomsPersistence()
 
 const {
@@ -235,8 +235,7 @@ const handleResetPage = async () => {
   resetState()
   clearLogs()
   showLogs.value = false
-
-  clearAllStorage()
+  applyPageReset('rooms')
 
   logInfo('已初始化考场编排页面')
   ElMessage.success('页面已初始化')

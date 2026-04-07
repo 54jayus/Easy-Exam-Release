@@ -934,11 +934,13 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePageSessionState } from '@/composables/usePageSessionState'
+import { applyPageReset, useAppCacheControl } from '@/composables/useAppCacheControl'
 import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
 
 // --- State ---
 const storage = usePageSessionState('printing')
+const { printingSubjectDependencyEpoch, printingScheduleDependencyEpoch } = useAppCacheControl()
 const getStored = (key: string, def: string) => storage.getPref(key, def)
 
 const sidebarCollapsed = ref(getStored('sidebarCollapsed', 'false') === 'true')
@@ -1164,6 +1166,25 @@ watch(config, _scheduleSaveConfig, { deep: true })
 watch(commonConfig, _scheduleSaveConfig, { deep: true })
 watch(totalCount, _scheduleSaveConfig)
 watch(sourceType, _scheduleSaveConfig)
+
+watch(printingSubjectDependencyEpoch, async () => {
+   if (sourceType.value !== 'schedule') return
+   try {
+      await syncSubjectRowsForCurrentSource()
+      await refreshSchedulePreviewSilently()
+   } catch (error) {
+      console.error('Failed to refresh printing after subject dependency reset:', error)
+   }
+})
+
+watch(printingScheduleDependencyEpoch, async () => {
+   if (sourceType.value !== 'schedule') return
+   try {
+      await refreshSchedulePreviewSilently()
+   } catch (error) {
+      console.error('Failed to refresh printing after schedule dependency reset:', error)
+   }
+})
 
 const storedStudentInfoTitles = storage.getJsonPref<{ class?: string; examroom?: string }>('studentInfoTitles_v1', {})
 const studentInfoTitles = reactive<{ class: string; examroom: string }>({
@@ -1697,7 +1718,8 @@ const handleResetPage = async () => {
    _measurePreviewBaseSize()
    _updatePreviewScale()
 
-   storage.clearPrefs(['sidebarCollapsed', 'activeTab', 'subjectRows_v1', 'studentInfoTitles_v1'])
+   applyPageReset('printing')
+   ElMessage.success('页面已初始化')
 }
 
 // --- Computed ---
