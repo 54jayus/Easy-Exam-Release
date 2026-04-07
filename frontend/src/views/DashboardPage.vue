@@ -155,7 +155,11 @@ import {
   ArrowRight, Check, ChatDotRound, Delete 
 } from '@element-plus/icons-vue'
 import { pythonBackend } from '../lib/pythonBackend'
+import { useLicenseStore } from '../stores/license'
+import { resetFrontendCaches } from '../composables/useAppCacheControl'
 import { ElMessage } from 'element-plus'
+
+const licenseStore = useLicenseStore()
 
 const iconMap: Record<string, any> = {
   'Notebook': markRaw(Notebook),
@@ -335,8 +339,11 @@ const loadStats = async () => {
 const handleReset = async () => {
   try {
     await pythonBackend.request('system.resetData', {})
+    resetFrontendCaches()
+    await licenseStore.refreshStatus()
     ElMessage.success('系统已重置')
     await loadStats()
+    await updateCountdown()
   } catch (e: any) {
     ElMessage.error(`重置失败: ${e.message || e}`)
   }

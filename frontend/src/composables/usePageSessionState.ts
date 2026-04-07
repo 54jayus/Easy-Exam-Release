@@ -5,8 +5,18 @@ function buildStorageKey(pageId: string, bucket: StorageBucket, key: string): st
 }
 
 export function usePageSessionState(pageId: string) {
+  const warn = (action: string, key: string, error: unknown): void => {
+    console.warn(`[usePageSessionState] ${pageId}.${action}(${key}) failed`, error)
+  }
+
   const getRaw = (bucket: StorageBucket, key: string): string | null => {
-    return sessionStorage.getItem(buildStorageKey(pageId, bucket, key))
+    const storageKey = buildStorageKey(pageId, bucket, key)
+    try {
+      return sessionStorage.getItem(storageKey)
+    } catch (error) {
+      warn('getRaw', storageKey, error)
+      return null
+    }
   }
 
   const has = (bucket: StorageBucket, key: string): boolean => {
@@ -18,11 +28,21 @@ export function usePageSessionState(pageId: string) {
   }
 
   const set = (bucket: StorageBucket, key: string, value: string): void => {
-    sessionStorage.setItem(buildStorageKey(pageId, bucket, key), value)
+    const storageKey = buildStorageKey(pageId, bucket, key)
+    try {
+      sessionStorage.setItem(storageKey, value)
+    } catch (error) {
+      warn('set', storageKey, error)
+    }
   }
 
   const remove = (bucket: StorageBucket, key: string): void => {
-    sessionStorage.removeItem(buildStorageKey(pageId, bucket, key))
+    const storageKey = buildStorageKey(pageId, bucket, key)
+    try {
+      sessionStorage.removeItem(storageKey)
+    } catch (error) {
+      warn('remove', storageKey, error)
+    }
   }
 
   const getJson = <T>(bucket: StorageBucket, key: string, fallback: T): T => {
@@ -36,7 +56,12 @@ export function usePageSessionState(pageId: string) {
   }
 
   const setJson = (bucket: StorageBucket, key: string, value: unknown): void => {
-    sessionStorage.setItem(buildStorageKey(pageId, bucket, key), JSON.stringify(value))
+    const storageKey = buildStorageKey(pageId, bucket, key)
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(value))
+    } catch (error) {
+      warn('setJson', storageKey, error)
+    }
   }
 
   const clear = (bucket: StorageBucket, keys: string[]): void => {

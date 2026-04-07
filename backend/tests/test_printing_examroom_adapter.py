@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pandas as pd
 
@@ -119,3 +120,53 @@ def test_load_examroom_data_for_exam_bag_counts_only_actual_exam_subjects() -> N
     assert {"room": "第007考场", "subject": "政治", "count": 1} in result
     assert {"room": "第008考场", "subject": "生物", "count": 1} in result
     assert not any(item["room"] == "第015考场" for item in result)
+def test_load_examroom_data_for_exam_bag_supports_regular_arrangement() -> None:
+    arrangement = SimpleNamespace(
+        arrangement_mode="normal_mode",
+        arranged_students=pd.DataFrame(
+            [
+                {"姓名": "张三", "考场号": "001", "考场": "第一考场"},
+                {"姓名": "李四", "考场号": "001", "考场": "第一考场"},
+                {"姓名": "王五", "考场号": "002", "考场": "第二考场"},
+            ]
+        ),
+        _get_room_list=lambda: ["001", "002"],
+        _get_room_name=lambda room: {"001": "第一考场", "002": "第二考场"}[str(room)],
+    )
+
+    result = load_examroom_data_for_exam_bag(arrangement, [{"name": "语文"}, {"name": "数学"}])
+
+    assert result == [
+        {"room": "第一考场", "subject": "语文", "count": 2},
+        {"room": "第一考场", "subject": "数学", "count": 2},
+        {"room": "第二考场", "subject": "语文", "count": 1},
+        {"room": "第二考场", "subject": "数学", "count": 1},
+    ]
+
+
+def test_load_examroom_data_for_exam_bag_supports_subject_mode_counts() -> None:
+    arrangement = SimpleNamespace(
+        arrangement_mode="subject_mode",
+        arranged_students=pd.DataFrame(
+            [
+                {"姓名": "张三", "考场号": "001", "考场": "第一考场", "首选": "物理", "选科1": "化学", "选科2": "生物"},
+                {"姓名": "李四", "考场号": "001", "考场": "第一考场", "首选": "历史", "选科1": "政治", "选科2": "地理"},
+                {"姓名": "王五", "考场号": "001", "考场": "第一考场", "首选": "物理", "选科1": "政治", "选科2": "地理"},
+            ]
+        ),
+        _get_room_list=lambda: ["001"],
+        _get_room_name=lambda room: "第一考场",
+    )
+
+    result = load_examroom_data_for_exam_bag(
+        arrangement,
+        [{"name": "语文"}, {"name": "物理"}, {"name": "历史"}, {"name": "化学"}, {"name": "政治"}],
+    )
+
+    assert result == [
+        {"room": "第一考场", "subject": "语文", "count": 3},
+        {"room": "第一考场", "subject": "物理", "count": 2},
+        {"room": "第一考场", "subject": "历史", "count": 1},
+        {"room": "第一考场", "subject": "化学", "count": 1},
+        {"room": "第一考场", "subject": "政治", "count": 2},
+    ]

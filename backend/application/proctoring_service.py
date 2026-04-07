@@ -82,6 +82,32 @@ def _extract_subject_durations(subjects_data: list[dict]) -> list[int]:
     return durations
 
 
+def _read_overview_sheet(file_path: str) -> pd.DataFrame | None:
+    try:
+        return pd.read_excel(file_path, sheet_name="监考总览表")
+    except Exception:
+        return None
+
+
+def _detect_overview_room_count(file_path: str) -> int | None:
+    df = _read_overview_sheet(file_path)
+    if df is None:
+        return None
+    room_count = len(df.index)
+    return room_count if room_count > 0 else None
+
+
+def _detect_overview_mode(file_path: str) -> str | None:
+    df = _read_overview_sheet(file_path)
+    if df is None:
+        return None
+    for column in df.columns:
+        col_text = str(column)
+        if "监考员1" in col_text or "监考员2" in col_text:
+            return "double"
+    return "single"
+
+
 def _format_schedule_result(schedule: Schedule, subjects_data: list) -> dict:
     result = []
     for exam in schedule.exams:
@@ -89,7 +115,12 @@ def _format_schedule_result(schedule: Schedule, subjects_data: list) -> dict:
         subj_info = subjects_data[subj_idx] if subj_idx < len(subjects_data) else {}
         rooms_res = []
         original_rooms = subj_info.get("rooms", [])
-        for room_num in exam.rooms:
+        room_numbers = sorted({
+            _to_int(room_num, 0)
+            for room_num in [*exam.rooms, *exam.schedule.keys()]
+            if _to_int(room_num, 0) > 0
+        })
+        for room_num in room_numbers:
             room_idx = room_num - 1
             location = f"第 {room_num} 考场"
             r_id = room_num
@@ -149,6 +180,8 @@ def _reconstruct_schedule(params: dict, state_subjects: list) -> Schedule:
                 num_rooms = max(num_rooms, r.get("id", 0))
     if num_rooms == 0 and subjects_data:
         num_rooms = max([len(s.get("rooms", [])) for s in subjects_data])
+    if num_rooms == 0:
+        num_rooms = _to_int(config.get("roomCount"), 0)
 
     mode = config.get("mode", "single")
     schedule = Schedule(teachers, num_subjects, num_rooms, mode)
@@ -394,12 +427,15 @@ class ProctoringService:
         path = params["path"]
         teachers_data = params.get("teachers", [])
         subjects_data = _sort_subjects(params.get("subjects", []) or [])
-        config = params.get("config", {})
+        config = dict(params.get("config", {}))
         config["lockImported"] = True
+        detected_room_count = _detect_overview_room_count(path)
+        if detected_room_count is not None:
+            config["roomCount"] = detected_room_count
 
         teachers = _teachers_from_list(teachers_data)
         num_subjects = len(subjects_data)
-        num_rooms = int(config.get("roomCount", 30))
+        num_rooms = int(config.get("roomCount", 30) or 30)
         mode = config.get("mode", "single")
         subject_names = [(s.get("name") or s.get("subjectName") or f"科目{i+1}") for i, s in enumerate(subjects_data)]
         exam_times = [(s.get("exam_time") or s.get("time") or "") for s in subjects_data]
@@ -421,6 +457,8 @@ class ProctoringService:
         self._state.proctoring.teachers = result["teachers"]
         self._state.proctoring.config = config
         self._repo.save(self._state)
+        if detected_room_count is not None:
+            result["detectedRoomCount"] = detected_room_count
         return result
 
     def continue_schedule(self, params: dict) -> Any:
@@ -525,36 +563,30 @@ class ProctoringService:
         path = params["path"]
         teachers_data = params.get("teachers", [])
         subjects_data = params.get("subjects", [])
-        config = params.get("config", {})
+        config = dict(params.get("config", {}))
         config["lockImported"] = True
+        detected_room_count = _detect_overview_room_count(path)
+        if detected_room_count is not None:
+            config["roomCount"] = detected_room_count
 
         teachers = _teachers_from_list(teachers_data)
         num_subjects = len(subjects_data)
-        num_rooms = int(config.get("roomCount", 30))
+        num_rooms = int(config.get("roomCount", 30) or 30)
         mode = config.get("mode", "single")
         subject_names = [s.get("name", f"科目{s['id']}") for s in subjects_data]
         exam_times = [s.get("time", "") for s in subjects_data]
-
-        def _detect_preset_overview_mode(file_path: str):
-            try:
-                df = pd.read_excel(file_path, sheet_name="监考总览表", nrows=1)
-            except Exception:
-                return None
-            for c in df.columns:
-                if "监考员1" in str(c) or "监考员2" in str(c):
-                    return "double"
-            return "single"
+        subject_durations = config.get("subjectDurations", []) or _extract_subject_durations(subjects_data)
 
         schedule, errors = import_schedule_from_excel(
             file_path=path, teachers=teachers, num_subjects=num_subjects,
             num_rooms=num_rooms, mode=mode, gender_mix=config.get("genderMix", False),
             internal_mix=config.get("internalMix", False), lock_imported=True,
-            highlight_imported=True, subject_durations=config.get("subjectDurations", []),
+            highlight_imported=True, subject_durations=subject_durations,
             subject_names=subject_names, exam_times=exam_times,
         )
 
         if errors:
-            detected_mode = _detect_preset_overview_mode(path)
+            detected_mode = _detect_overview_mode(path)
             if detected_mode and detected_mode != mode:
                 _, alt_errors = import_schedule_from_excel(
                     file_path=path, teachers=teachers, num_subjects=num_subjects,
@@ -562,7 +594,7 @@ class ProctoringService:
                     gender_mix=config.get("genderMix", False),
                     internal_mix=config.get("internalMix", False),
                     lock_imported=True, highlight_imported=True,
-                    subject_durations=config.get("subjectDurations", []),
+                    subject_durations=subject_durations,
                     subject_names=subject_names, exam_times=exam_times,
                 )
                 if not alt_errors:
@@ -574,9 +606,6 @@ class ProctoringService:
         self._state.proctoring.teachers = result["teachers"]
         self._state.proctoring.config = config
         self._repo.save(self._state)
-        try:
-            _df = pd.read_excel(path, sheet_name="监考总览表")
-            result["detectedRoomCount"] = len(_df)
-        except Exception:
-            pass
+        if detected_room_count is not None:
+            result["detectedRoomCount"] = detected_room_count
         return result

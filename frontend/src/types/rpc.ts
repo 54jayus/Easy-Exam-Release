@@ -164,10 +164,10 @@ export type RpcMethods = {
   // Printing
   "printing.getState": {
     params: {}
-    result: { sourceType: string; dataPath: string; headers: string[]; mapping: any; data: any[]; total: number }
+    result: { sourceType: string; dataPath: string; headers: string[]; mapping: any; data: any[]; total: number; config?: any; commonConfig?: any }
   }
   "printing.saveConfig": {
-    params: { config: any; commonConfig?: any; totalCount?: number; sourceType?: string }
+    params: { config: any; commonConfig?: any; totalCount?: number; sourceType?: string; dataPath?: string; headers?: string[]; mapping?: any; data?: any[]; previewTotal?: number }
     result: {}
   }
   "printing.resetState": {

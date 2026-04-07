@@ -200,10 +200,32 @@
                       <label class="text-xs text-slate-500">学校名称</label>
                       <el-input v-model="config.examBag.schoolName" size="small" />
                    </div>
-                   <div class="text-[10px] text-slate-400 leading-relaxed">
-                      说明：请上传 Excel 数据文件，第一列为"考场"，后续列为"科目"（值为人数）。系统将自动识别并生成标签。
+                   <div class="space-y-2">
+                      <div class="flex items-center justify-between">
+                         <label class="text-xs text-slate-500">科目与时间</label>
+                         <el-tooltip
+                            v-if="sourceType === 'schedule' && isGaokaoMode"
+                            content="高考模式下科目与时间由高级设置决定，无需手动设置"
+                            placement="top"
+                         >
+                            <el-button size="small" type="info" link disabled>编辑科目</el-button>
+                         </el-tooltip>
+                         <el-button v-else size="small" type="primary" link @click="openSubjectDialog">编辑科目</el-button>
+                      </div>
+                      <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] space-y-1">
+                         <div v-for="(row, idx) in subjectPreviewWithTime" :key="idx" class="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
+                            <span class="text-xs text-slate-700 truncate flex-1 font-medium">{{ row.name }}</span>
+                            <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '—' }}</span>
+                         </div>
+                         <div v-if="subjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
+                            {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目与时间由高级设置决定' : '未设置科目' }}
+                         </div>
+                      </div>
                    </div>
-                </div>
+                    <div class="text-[10px] text-slate-400 leading-relaxed">
+                      {{ examBagConfigHint }}
+                    </div>
+                 </div>
 
                 <!-- Corner Paper Config -->
                 <div v-if="activeTab === 'corner'" class="space-y-4 animate-fade-in bg-slate-50 rounded-xl p-4 border border-slate-100">
@@ -903,7 +925,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick } from 'vue'
 import { 
   Printer, VideoPlay, FolderOpened, DocumentChecked, Close, 
   Document, Minus, Plus, FullScreen, Grid, DataLine, Select, 
@@ -932,6 +954,18 @@ const scheduleArrangementMode = ref('') // 考场编排模式：'gaokao_mode' | 
 const dataPath = ref('')
 const dataFileName = computed(() => dataPath.value.split(/[\\/]/).pop())
 const isGaokaoMode = computed(() => scheduleArrangementMode.value === 'gaokao_mode')
+const examBagConfigHint = computed(() => {
+   if (sourceType.value === 'empty') {
+      return '说明：当前为试卷袋样式预览。切换到“导入数据”或“考场编排”后，可根据实际数据生成试卷袋。'
+   }
+   if (sourceType.value === 'file') {
+      return '说明：导入 Excel 数据时，第一列为“考场”，后续列为“科目”（单元格值为人数）。系统会按学科分组生成试卷袋。'
+   }
+   if (isGaokaoMode.value) {
+      return '说明：使用考场编排作为数据源时，将按高考模式编排结果生成试卷袋，科目与时间自动读取“高考模式-高级设置”。'
+   }
+   return '说明：使用考场编排作为数据源时，将按当前考场编排结果生成试卷袋，科目与时间默认读取“科目设置”，也可在此处手动调整。'
+})
 const headers = ref<string[]>([])
 const showMappingDialog = ref(false)
 const previewData = ref<any[]>([])
@@ -1154,6 +1188,7 @@ watch(() => config.table.title, (val) => {
 })
 
 type SubjectRow = { name: string; time: string }
+const GAOKAO_PRINTING_SUBJECTS = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物'] as const
 
 const showSubjectDialog = ref(false)
 const syncingSubjects = ref(false)
@@ -1189,6 +1224,13 @@ function _ensureSubjectRowsLen(rows: SubjectRow[], count: number): SubjectRow[] 
    return next
 }
 
+function _setAndPersistSubjectRows(rows: SubjectRow[], count?: number) {
+   const nextCount = count ?? rows.length ?? 9
+   const nextRows = _ensureSubjectRowsLen(rows, nextCount)
+   subjectRows.value = nextRows
+   _persistSubjectRows(nextRows)
+}
+
 function _formatMonthDay(examDate: string): string {
    const s = String(examDate || '').trim()
    const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
@@ -1213,6 +1255,42 @@ function _buildSubjectTime(dateText: string, range?: [string, string]): string {
    const d = String(dateText ?? '').trim()
    if (range && range[0] && range[1]) return `${d}${range[0]}-${range[1]}`.trim()
    return d
+}
+
+function _mapRegularSubjectsToRows(list: any[]): SubjectRow[] {
+   return list.slice(0, 20).map((s) => {
+      const name = String(s?.name ?? '')
+      const datePart = _formatMonthDay(String(s?.exam_date ?? ''))
+      const timePart = String(s?.exam_time ?? '')
+      return { name, time: `${datePart}${timePart}`.trim() }
+   })
+}
+
+function _mapGaokaoSettingsToRows(settings: any): SubjectRow[] {
+   const examTimes = settings?.examTimes ?? {}
+   return GAOKAO_PRINTING_SUBJECTS.map((name) => {
+      const cfg = examTimes?.[name]
+      const datePart = _formatMonthDay(String(cfg?.date ?? ''))
+      const start = String(cfg?.startTime ?? '').trim()
+      const end = String(cfg?.endTime ?? '').trim()
+      const range = start && end ? `${start}-${end}` : ''
+      return { name, time: `${datePart}${range}`.trim() }
+   })
+}
+
+async function syncSubjectRowsForCurrentSource() {
+   if (sourceType.value !== 'schedule') return
+
+   if (isGaokaoMode.value) {
+      const res = await pythonBackend.request<any>('rooms.getGaokaoTimeSettings', {})
+      const rows = _mapGaokaoSettingsToRows(res?.settings)
+      _setAndPersistSubjectRows(rows, rows.length || 8)
+      return
+   }
+
+   const res = await pythonBackend.request<any>('subjects.list', {})
+   const rows = _mapRegularSubjectsToRows((res?.subjects || []) as any[])
+   _setAndPersistSubjectRows(rows, rows.length || 9)
 }
 
 function getRowDate(row: SubjectRow): string {
@@ -1251,17 +1329,19 @@ watch(subjectDraftCount, (val) => {
 async function handleSyncSubjects() {
    syncingSubjects.value = true
    try {
-      const res = await pythonBackend.request<any>('subjects.list', {})
-      const list = (res?.subjects || []) as any[]
-      const mapped = list.slice(0, 20).map((s) => {
-         const name = String(s?.name ?? '')
-         const datePart = _formatMonthDay(String(s?.exam_date ?? ''))
-         const timePart = String(s?.exam_time ?? '')
-         return { name, time: `${datePart}${timePart}`.trim() }
-      })
-      subjectDraftCount.value = Math.min(20, Math.max(1, mapped.length || 9))
-      subjectDraftRows.value = _ensureSubjectRowsLen(mapped, subjectDraftCount.value)
-      ElMessage.success('已从科目设置同步')
+      if (sourceType.value === 'schedule' && isGaokaoMode.value) {
+         const res = await pythonBackend.request<any>('rooms.getGaokaoTimeSettings', {})
+         const mapped = _mapGaokaoSettingsToRows(res?.settings)
+         subjectDraftCount.value = Math.min(20, Math.max(1, mapped.length || 8))
+         subjectDraftRows.value = _ensureSubjectRowsLen(mapped, subjectDraftCount.value)
+         ElMessage.success('已从高考高级设置同步')
+      } else {
+         const res = await pythonBackend.request<any>('subjects.list', {})
+         const mapped = _mapRegularSubjectsToRows((res?.subjects || []) as any[])
+         subjectDraftCount.value = Math.min(20, Math.max(1, mapped.length || 9))
+         subjectDraftRows.value = _ensureSubjectRowsLen(mapped, subjectDraftCount.value)
+         ElMessage.success('已从科目设置同步')
+      }
    } catch (e) {
       ElMessage.error('同步失败: ' + e)
    } finally {
@@ -1342,10 +1422,10 @@ onMounted(async () => {
             dataPath: state.dataPath,
             headers: state.headers || [],
             mapping: state.mapping || {},
-            data: state.data || [],
+            data: _slicePreviewDataForCache(state.data || []),
             total: state.total || 0,
          })
-         storage.setJsonCache('filePreview_v1', { ...filePreviewCache })
+         _persistFilePreviewCache()
       } else if (state && state.sourceType === 'schedule') {
          sourceType.value = 'schedule'
       }
@@ -1430,6 +1510,16 @@ onMounted(() => {
    window.addEventListener('blur', _handleWindowBlur)
 })
 
+onActivated(async () => {
+   await nextTick()
+   _measurePreviewBaseSize()
+   _updatePreviewScale()
+
+   if (sourceType.value === 'schedule') {
+      await handleLoadFromSchedule({ silent: true })
+   }
+})
+
 onBeforeUnmount(() => {
    window.removeEventListener('keydown', _handleKeyDown)
    window.removeEventListener('keyup', _handleKeyUp)
@@ -1460,6 +1550,8 @@ type FilePreviewCache = {
    total: number
 }
 
+const FILE_PREVIEW_CACHE_ROW_LIMIT = 20
+
 const emptyFilePreviewCache = (): FilePreviewCache => ({
    dataPath: '',
    headers: [],
@@ -1471,6 +1563,21 @@ const emptyFilePreviewCache = (): FilePreviewCache => ({
 const filePreviewCache = reactive<FilePreviewCache>(
    storage.getJsonCache<FilePreviewCache>('filePreview_v1', emptyFilePreviewCache())
 )
+
+function _slicePreviewDataForCache(data: unknown): any[] {
+   if (!Array.isArray(data)) return []
+   return data.slice(0, FILE_PREVIEW_CACHE_ROW_LIMIT)
+}
+
+function _persistFilePreviewCache() {
+   storage.setJsonCache('filePreview_v1', {
+      dataPath: filePreviewCache.dataPath,
+      headers: filePreviewCache.headers.slice(),
+      mapping: { ...filePreviewCache.mapping },
+      data: _slicePreviewDataForCache(filePreviewCache.data),
+      total: filePreviewCache.total,
+   })
+}
 
 function _snapshotMapping(): Record<string, string> {
    const snap: Record<string, string> = {}
@@ -1492,12 +1599,30 @@ function _cacheCurrentFileState() {
    filePreviewCache.dataPath = dataPath.value
    filePreviewCache.headers = headers.value.slice()
    filePreviewCache.mapping = _snapshotMapping()
-   filePreviewCache.data = previewData.value.slice()
+   filePreviewCache.data = _slicePreviewDataForCache(previewData.value)
    filePreviewCache.total = previewTotal.value
-   storage.setJsonCache('filePreview_v1', { ...filePreviewCache })
+   _persistFilePreviewCache()
 }
 
-function clearSelectedFile() {
+async function _syncClearedFileSelectionToBackend() {
+   try {
+      await pythonBackend.request('printing.saveConfig', {
+         config: JSON.parse(JSON.stringify(config)),
+         commonConfig: JSON.parse(JSON.stringify(commonConfig)),
+         totalCount: totalCount.value,
+         sourceType: sourceType.value,
+         dataPath: '',
+         headers: [],
+         mapping: {},
+         data: [],
+         previewTotal: 0,
+      })
+   } catch (e) {
+      console.error('Failed to clear backend printing file selection:', e)
+   }
+}
+
+async function clearSelectedFile() {
    dataPath.value = ''
    headers.value = []
    previewData.value = []
@@ -1506,6 +1631,7 @@ function clearSelectedFile() {
    for (const k of Object.keys(mapping)) delete (mapping as any)[k]
    Object.assign(filePreviewCache, emptyFilePreviewCache())
    storage.removeCache('filePreview_v1')
+   await _syncClearedFileSelectionToBackend()
 }
 
 const handleResetPage = async () => {
@@ -1863,11 +1989,46 @@ const studentInfoPrintSummaryRow = computed(() => {
    return base
 })
 
+const examBagGroupedPages = computed(() => {
+   const list = Array.isArray(previewData.value) ? previewData.value : []
+   const bySubject = new Map<string, any[]>()
+   const order: string[] = []
+
+   for (const item of list) {
+      const subject = String((item as any)?.subject ?? '').trim()
+      const key = subject || ''
+      if (!bySubject.has(key)) {
+         bySubject.set(key, [])
+         order.push(key)
+      }
+      bySubject.get(key)!.push(item)
+   }
+
+   const capacity = 9
+   const pages: Array<{ subject: string; items: any[] }> = []
+   for (const subject of order) {
+      const items = bySubject.get(subject) || []
+      if (!items.length) {
+         pages.push({ subject, items: [] })
+         continue
+      }
+      for (let index = 0; index < items.length; index += capacity) {
+         pages.push({
+            subject,
+            items: items.slice(index, index + capacity)
+         })
+      }
+   }
+
+   return pages
+})
+
 const examBagPreviewList = computed(() => {
    if (sourceType.value === 'empty') {
       return Array(9).fill(null)
    }
-   const items: any[] = previewData.value.slice(0, 9).map(item => ({
+   const firstPage = examBagGroupedPages.value[0]
+   const items: any[] = (firstPage?.items || []).map(item => ({
       subject: item.subject || '科目',
       room: item.room || '考场',
       count: item.count || 0
@@ -1895,29 +2056,9 @@ const examBagPrintCells = computed(() => {
 const examBagPreviewFooterText = computed(() => {
    const pageNum = 1
    if (sourceType.value === 'empty') return `第 ${pageNum} 页，共 1 页`
-   const list = Array.isArray(previewData.value) ? previewData.value : []
-   if (!list.length) return ''
-
-   const bySubject = new Map<string, any[]>()
-   const order: string[] = []
-   for (const it of list) {
-      const subj = String((it as any)?.subject ?? '').trim()
-      const key = subj || ''
-      if (!bySubject.has(key)) {
-         bySubject.set(key, [])
-         order.push(key)
-      }
-      bySubject.get(key)!.push(it)
-   }
-
-   const capacity = 9
-   let totalPages = 0
-   for (const subj of order) {
-      const n = bySubject.get(subj)?.length || 0
-      totalPages += Math.max(1, Math.ceil(n / capacity))
-   }
-   totalPages = Math.max(1, totalPages)
-   const subject = order[0] || ''
+   if (!examBagGroupedPages.value.length) return ''
+   const totalPages = Math.max(1, examBagGroupedPages.value.length)
+   const subject = String(examBagGroupedPages.value[0]?.subject ?? '').trim()
    const base = `第 ${pageNum} 页，共 ${totalPages} 页`
    return subject ? `${base}，当前科目：${subject}` : base
 })
@@ -2699,8 +2840,38 @@ const loadPreview = async () => {
    }
 }
 
-const handleLoadFromSchedule = async () => {
+const refreshSchedulePreviewSilently = async () => {
+   const roomsState = await pythonBackend.request<any>('rooms.getState', {})
+   if (roomsState && roomsState.config) {
+      const mode = roomsState.config.mode || ''
+      scheduleArrangementMode.value = mode === 'gaokao' ? 'gaokao_mode' : ''
+   }
+   await syncSubjectRowsForCurrentSource()
+
+   const res = await pythonBackend.request<any>('printing.loadFromSchedule', { type: activeTab.value })
+   if (res.data) {
+      previewData.value = res.data
+      previewTotal.value = res.total
+      return
+   }
+
+   previewData.value = []
+   previewTotal.value = 0
+}
+
+const handleLoadFromSchedule = async ({ silent = false }: { silent?: boolean } = {}) => {
     loadingSchedule.value = true
+    if (silent) {
+        try {
+            await refreshSchedulePreviewSilently()
+        } catch {
+            previewData.value = []
+            previewTotal.value = 0
+        } finally {
+            loadingSchedule.value = false
+        }
+        return
+    }
     try {
         // 获取考场编排配置信息
         const roomsState = await pythonBackend.request<any>('rooms.getState', {})
@@ -2709,6 +2880,7 @@ const handleLoadFromSchedule = async () => {
             const mode = roomsState.config.mode || ''
             scheduleArrangementMode.value = mode === 'gaokao' ? 'gaokao_mode' : ''
         }
+        await syncSubjectRowsForCurrentSource()
 
         const res = await pythonBackend.request<any>('printing.loadFromSchedule', { type: activeTab.value })
         if (res.data) {

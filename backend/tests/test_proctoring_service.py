@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import pandas as pd
+
 from backend.application.proctoring_service import (
+    ProctoringService,
     _extract_subject_durations,
     _has_locked_positions,
     _sort_subjects,
     _teacher_from_dict,
 )
+from backend.domain.state import AppState
 
 
 def test_teacher_from_dict_keeps_optional_fields() -> None:
@@ -73,3 +77,54 @@ def test_extract_subject_durations_supports_multiple_field_names() -> None:
     )
 
     assert durations == [120, 90, 45, 0]
+
+
+def test_import_preset_uses_detected_room_count_from_excel(recording_repo, tmp_path) -> None:
+    workbook = tmp_path / "preset.xlsx"
+    pd.DataFrame(
+        {
+            "考场": ["考场1", "考场2"],
+            "语文\n09:00": ["张老师", "李老师"],
+        }
+    ).to_excel(workbook, sheet_name="监考总览表", index=False)
+
+    service = ProctoringService(AppState(), recording_repo)
+    result = service.import_preset(
+        {
+            "path": str(workbook),
+            "teachers": [
+                {"name": "张老师", "gender": "M", "isInternal": True, "maxSessions": 2},
+                {"name": "李老师", "gender": "F", "isInternal": False, "maxSessions": 2},
+            ],
+            "subjects": [{"id": "1", "name": "语文", "time": "09:00", "durationMinutes": 120}],
+            "config": {"roomCount": 0, "mode": "single", "balanceMode": "duration"},
+        }
+    )
+
+    rooms = result["schedule"][0]["rooms"]
+    assert result["detectedRoomCount"] == 2
+    assert len(rooms) == 2
+    assert rooms[0]["teachers"][0]["name"] == "张老师"
+    assert rooms[1]["teachers"][0]["name"] == "李老师"
+    assert service.get_state({})["config"]["roomCount"] == 2
+
+
+def test_continue_schedule_rebuilds_rooms_from_config_when_schedule_is_empty(recording_repo) -> None:
+    state = AppState()
+    service = ProctoringService(state, recording_repo)
+
+    result = service.continue_schedule(
+        {
+            "teachers": [
+                {"name": "张老师", "gender": "M", "isInternal": True, "maxSessions": 2},
+                {"name": "李老师", "gender": "F", "isInternal": False, "maxSessions": 2},
+            ],
+            "subjects": [{"id": "1", "name": "语文", "time": "09:00", "durationMinutes": 120}],
+            "schedule": [],
+            "config": {"roomCount": 2, "mode": "single", "balanceMode": "duration"},
+        }
+    )
+
+    rooms = result["schedule"][0]["rooms"]
+    assert len(rooms) == 2
+    assert all(len(room["teachers"]) == 1 for room in rooms)

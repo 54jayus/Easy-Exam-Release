@@ -84,6 +84,12 @@ function parseJsonLine(line: string): any | null {
   }
 }
 
+function shouldIgnorePythonStderrLine(line: string): boolean {
+  const normalized = String(line || '').trim()
+  if (!normalized) return true
+  return normalized.includes('numexpr.utils: NumExpr defaulting to') && normalized.includes('threads')
+}
+
 function logToFileLine(line: string) {
   try {
     rotateLogsIfNeeded()
@@ -149,7 +155,6 @@ function createWindow() {
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
-    win.webContents.openDevTools()
   } else {
     win.loadFile(path.join(process.env.DIST, 'index.html'))
   }
@@ -326,6 +331,7 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
       for (const raw of lines) {
         const line = raw.trim()
         if (!line) continue
+        if (shouldIgnorePythonStderrLine(line)) continue
         log('warn', 'python', '标准错误', line.length > 2000 ? line.slice(0, 2000) + '…' : line)
       }
     })

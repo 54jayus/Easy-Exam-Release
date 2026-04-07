@@ -116,7 +116,7 @@
             <component
               :is="Component"
               v-if="currentRoute.meta.keepAlive"
-              :key="String(currentRoute.name || currentRoute.path)"
+              :key="getKeepAliveKey(currentRoute)"
             />
           </keep-alive>
 
@@ -224,6 +224,7 @@
 import { computed, watch, ref, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLicenseStore } from "./stores/license"
+import { useAppCacheControl } from '@/composables/useAppCacheControl'
 import { 
   Notebook, User, School, Printer, 
   QuestionFilled, Setting, DataBoard, Key, Check, Clock
@@ -237,6 +238,7 @@ dayjs.locale('zh-cn')
 const route = useRoute()
 const router = useRouter()
 const licenseStore = useLicenseStore()
+const { frontendResetEpoch } = useAppCacheControl()
 
 // Once backend finishes checking, redirect to /registration if license is invalid
 watch(() => licenseStore.checked, (checked) => {
@@ -256,12 +258,13 @@ onMounted(() => {
 const showSettings = ref(false)
 const avatarSeeds = ['Admin', 'Felix', 'Aneka', 'Zack', 'Milo', 'Bandit', 'Tinker', 'Cali', 'Coco', 'Bear']
 
-const userProfile = reactive({
+const createDefaultUserProfile = () => ({
   name: '管理员',
   email: '',
   avatarSeed: 'Cali',
   avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Cali&backgroundColor=e1f5fe,ffecb3,ffe082,ffcdd2,f8bbd0,e1bee7,d1c4e9,c5cae9,bbdefb,b3e5fc,b2ebf2,b2dfdb,c8e6c9,dcedc8,f0f4c3,fff9c4'
 })
+const userProfile = reactive(createDefaultUserProfile())
 
 const getAvatarUrl = (seed: string) => `https://api.dicebear.com/9.x/notionists/svg?seed=${seed}&backgroundColor=e1f5fe,ffecb3,ffe082,ffcdd2,f8bbd0,e1bee7,d1c4e9,c5cae9,bbdefb,b3e5fc,b2ebf2,b2dfdb,c8e6c9,dcedc8,f0f4c3,fff9c4`
 
@@ -320,6 +323,14 @@ watch(showOptimizationDetails, (val) => {
   localStorage.setItem('show_optimization_details', val ? 'true' : 'false')
 })
 
+watch(frontendResetEpoch, () => {
+  Object.assign(userProfile, createDefaultUserProfile())
+  showSettings.value = false
+  showDevDialog.value = false
+  developerMode.value = false
+  showOptimizationDetails.value = false
+})
+
 const navItems = [
   { path: '/dashboard', label: '工作台', icon: DataBoard },
   { path: '/subjects', label: '科目设置', icon: Notebook },
@@ -346,7 +357,13 @@ const showWizard = computed(() => {
   return workflowSteps.some(s => route.path.startsWith(s.path))
 })
 
-const keepAliveInclude = ['PrintingPage']
+const keepAliveInclude = ['PrintingPage', 'RegistrationPage']
+
+function getKeepAliveKey(currentRoute: any) {
+  const baseKey = String(currentRoute.name || currentRoute.path)
+  if (currentRoute.meta?.preserveOnAppReset) return baseKey
+  return `${baseKey}:${frontendResetEpoch.value}`
+}
 
 function isNavItemDisabled(path: string) {
   if (!licenseStore.valid && path !== "/registration") {

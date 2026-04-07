@@ -24,6 +24,31 @@ def safe_int_sort_key(val):
     return 0
 
 
+_SUBJECT_ALIAS_MAP = {
+    "语": "语文",
+    "语文": "语文",
+    "数": "数学",
+    "数学": "数学",
+    "英": "英语",
+    "英语": "英语",
+    "物": "物理",
+    "物理": "物理",
+    "史": "历史",
+    "历史": "历史",
+    "化": "化学",
+    "化学": "化学",
+    "生": "生物",
+    "生物": "生物",
+    "政": "政治",
+    "政治": "政治",
+    "地": "地理",
+    "地理": "地理",
+}
+
+_FIRST_CHOICE_SUBJECTS = {"物理", "历史"}
+_ELECTIVE_SUBJECTS = {"化学", "生物", "政治", "地理"}
+
+
 def _format_class_student(class_no, student_no):
     """格式化班级学号为 "x班x号" 格式"""
     class_num = extract_number(class_no)
@@ -91,6 +116,71 @@ def extract_number(text):
     if match:
         return match.group()
     return text
+
+
+def _normalize_subject_name(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return _SUBJECT_ALIAS_MAP.get(text, text)
+
+
+def _extract_subject_names(subjects_data):
+    subject_names = []
+    seen = set()
+    for item in subjects_data or []:
+        if isinstance(item, dict):
+            name = _normalize_subject_name(item.get("name") or item.get("subjectName") or item.get("id"))
+        else:
+            name = _normalize_subject_name(item)
+        if name and name not in seen:
+            subject_names.append(name)
+            seen.add(name)
+    return subject_names
+
+
+def _get_room_identifier(row):
+    room_no = str(row.get("考场号", "")).strip()
+    room_name = str(row.get("考场", "")).strip()
+    return room_no or room_name
+
+
+def _matches_subject_combination(subject_combo, subject_name):
+    combo = str(subject_combo or "").strip()
+    normalized_subject = _normalize_subject_name(subject_name)
+    if not combo or not normalized_subject:
+        return False
+    if normalized_subject in _FIRST_CHOICE_SUBJECTS:
+        alias = "物" if normalized_subject == "物理" else "史"
+        return combo.startswith(alias) or normalized_subject in combo
+    alias_lookup = {"化学": "化", "生物": "生", "政治": "政", "地理": "地"}
+    alias = alias_lookup.get(normalized_subject, "")
+    return normalized_subject in combo or (alias and alias in combo)
+
+
+def _count_students_for_subject(room_df, subject_name):
+    normalized_subject = _normalize_subject_name(subject_name)
+    if not normalized_subject:
+        return 0
+
+    if normalized_subject in _FIRST_CHOICE_SUBJECTS:
+        if "首选" in room_df.columns:
+            return int(room_df["首选"].fillna("").astype(str).map(_normalize_subject_name).eq(normalized_subject).sum())
+        if "选科" in room_df.columns:
+            return int(room_df["选科"].fillna("").astype(str).apply(lambda x: _matches_subject_combination(x, normalized_subject)).sum())
+
+    if normalized_subject in _ELECTIVE_SUBJECTS:
+        if "选科1" in room_df.columns or "选科2" in room_df.columns:
+            count = 0
+            if "选科1" in room_df.columns:
+                count += int(room_df["选科1"].fillna("").astype(str).map(_normalize_subject_name).eq(normalized_subject).sum())
+            if "选科2" in room_df.columns:
+                count += int(room_df["选科2"].fillna("").astype(str).map(_normalize_subject_name).eq(normalized_subject).sum())
+            return count
+        if "选科" in room_df.columns:
+            return int(room_df["选科"].fillna("").astype(str).apply(lambda x: _matches_subject_combination(x, normalized_subject)).sum())
+
+    return len(room_df.index)
 
 
 def load_examroom_data_for_corner(df_or_exam_arrangement):
@@ -534,7 +624,7 @@ def _load_gaokao_data_for_corner(exam_arrangement):
     return data_list
 
 
-def load_examroom_data_for_exam_bag(exam_arrangement):
+def load_examroom_data_for_exam_bag(exam_arrangement, subjects_data=None):
     """
     加载考场编排数据用于试卷袋标签
 
@@ -545,8 +635,64 @@ def load_examroom_data_for_exam_bag(exam_arrangement):
         list[dict]: [{"room": "考场名", "subject": "科目名", "count": 人数}, ...]
     """
     # 只支持高考模式
-    if not is_gaokao_mode(exam_arrangement):
+    if exam_arrangement is None:
         return []
+
+    if not is_gaokao_mode(exam_arrangement):
+        df = getattr(exam_arrangement, "arranged_students", None)
+        if df is None or df.empty:
+            return []
+
+        if "考场号" not in df.columns and "考场" not in df.columns:
+            return []
+
+        subject_names = _extract_subject_names(subjects_data)
+        if not subject_names:
+            return []
+
+        room_order = []
+        if hasattr(exam_arrangement, "_get_room_list"):
+            try:
+                room_order.extend(str(room).strip() for room in exam_arrangement._get_room_list() if str(room).strip())
+            except Exception:
+                pass
+
+        room_keys_in_data = []
+        for _, row in df.iterrows():
+            room_key = _get_room_identifier(row)
+            if room_key and room_key not in room_keys_in_data:
+                room_keys_in_data.append(room_key)
+
+        for room_key in room_keys_in_data:
+            if room_key not in room_order:
+                room_order.append(room_key)
+
+        result = []
+        for room_key in room_order:
+            room_df = df[df.apply(lambda row: _get_room_identifier(row) == room_key, axis=1)]
+            if room_df.empty:
+                continue
+
+            first_row = room_df.iloc[0]
+            room_name = str(first_row.get("考场", "")).strip()
+            if not room_name and hasattr(exam_arrangement, "_get_room_name"):
+                try:
+                    room_name = str(exam_arrangement._get_room_name(room_key)).strip()
+                except Exception:
+                    room_name = ""
+            if not room_name:
+                room_name = str(room_key)
+
+            for subject_name in subject_names:
+                count = _count_students_for_subject(room_df, subject_name)
+                if count > 0:
+                    result.append({
+                        "room": room_name,
+                        "subject": subject_name,
+                        "count": int(count),
+                    })
+
+        return result
 
     gaokao_results = exam_arrangement.gaokao_results
     unified_df = gaokao_results.get('unified')

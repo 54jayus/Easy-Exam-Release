@@ -46,6 +46,7 @@ def test_load_from_schedule_uses_student_info_adapter_for_table(monkeypatch, rec
 
 def test_load_from_schedule_routes_corner_ticket_and_exam_bag(monkeypatch, recording_repo) -> None:
     state = AppState()
+    state.subjects = [{"name": "语文"}]
     state.exam_arrangement = SimpleNamespace(arranged_students=pd.DataFrame([{"姓名": "张三"}]))
     service = PrintingService(state, recording_repo)
 
@@ -59,16 +60,17 @@ def test_load_from_schedule_routes_corner_ticket_and_exam_bag(monkeypatch, recor
     )
     monkeypatch.setattr(
         "backend.application.printing_service.load_examroom_data_for_exam_bag",
-        lambda ea: [{"kind": "exam_bag"}],
+        lambda ea, subjects: [{"kind": "exam_bag", "subjects": len(subjects)}],
     )
 
     assert service.load_from_schedule({"type": "corner"}) == {"data": [{"kind": "corner"}], "total": 1}
     assert service.load_from_schedule({"type": "ticket"}) == {"data": [{"kind": "ticket"}], "total": 1}
-    assert service.load_from_schedule({"type": "exam_bag_label"}) == {"data": [{"kind": "exam_bag"}], "total": 1}
+    assert service.load_from_schedule({"type": "exam_bag_label"}) == {"data": [{"kind": "exam_bag", "subjects": 1}], "total": 1}
 
 
 def test_preview_data_stores_state_and_truncates_non_table_results(monkeypatch, recording_repo) -> None:
     state = AppState()
+    state.subjects = [{"name": "语文"}]
     service = PrintingService(state, recording_repo)
     fake_rows = [{"id": i} for i in range(60)]
 
@@ -82,6 +84,41 @@ def test_preview_data_stores_state_and_truncates_non_table_results(monkeypatch, 
     assert state.printing.data_path == "data.xlsx"
     assert state.printing.mapping == {"name": "姓名"}
     assert state.printing.total == 60
+    assert recording_repo.save_calls == 1
+
+
+def test_save_config_can_clear_persisted_file_selection(recording_repo) -> None:
+    state = AppState()
+    state.printing.source_type = "file"
+    state.printing.data_path = "data.xlsx"
+    state.printing.headers = ["姓名"]
+    state.printing.mapping = {"name": "姓名"}
+    state.printing.data = [{"姓名": "张三"}]
+    state.printing.total = 1
+    service = PrintingService(state, recording_repo)
+
+    result = service.save_config(
+        {
+            "config": {"table": {"title": "考生信息表"}},
+            "commonConfig": {"exportPdf": True},
+            "sourceType": "file",
+            "dataPath": "",
+            "headers": [],
+            "mapping": {},
+            "data": [],
+            "previewTotal": 0,
+        }
+    )
+
+    assert result == {}
+    assert state.printing.source_type == "file"
+    assert state.printing.data_path == ""
+    assert state.printing.headers == []
+    assert state.printing.mapping == {}
+    assert state.printing.data == []
+    assert state.printing.total == 0
+    assert state.printing.config == {"table": {"title": "考生信息表"}}
+    assert state.printing.common_config == {"exportPdf": True}
     assert recording_repo.save_calls == 1
 
 

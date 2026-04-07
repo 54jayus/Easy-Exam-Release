@@ -13,7 +13,7 @@ export const router = createRouter({
   routes: [
     { path: "/", redirect: "/dashboard" },
     { path: "/dashboard", name: "dashboard", component: DashboardPage },
-    { path: "/registration", name: "registration", component: RegistrationPage },
+    { path: "/registration", name: "registration", component: RegistrationPage, meta: { keepAlive: true, preserveOnAppReset: true } },
     { path: "/subjects", name: "subjects", component: SubjectsPage },
     { path: "/proctoring", name: "proctoring", component: ProctoringPage },
     { path: "/rooms", name: "rooms", component: RoomsPage },

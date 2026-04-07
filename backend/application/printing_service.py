@@ -73,6 +73,16 @@ class PrintingService:
             self._state.printing.total = params["totalCount"]
         if "sourceType" in params:
             self._state.printing.source_type = params["sourceType"]
+        if "dataPath" in params:
+            self._state.printing.data_path = params["dataPath"] or ""
+        if "headers" in params:
+            self._state.printing.headers = list(params["headers"] or [])
+        if "mapping" in params:
+            self._state.printing.mapping = dict(params["mapping"] or {})
+        if "data" in params:
+            self._state.printing.data = list(params["data"] or [])
+        if "previewTotal" in params:
+            self._state.printing.total = int(params["previewTotal"] or 0)
         self._repo.save(self._state)
         return {}
 
@@ -138,7 +148,7 @@ class PrintingService:
                 data = load_examroom_data_for_ticket(ea) or []
             elif type_ == "exam_bag_label":
                 # 试卷袋：传递 ea 对象，适配器会自动检测高考模式
-                data = load_examroom_data_for_exam_bag(ea) or []
+                data = load_examroom_data_for_exam_bag(ea, self._state.subjects) or []
             else:
                 # 考生信息表等其他类型：使用原有逻辑
                 df = ea.arranged_students.fillna("")
@@ -258,7 +268,7 @@ class PrintingService:
                 elif type_ == "desk":
                     data_list = load_examroom_data_for_corner(ea) or []
                 elif type_ == "exam_bag_label":
-                    data_list = load_examroom_data_for_exam_bag(ea) or []
+                    data_list = load_examroom_data_for_exam_bag(ea, self._state.subjects) or []
                 else:
                     data_list = load_examroom_data_for_ticket(ea) or []
             elif source_type == "empty":
