@@ -15,7 +15,7 @@
 - [architecture.md](architecture.md)
   说明 Electron、Vue、Python 后端、RPC 通信和状态持久化的整体结构
 - [modules.md](modules.md)
-  说明各业务模块的职责、核心入口和主要数据流
+  说明各业务模块的职责、核心入口和主要依赖
 - [development.md](development.md)
   说明本地环境准备、启动方式、日志、调试技巧和常见排查路径
 - [testing-and-release.md](testing-and-release.md)
