@@ -925,7 +925,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onActivated, nextTick } from 'vue'
 import { 
   Printer, VideoPlay, FolderOpened, DocumentChecked, Close, 
   Document, Minus, Plus, FullScreen, Grid, DataLine, Select, 
@@ -935,8 +935,14 @@ import {
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePageSessionState } from '@/composables/usePageSessionState'
 import { applyPageReset, useAppCacheControl } from '@/composables/useAppCacheControl'
-import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
+import { usePrintingFileSource } from './PrintingPage/composables/usePrintingFileSource'
+import { usePrintingDeskLayout } from './PrintingPage/composables/usePrintingDeskLayout'
+import { usePrintingGenerate } from './PrintingPage/composables/usePrintingGenerate'
+import { usePrintingPreview } from './PrintingPage/composables/usePrintingPreview'
+import { usePrintingPreviewData } from './PrintingPage/composables/usePrintingPreviewData'
+import { usePrintingScheduleSource } from './PrintingPage/composables/usePrintingScheduleSource'
+import { usePrintingSubjects } from './PrintingPage/composables/usePrintingSubjects'
 
 // --- State ---
 const storage = usePageSessionState('printing')
@@ -945,7 +951,6 @@ const getStored = (key: string, def: string) => storage.getPref(key, def)
 
 const sidebarCollapsed = ref(getStored('sidebarCollapsed', 'false') === 'true')
 const activeTab = ref(getStored('activeTab', 'corner'))
-const generating = ref(false)
 
 // Data Source
 const sourceType = ref('empty') // 'empty' | 'file' | 'schedule'
@@ -954,7 +959,6 @@ const loadingSchedule = ref(false)
 const scheduleArrangementMode = ref('') // 考场编排模式：'gaokao_mode' | 'normal_mode' | 'subject_mode' | 'random_mode'
 
 const dataPath = ref('')
-const dataFileName = computed(() => dataPath.value.split(/[\\/]/).pop())
 const isGaokaoMode = computed(() => scheduleArrangementMode.value === 'gaokao_mode')
 const examBagConfigHint = computed(() => {
    if (sourceType.value === 'empty') {
@@ -973,101 +977,31 @@ const showMappingDialog = ref(false)
 const previewData = ref<any[]>([])
 const previewTotal = ref(0)
 
-const previewViewportRef = ref<HTMLElement | null>(null)
-const previewPageRef = ref<HTMLElement | null>(null)
-const previewOverlayRef = ref<HTMLElement | null>(null)
-const previewScale = ref(1)
-const autoFit = ref(true)
-const previewOffset = reactive({ x: 0, y: 0 })
-const isPanningPreview = ref(false)
-const isCtrlDown = ref(false)
-const previewMode = ref<'style' | 'print'>('style')
-const deskPreviewMode = ref<'seat' | 'print'>('seat')
-const previewBaseWidth = ref(0)
-const previewBaseHeight = ref(0)
-let previewResizeObserver: ResizeObserver | null = null
-
-function _getMaxAutoFitScale() {
-   if (activeTab.value === 'desk') return 1
-   return 1.5
-}
-
-const handleZoomIn = () => {
-   autoFit.value = false
-   previewScale.value = Math.min(2.0, previewScale.value + 0.1)
-}
-
-const handleZoomOut = () => {
-   autoFit.value = false
-   previewScale.value = Math.max(0.2, previewScale.value - 0.1)
-}
-
-const handleAutoFit = () => {
-   autoFit.value = true
-   previewOffset.x = 0
-   previewOffset.y = 0
-   _updatePreviewScale()
-}
-
-const handlePreviewWheel = (e: WheelEvent) => {
-   if (e.ctrlKey) {
-      e.preventDefault()
-      e.stopPropagation()
-      
-      // Zoom In/Out based on scroll direction
-      // deltaY < 0 means scrolling up (Zoom In)
-      // deltaY > 0 means scrolling down (Zoom Out)
-      const factor = 0.001
-      const delta = -e.deltaY * factor
-      
-      const next = Math.min(3.0, Math.max(0.2, previewScale.value + delta))
-      if (next !== previewScale.value) {
-         previewScale.value = next
-         autoFit.value = false
-      }
-   }
-}
-
-const previewCursorClass = computed(() => {
-   if (isPanningPreview.value) return 'cursor-grabbing select-none'
-   if (isCtrlDown.value) return 'cursor-grab'
-   return ''
+const {
+   previewViewportRef,
+   previewPageRef,
+   previewOverlayRef,
+   previewScale,
+   autoFit,
+   previewOffset,
+   isPanningPreview,
+   previewMode,
+   deskPreviewMode,
+   previewCursorClass,
+   previewPageSizeMm,
+   previewTargetPx,
+   resetPreviewTransform,
+   handleZoomIn,
+   handleZoomOut,
+   handleAutoFit,
+   handlePreviewWheel,
+   handlePreviewMouseDown,
+   measurePreviewBaseSize: _measurePreviewBaseSize,
+   updatePreviewScale: _updatePreviewScale,
+   initPreviewAutoScale: _initPreviewAutoScale,
+} = usePrintingPreview({
+   activeTab,
 })
-
-let _panStart: { x: number; y: number; ox: number; oy: number } | null = null
-
-function _endPreviewPan() {
-   if (!isPanningPreview.value) return
-   isPanningPreview.value = false
-   _panStart = null
-   document.body.style.userSelect = ''
-   window.removeEventListener('mousemove', _handlePreviewMouseMove, true)
-   window.removeEventListener('mouseup', _handlePreviewMouseUp, true)
-}
-
-function _handlePreviewMouseMove(e: MouseEvent) {
-   if (!isPanningPreview.value || !_panStart) return
-   previewOffset.x = _panStart.ox + (e.clientX - _panStart.x)
-   previewOffset.y = _panStart.oy + (e.clientY - _panStart.y)
-}
-
-function _handlePreviewMouseUp() {
-   _endPreviewPan()
-}
-
-function handlePreviewMouseDown(e: MouseEvent) {
-   if (!e.ctrlKey) return
-   if (e.button !== 0) return
-   e.preventDefault()
-   e.stopPropagation()
-
-   autoFit.value = false
-   isPanningPreview.value = true
-   document.body.style.userSelect = 'none'
-   _panStart = { x: e.clientX, y: e.clientY, ox: previewOffset.x, oy: previewOffset.y }
-   window.addEventListener('mousemove', _handlePreviewMouseMove, true)
-   window.addEventListener('mouseup', _handlePreviewMouseUp, true)
-}
 
 // Persistence Watchers
 watch(sidebarCollapsed, (val) => storage.setPref('sidebarCollapsed', String(val)))
@@ -1091,10 +1025,7 @@ function _scheduleSaveConfig() {
 watch(activeTab, async (val) => {
    if (val !== 'corner' && val !== 'ticket') previewMode.value = 'style'
    if (val === 'exam_bag_label') showMappingDialog.value = false
-   // Always auto-fit when switching tabs
-   autoFit.value = true
-   previewOffset.x = 0
-   previewOffset.y = 0
+   resetPreviewTransform()
    if (sourceType.value === 'file' && dataPath.value) {
       const canLoad = val === 'exam_bag_label' || isMappingComplete()
       if (canLoad) {
@@ -1109,20 +1040,6 @@ watch(activeTab, async (val) => {
    _measurePreviewBaseSize()
    _updatePreviewScale()
 }, { immediate: true })
-
-watch(previewMode, async () => {
-   await nextTick()
-   handleAutoFit()
-})
-
-watch(deskPreviewMode, async () => {
-   autoFit.value = true
-   previewOffset.x = 0
-   previewOffset.y = 0
-   await nextTick()
-   _measurePreviewBaseSize()
-   _updatePreviewScale()
-})
 
 const tabs = [
   { id: 'corner', name: '台角纸' },
@@ -1160,6 +1077,61 @@ const config = reactive({
    examBag: {
       schoolName: 'xxx学校'
    }
+})
+
+const {
+   dataFileName,
+   mapping,
+   requiredFields,
+   filePreviewCache,
+   clearSelectedFile,
+   resetFileState,
+   cacheCurrentFileState: _cacheCurrentFileState,
+   applyCachedFileState,
+   restoreFileStateFromPrintingState,
+   openMappingDialog,
+   handleConfirmMapping,
+   isMappingComplete,
+   loadPreview,
+   handleSelectFile,
+} = usePrintingFileSource({
+   storage,
+   activeTab,
+   sourceType,
+   dataPath,
+   headers,
+   previewData,
+   previewTotal,
+   showMappingDialog,
+   getSaveConfigPayload: () => ({
+      config: JSON.parse(JSON.stringify(config)),
+      commonConfig: JSON.parse(JSON.stringify(commonConfig)),
+      totalCount: totalCount.value,
+      sourceType: sourceType.value,
+   }),
+})
+
+const {
+   subjectRows,
+   subjectDraftRows,
+   subjectDraftCount,
+   showSubjectDialog,
+   syncingSubjects,
+   subjectPreviewWithTime,
+   initializeSubjectRows,
+   resetSubjectRows,
+   syncSubjectRowsForCurrentSource,
+   openSubjectDialog,
+   handleSyncSubjects,
+   handleSaveSubjects,
+   getRowDate,
+   setRowDate,
+   getRowTimeRange,
+   setRowTimeRange,
+} = usePrintingSubjects({
+   storage,
+   sourceType,
+   isGaokaoMode,
 })
 
 watch(config, _scheduleSaveConfig, { deep: true })
@@ -1208,50 +1180,10 @@ watch(() => config.table.title, (val) => {
    storage.setJsonPref('studentInfoTitles_v1', { ...studentInfoTitles })
 })
 
-type SubjectRow = { name: string; time: string }
-const GAOKAO_PRINTING_SUBJECTS = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物'] as const
 
-const showSubjectDialog = ref(false)
-const syncingSubjects = ref(false)
-const subjectRows = ref<SubjectRow[]>([])
-const subjectDraftRows = ref<SubjectRow[]>([])
-const subjectDraftCount = ref(9)
 
-const subjectPreview = computed(() => {
-   return subjectRows.value.map(r => r.name).filter(v => v.trim()).slice(0, 7)
-})
 
-const subjectPreviewWithTime = computed(() => {
-   return subjectRows.value
-      .filter(r => r.name.trim() || r.time.trim())
-      .slice(0, 7)
-})
-
-function _loadStoredSubjectRows(): SubjectRow[] | null {
-   const parsed = storage.getJsonPref<unknown>('subjectRows_v1', null)
-   if (!Array.isArray(parsed)) return null
-   return parsed.map((r: any) => ({ name: String(r?.name ?? ''), time: String(r?.time ?? '') }))
-}
-
-function _persistSubjectRows(rows: SubjectRow[]) {
-   storage.setJsonPref('subjectRows_v1', rows)
-}
-
-function _ensureSubjectRowsLen(rows: SubjectRow[], count: number): SubjectRow[] {
-   const safeCount = Math.min(20, Math.max(1, Math.floor(count || 0)))
-   const next: SubjectRow[] = rows.map(r => ({ name: String(r?.name ?? ''), time: String(r?.time ?? '') }))
-   if (next.length > safeCount) return next.slice(0, safeCount)
-   while (next.length < safeCount) next.push({ name: '', time: '' })
-   return next
-}
-
-function _setAndPersistSubjectRows(rows: SubjectRow[], count?: number) {
-   const nextCount = count ?? rows.length ?? 9
-   const nextRows = _ensureSubjectRowsLen(rows, nextCount)
-   subjectRows.value = nextRows
-   _persistSubjectRows(nextRows)
-}
-
+/* Subject management moved to usePrintingSubjects().
 function _formatMonthDay(examDate: string): string {
    const s = String(examDate || '').trim()
    const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
@@ -1377,77 +1309,12 @@ function handleSaveSubjects() {
    showSubjectDialog.value = false
 }
 
-function _measurePreviewBaseSize() {
-   const pageEl = previewPageRef.value
-   if (!pageEl) return
-   const rect = pageEl.getBoundingClientRect()
-   const s = previewScale.value || 1
-   if (rect.width > 0 && rect.height > 0 && s > 0) {
-      previewBaseWidth.value = rect.width / s
-      previewBaseHeight.value = rect.height / s
-   }
-}
-
-function _updatePreviewScale() {
-   if (!autoFit.value) return
-   const viewportEl = previewViewportRef.value
-   if (!viewportEl) return
-   
-   const baseW = previewBaseWidth.value
-   const baseH = previewBaseHeight.value
-   const { w, h } = previewTargetPx.value
-   const targetWidth = baseW > 0 ? baseW : w
-   const targetHeight = baseH > 0 ? baseH : h
-   
-   const availableW = Math.max(0, viewportEl.clientWidth - 64) // 32px padding * 2
-   let availableH = Math.max(0, viewportEl.clientHeight - 64)
-   const overlayEl = previewOverlayRef.value
-   if (overlayEl) {
-      const overlayRect = overlayEl.getBoundingClientRect()
-      if (overlayRect.height > 0) availableH = Math.max(0, availableH - overlayRect.height - 24)
-   }
-   
-   const sx = availableW / targetWidth
-   const sy = availableH / targetHeight
-   
-   const next = Math.min(sx, sy) * 0.98
-   previewScale.value = Math.min(_getMaxAutoFitScale(), Math.max(0.3, Number.isFinite(next) ? next : 1))
-}
-
-function _initPreviewAutoScale() {
-   if (previewResizeObserver) previewResizeObserver.disconnect()
-   if (!previewViewportRef.value) return
-   previewResizeObserver = new ResizeObserver(() => _updatePreviewScale())
-   previewResizeObserver.observe(previewViewportRef.value)
-   _updatePreviewScale()
-}
-
+*/
 onMounted(async () => {
    // Restore printing state
    try {
       const state = await pythonBackend.request<any>('printing.getState', {})
-      if (state && state.sourceType === 'file' && state.dataPath) {
-         sourceType.value = 'file'
-         dataPath.value = state.dataPath
-         headers.value = state.headers || []
-         previewData.value = state.data || []
-         previewTotal.value = state.total || 0
-
-         if (state.mapping) {
-            for (const k of Object.keys(mapping)) delete (mapping as any)[k]
-            Object.assign(mapping, state.mapping)
-         }
-
-         // Update filePreviewCache as well
-         Object.assign(filePreviewCache, {
-            dataPath: state.dataPath,
-            headers: state.headers || [],
-            mapping: state.mapping || {},
-            data: _slicePreviewDataForCache(state.data || []),
-            total: state.total || 0,
-         })
-         _persistFilePreviewCache()
-      } else if (state && state.sourceType === 'schedule') {
+      if (!restoreFileStateFromPrintingState(state) && state && state.sourceType === 'schedule') {
          sourceType.value = 'schedule'
       }
 
@@ -1489,12 +1356,7 @@ onMounted(async () => {
       console.error('Failed to restore printing state:', e)
    }
 
-   const stored = _loadStoredSubjectRows()
-   if (stored && stored.length) {
-      subjectRows.value = _ensureSubjectRowsLen(stored, stored.length)
-   } else {
-      subjectRows.value = _ensureSubjectRowsLen([], 9)
-   }
+   initializeSubjectRows()
 
    previewScale.value = 1
    await nextTick()
@@ -1509,28 +1371,6 @@ onMounted(async () => {
    }, 200)
 })
 
-function _handleKeyDown(e: KeyboardEvent) {
-   if (e.key === 'Control') isCtrlDown.value = true
-}
-
-function _handleKeyUp(e: KeyboardEvent) {
-   if (e.key === 'Control') {
-      isCtrlDown.value = false
-      _endPreviewPan()
-   }
-}
-
-function _handleWindowBlur() {
-   isCtrlDown.value = false
-   _endPreviewPan()
-}
-
-onMounted(() => {
-   window.addEventListener('keydown', _handleKeyDown)
-   window.addEventListener('keyup', _handleKeyUp)
-   window.addEventListener('blur', _handleWindowBlur)
-})
-
 onActivated(async () => {
    await nextTick()
    _measurePreviewBaseSize()
@@ -1540,120 +1380,6 @@ onActivated(async () => {
       await handleLoadFromSchedule({ silent: true })
    }
 })
-
-onBeforeUnmount(() => {
-   window.removeEventListener('keydown', _handleKeyDown)
-   window.removeEventListener('keyup', _handleKeyUp)
-   window.removeEventListener('blur', _handleWindowBlur)
-   _endPreviewPan()
-})
-
-// Mapping
-const mapping = reactive<Record<string, string>>({})
-const requiredFields = {
-   '考场号': { label: '考场号', required: true },
-   '考场': { label: '考场名称', required: true },
-   '座位号': { label: '座位号', required: true },
-   '考生姓名': { label: '姓名', required: true },
-   '考生考号': { label: '考号', required: true },
-   '班级': { label: '班级', required: true },
-   '学号': { label: '学号', required: true },
-   '首选': { label: '首选科目', required: false },
-   '选科1': { label: '再选科目1', required: false },
-   '选科2': { label: '再选科目2', required: false },
-}
-
-type FilePreviewCache = {
-   dataPath: string
-   headers: string[]
-   mapping: Record<string, string>
-   data: any[]
-   total: number
-}
-
-const FILE_PREVIEW_CACHE_ROW_LIMIT = 20
-
-const emptyFilePreviewCache = (): FilePreviewCache => ({
-   dataPath: '',
-   headers: [],
-   mapping: {},
-   data: [],
-   total: 0,
-})
-
-const filePreviewCache = reactive<FilePreviewCache>(
-   storage.getJsonCache<FilePreviewCache>('filePreview_v1', emptyFilePreviewCache())
-)
-
-function _slicePreviewDataForCache(data: unknown): any[] {
-   if (!Array.isArray(data)) return []
-   return data.slice(0, FILE_PREVIEW_CACHE_ROW_LIMIT)
-}
-
-function _persistFilePreviewCache() {
-   storage.setJsonCache('filePreview_v1', {
-      dataPath: filePreviewCache.dataPath,
-      headers: filePreviewCache.headers.slice(),
-      mapping: { ...filePreviewCache.mapping },
-      data: _slicePreviewDataForCache(filePreviewCache.data),
-      total: filePreviewCache.total,
-   })
-}
-
-function _snapshotMapping(): Record<string, string> {
-   const snap: Record<string, string> = {}
-   for (const k of Object.keys(mapping)) {
-      const v = mapping[k]
-      if (typeof v === 'string' && v.trim()) snap[k] = v
-   }
-   return snap
-}
-
-function _applyMappingSnapshot(snap: Record<string, string>) {
-   for (const k of Object.keys(mapping)) delete (mapping as any)[k]
-   for (const [k, v] of Object.entries(snap || {})) {
-      mapping[k] = String(v ?? '')
-   }
-}
-
-function _cacheCurrentFileState() {
-   filePreviewCache.dataPath = dataPath.value
-   filePreviewCache.headers = headers.value.slice()
-   filePreviewCache.mapping = _snapshotMapping()
-   filePreviewCache.data = _slicePreviewDataForCache(previewData.value)
-   filePreviewCache.total = previewTotal.value
-   _persistFilePreviewCache()
-}
-
-async function _syncClearedFileSelectionToBackend() {
-   try {
-      await pythonBackend.request('printing.saveConfig', {
-         config: JSON.parse(JSON.stringify(config)),
-         commonConfig: JSON.parse(JSON.stringify(commonConfig)),
-         totalCount: totalCount.value,
-         sourceType: sourceType.value,
-         dataPath: '',
-         headers: [],
-         mapping: {},
-         data: [],
-         previewTotal: 0,
-      })
-   } catch (e) {
-      console.error('Failed to clear backend printing file selection:', e)
-   }
-}
-
-async function clearSelectedFile() {
-   dataPath.value = ''
-   headers.value = []
-   previewData.value = []
-   previewTotal.value = 0
-   showMappingDialog.value = false
-   for (const k of Object.keys(mapping)) delete (mapping as any)[k]
-   Object.assign(filePreviewCache, emptyFilePreviewCache())
-   storage.removeCache('filePreview_v1')
-   await _syncClearedFileSelectionToBackend()
-}
 
 const handleResetPage = async () => {
    try {
@@ -1681,15 +1407,7 @@ const handleResetPage = async () => {
       console.error('Failed to reset backend printing state:', e)
    }
 
-   dataPath.value = ''
-   headers.value = []
-   showMappingDialog.value = false
-   previewData.value = []
-   previewTotal.value = 0
-
-   for (const k of Object.keys(mapping)) delete (mapping as any)[k]
-   Object.assign(filePreviewCache, emptyFilePreviewCache())
-   storage.removeCache('filePreview_v1')
+   resetFileState()
 
    commonConfig.exportXlsx = false
    commonConfig.exportPdf = true
@@ -1710,7 +1428,7 @@ const handleResetPage = async () => {
    studentInfoTitles.class = config.table.title
    studentInfoTitles.examroom = config.table.title
 
-  subjectRows.value = _ensureSubjectRowsLen([], 9)
+   resetSubjectRows()
 
    autoFit.value = true
    previewMode.value = 'style'
@@ -1723,1374 +1441,102 @@ const handleResetPage = async () => {
 }
 
 // --- Computed ---
-const hasPreviewData = computed(() => {
-    if (sourceType.value === 'empty') return true
-    return previewData.value.length > 0
+const {
+   hasPreviewData,
+   displayData,
+   tablePreviewRows,
+   studentInfoColumns,
+   studentInfoPrintLayout,
+   studentInfoFirstGroupRows,
+   studentInfoFirstPageMeta,
+   studentInfoPrintBodyRows,
+   studentInfoPrintSummaryRow,
+   examBagGroupedPages,
+   examBagPreviewList,
+   examBagPrintCells,
+   examBagPreviewFooterText,
+   getCornerStudentName,
+   getCornerStudentExamNo,
+   getCornerStudentClassNo,
+   getTicketRoom,
+   getTicketRoomNo,
+   getTicketSeatNo,
+   cornerPreview,
+   cornerSubjectRowsForStyle,
+   cornerSubjectRows,
+   cornerTemplatesPerCol,
+   itemsPerPage,
+   previewTotalPages,
+   printPreviewList,
+   ticketPreview,
+   ticketSubjectRows,
+   ticketSubjectRowsForPrint,
+   previewBadgeText,
+   previewPrintFooterText,
+} = usePrintingPreviewData({
+   activeTab,
+   sourceType,
+   previewMode,
+   previewData,
+   previewTotal,
+   config,
+   subjectRows,
 })
-
-const displayData = computed(() => {
-    if (sourceType.value === 'empty') {
-        return []
-    }
-    return previewData.value
+const {
+   deskLayoutOptions,
+   deskEffectiveLayout,
+   deskSeatGrid,
+   deskSeatNumberGrid,
+   deskPrintCellText,
+   deskLayoutSummary,
+   showDeskLayoutDialog,
+   deskLayoutDraft,
+   openDeskLayoutDialog,
+   applyDeskLayoutDraft,
+} = usePrintingDeskLayout({
+   config,
+   displayData,
+   hasPreviewData,
+   sourceType,
+   onAfterApply: async () => {
+      await nextTick()
+      _measurePreviewBaseSize()
+      handleAutoFit()
+   },
 })
-
-const tablePreviewRows = computed(() => {
-   const rows = displayData.value.slice(0, 20).map((item: any, idx: number) => {
-      const name = String(item?.['考生姓名'] ?? item?.['姓名'] ?? '张三')
-      const examNo = String(item?.['考生考号'] ?? item?.['考号'] ?? `1000${idx}`)
-      const roomNo = String(item?.['考场号'] ?? '01')
-      const seatNo = String(item?.['座位号'] ?? String(idx + 1).padStart(2, '0'))
-      const clsRaw = item?.['班级']
-      const clsStr = clsRaw === undefined || clsRaw === null ? '' : String(clsRaw)
-      const clsDigits = clsStr.match(/\d+/)?.[0]
-      const classLabel = clsDigits ? `${clsDigits}班` : (clsStr || '高三(1)班')
-      const studentNo = String(item?.['学号'] ?? (idx + 1))
-      const subjects = String(item?.['首选'] ?? '物理') + ' ' + String(item?.['选科1'] ?? '化学') + ' ' + String(item?.['选科2'] ?? '生物')
-      return { name, examNo, roomNo, seatNo, classLabel, studentNo, subjects: subjects.trim() }
-   })
-
-   if (config.table.groupMode === 'examroom') {
-      return rows.sort((a, b) => {
-         const ra = parseInt(a.roomNo, 10)
-         const rb = parseInt(b.roomNo, 10)
-         if (!Number.isNaN(ra) && !Number.isNaN(rb) && ra !== rb) return ra - rb
-         if (a.roomNo !== b.roomNo) return a.roomNo.localeCompare(b.roomNo, 'zh-CN')
-         const sa = parseInt(a.seatNo, 10)
-         const sb = parseInt(b.seatNo, 10)
-         if (!Number.isNaN(sa) && !Number.isNaN(sb) && sa !== sb) return sa - sb
-         return a.seatNo.localeCompare(b.seatNo, 'zh-CN')
-      })
-   }
-
-   return rows.sort((a, b) => {
-      if (a.classLabel !== b.classLabel) return a.classLabel.localeCompare(b.classLabel, 'zh-CN')
-      const sa = parseInt(a.studentNo, 10)
-      const sb = parseInt(b.studentNo, 10)
-      if (!Number.isNaN(sa) && !Number.isNaN(sb) && sa !== sb) return sa - sb
-      return a.studentNo.localeCompare(b.studentNo, 'zh-CN')
-   })
+const {
+   generating,
+   handleGenerate,
+} = usePrintingGenerate({
+   activeTab,
+   sourceType,
+   dataPath,
+   previewData,
+   showMappingDialog,
+   mapping,
+   isMappingComplete,
+   commonConfig,
+   config,
+   totalCount,
+   isGaokaoMode,
+   subjectRows,
+   deskEffectiveLayout,
+   tabs,
 })
-
-const studentInfoColumns = computed(() => {
-   const toPercent = (w: number, total: number) => `${((w / total) * 100).toFixed(4)}%`
-   if (config.table.includeSubjectFields) {
-      const weights = [5, 5, 7, 12, 5, 5, 5, 9, 6, 5]
-      const total = weights.reduce((a, b) => a + b, 0)
-      const widths = weights.map(w => toPercent(w, total))
-      return [
-         { key: 'class', label: '班级', width: widths[0] },
-         { key: 'studentNo', label: '学号', width: widths[1] },
-         { key: 'name', label: '姓名', width: widths[2] },
-         { key: 'examNo', label: '考号', width: widths[3] },
-         { key: 'first', label: '首选', width: widths[4] },
-         { key: 'sub1', label: '选科1', width: widths[5] },
-         { key: 'sub2', label: '选科2', width: widths[6] },
-         { key: 'room', label: '考场', width: widths[7] },
-         { key: 'roomNo', label: '考场号', width: widths[8] },
-         { key: 'seatNo', label: '座位', width: widths[9] },
-      ] as const
-   }
-   const weights = [5, 5, 7, 12, 9, 6, 5]
-   const total = weights.reduce((a, b) => a + b, 0)
-   const widths = weights.map(w => toPercent(w, total))
-   return [
-      { key: 'class', label: '班级', width: widths[0] },
-      { key: 'studentNo', label: '学号', width: widths[1] },
-      { key: 'name', label: '姓名', width: widths[2] },
-      { key: 'examNo', label: '考号', width: widths[3] },
-      { key: 'room', label: '考场', width: widths[4] },
-      { key: 'roomNo', label: '考场号', width: widths[5] },
-      { key: 'seatNo', label: '座位', width: widths[6] },
-   ] as const
-})
-
-const studentInfoPrintLayout = computed(() => {
-   const ptToMm = (pt: number) => `${(pt * 0.3527777778).toFixed(2)}mm`
-   const contentHeightMm = 297 - 20
-   const safetyGapPt = 24
-
-   const isExamroom = config.table.groupMode === 'examroom'
-   const titlePt = 22
-   const headerPt = 20
-   const summaryPt = isExamroom ? 16.5 : 16
-   const bodyMinPt = isExamroom ? 16.5 : 11
-
-   const titleMm = titlePt * 0.3527777778
-   const headerMm = headerPt * 0.3527777778
-   const summaryMm = summaryPt * 0.3527777778
-   const bodyMinMm = bodyMinPt * 0.3527777778
-   const safetyGapMm = safetyGapPt * 0.3527777778
-
-   const maxRowsLast = Math.max(
-      5,
-      Math.floor((contentHeightMm - titleMm - headerMm - summaryMm - safetyGapMm) / bodyMinMm)
-   )
-   const maxRowsMid = Math.max(
-      5,
-      Math.floor((contentHeightMm - titleMm - headerMm - safetyGapMm) / bodyMinMm)
-   )
-
-   const fontSize = config.table.includeSubjectFields ? 8 : 9
-
-   const bodyH =
-      sourceType.value === 'empty'
-         ? `${Math.max(1, (contentHeightMm - titleMm - headerMm - safetyGapMm) / (isExamroom ? 42 : 50)).toFixed(2)}mm`
-         : ptToMm(bodyMinPt)
-
-   return {
-      titleH: ptToMm(titlePt),
-      headerH: ptToMm(headerPt),
-      bodyH,
-      summaryH: ptToMm(summaryPt),
-      maxRowsMid,
-      maxRowsLast,
-      fontSizePx: `${fontSize}px`,
-      titleFontSizePx: '14px',
-   }
-})
-
-type _StudentInfoSortKey = [number, number | string]
-
-function _compareStudentInfoSortKey(a: _StudentInfoSortKey, b: _StudentInfoSortKey) {
-   if (a[0] !== b[0]) return a[0] - b[0]
-   const av = a[1]
-   const bv = b[1]
-   if (typeof av === 'number' && typeof bv === 'number') return av - bv
-   return String(av).localeCompare(String(bv), 'zh-CN')
-}
-
-function _studentInfoClassSortKey(v: any): _StudentInfoSortKey {
-   const s = String(v ?? '').trim()
-   if (/^\d+$/.test(s)) return [0, Number(s)]
-   return [1, s]
-}
-
-function _studentInfoExamroomSortKey(v: any): _StudentInfoSortKey {
-   const s = String(v ?? '').trim()
-   if (/^\d+$/.test(s)) return [0, Number(s)]
-   if (s) return [1, s]
-   return [2, '']
-}
-
-function _studentInfoSeatSortKey(v: any): _StudentInfoSortKey {
-   const s = String(v ?? '').trim()
-   if (/^\d+$/.test(s)) return [0, Number(s)]
-   return [1, s]
-}
-
-const studentInfoFirstGroupRows = computed(() => {
-   const data = displayData.value as any[]
-   if (!Array.isArray(data) || !data.length) return []
-
-   const isExamroom = config.table.groupMode === 'examroom'
-   const keyOf = (it: any) => String((isExamroom ? it?.['考场号'] : it?.['班级']) ?? '').trim()
-
-   const groups = new Map<string, any[]>()
-   for (const it of data) {
-      const k = keyOf(it)
-      if (!groups.has(k)) groups.set(k, [])
-      groups.get(k)!.push(it)
-   }
-
-   const keys = Array.from(groups.keys())
-   keys.sort((a, b) => {
-      const ka = isExamroom ? _studentInfoExamroomSortKey(a) : _studentInfoClassSortKey(a)
-      const kb = isExamroom ? _studentInfoExamroomSortKey(b) : _studentInfoClassSortKey(b)
-      return _compareStudentInfoSortKey(ka, kb)
-   })
-
-   const firstKey = keys[0] ?? ''
-   const rows = (groups.get(firstKey) || []).slice()
-   if (isExamroom) {
-      rows.sort((a, b) => {
-         const ka = _studentInfoExamroomSortKey(a?.['考场号'])
-         const kb = _studentInfoExamroomSortKey(b?.['考场号'])
-         const kcmp = _compareStudentInfoSortKey(ka, kb)
-         if (kcmp) return kcmp
-
-         const sa = _studentInfoSeatSortKey(a?.['座位号'] ?? a?.['座位'])
-         const sb = _studentInfoSeatSortKey(b?.['座位号'] ?? b?.['座位'])
-         const scmp = _compareStudentInfoSortKey(sa, sb)
-         if (scmp) return scmp
-
-         const ca = _studentInfoClassSortKey(a?.['班级'])
-         const cb = _studentInfoClassSortKey(b?.['班级'])
-         const ccmp = _compareStudentInfoSortKey(ca, cb)
-         if (ccmp) return ccmp
-
-         const na = _studentInfoSeatSortKey(a?.['学号'])
-         const nb = _studentInfoSeatSortKey(b?.['学号'])
-         return _compareStudentInfoSortKey(na, nb)
-      })
-   } else {
-      rows.sort((a, b) => {
-         const na = _studentInfoSeatSortKey(a?.['学号'])
-         const nb = _studentInfoSeatSortKey(b?.['学号'])
-         const ncmp = _compareStudentInfoSortKey(na, nb)
-         if (ncmp) return ncmp
-         const ea = String(a?.['考生考号'] ?? a?.['考号'] ?? '').trim()
-         const eb = String(b?.['考生考号'] ?? b?.['考号'] ?? '').trim()
-         return ea.localeCompare(eb, 'zh-CN')
-      })
-   }
-   return rows
-})
-
-const studentInfoFirstPageMeta = computed(() => {
-   if (sourceType.value === 'empty') {
-      const blankRows = config.table.groupMode === 'examroom' ? 42 : 50
-      return { maxRows: blankRows, showSummary: false }
-   }
-   const total = studentInfoFirstGroupRows.value.length
-   const { maxRowsMid, maxRowsLast } = studentInfoPrintLayout.value
-   if (total <= maxRowsLast) return { maxRows: maxRowsLast, showSummary: true }
-   return { maxRows: maxRowsMid, showSummary: false }
-})
-
-const studentInfoPrintBodyRows = computed(() => {
-   const rows = studentInfoFirstGroupRows.value
-   const maxRows = studentInfoFirstPageMeta.value.maxRows
-   const normalized = rows.slice(0, maxRows).map((item: any) => {
-      const classValue = String(item?.['班级'] ?? '').trim()
-      const studentNo = String(item?.['学号'] ?? '').trim()
-      const name = String(item?.['考生姓名'] ?? item?.['姓名'] ?? '').trim()
-      const examNo = String(item?.['考生考号'] ?? item?.['考号'] ?? '').trim()
-      const first = String(item?.['首选'] ?? item?.['类别'] ?? '').trim()
-      const sub1 = String(item?.['选科1'] ?? item?.['选1'] ?? '').trim()
-      const sub2 = String(item?.['选科2'] ?? item?.['选2'] ?? '').trim()
-      const room = String(item?.['考场'] ?? '').trim()
-      const roomNo = String(item?.['考场号'] ?? '').trim()
-      const seatNo = String(item?.['座位号'] ?? item?.['座位'] ?? '').trim()
-      if (config.table.includeSubjectFields) {
-         return { class: classValue, studentNo, name, examNo, first, sub1, sub2, room, roomNo, seatNo }
-      }
-      return { class: classValue, studentNo, name, examNo, room, roomNo, seatNo }
-   })
-
-   if (sourceType.value === 'empty') {
-      const blank = config.table.includeSubjectFields
-         ? { class: '', studentNo: '', name: '', examNo: '', first: '', sub1: '', sub2: '', room: '', roomNo: '', seatNo: '' }
-         : { class: '', studentNo: '', name: '', examNo: '', room: '', roomNo: '', seatNo: '' }
-      while (normalized.length < maxRows) normalized.push({ ...blank })
-   }
-   return normalized
-})
-
-const studentInfoPrintSummaryRow = computed(() => {
-   const colCount = studentInfoColumns.value.length
-   const isExamroom = config.table.groupMode === 'examroom'
-   const labelCol = isExamroom ? (config.table.includeSubjectFields ? 'room' : 'room') : 'class'
-
-   const rawGroupKey = String(
-      isExamroom ? (studentInfoFirstGroupRows.value?.[0]?.['考场号'] ?? '') : (studentInfoFirstGroupRows.value?.[0]?.['班级'] ?? '')
-   ).trim()
-
-   let label = ''
-   if (isExamroom) {
-      const roomName = String(studentInfoFirstGroupRows.value?.[0]?.['考场'] ?? '').trim()
-      label = (roomName || rawGroupKey || '考场').trim()
-   } else {
-      label = rawGroupKey
-   }
-
-   const count = sourceType.value === 'empty' ? 0 : studentInfoFirstGroupRows.value.length
-
-   const base: Record<string, string> = {}
-   for (const col of studentInfoColumns.value) base[(col as any).key] = ''
-   base[labelCol] = `${label} 计数`.trim()
-
-   const keys = studentInfoColumns.value.map(c => (c as any).key)
-   if (colCount >= 3) {
-      const countKey = keys[2]
-      base[countKey] = String(count)
-   } else if (colCount >= 2) {
-      const countKey = keys[1]
-      base[countKey] = String(count)
-   }
-   return base
-})
-
-const examBagGroupedPages = computed(() => {
-   const list = Array.isArray(previewData.value) ? previewData.value : []
-   const bySubject = new Map<string, any[]>()
-   const order: string[] = []
-
-   for (const item of list) {
-      const subject = String((item as any)?.subject ?? '').trim()
-      const key = subject || ''
-      if (!bySubject.has(key)) {
-         bySubject.set(key, [])
-         order.push(key)
-      }
-      bySubject.get(key)!.push(item)
-   }
-
-   const capacity = 9
-   const pages: Array<{ subject: string; items: any[] }> = []
-   for (const subject of order) {
-      const items = bySubject.get(subject) || []
-      if (!items.length) {
-         pages.push({ subject, items: [] })
-         continue
-      }
-      for (let index = 0; index < items.length; index += capacity) {
-         pages.push({
-            subject,
-            items: items.slice(index, index + capacity)
-         })
-      }
-   }
-
-   return pages
-})
-
-const examBagPreviewList = computed(() => {
-   if (sourceType.value === 'empty') {
-      return Array(9).fill(null)
-   }
-   const firstPage = examBagGroupedPages.value[0]
-   const items: any[] = (firstPage?.items || []).map(item => ({
-      subject: item.subject || '科目',
-      room: item.room || '考场',
-      count: item.count || 0
-   }))
-   while (items.length < 9) items.push(null)
-   return items
-})
-
-const examBagPrintCells = computed(() => {
-   const school = String(config.examBag.schoolName ?? '').trim()
-   return examBagPreviewList.value.map((it: any) => {
-      if (!it) {
-         if (sourceType.value !== 'empty') return ''
-         const s = school || 'xxx学校'
-         return `学校：${s}\n\n科目：\n\n考场：\n\n应到：\n\n实到：\n\n监考教师：\n\n考试情况：`
-      }
-      const subject = String(it?.subject ?? '').trim()
-      const room = String(it?.room ?? '').trim()
-      const count = String(it?.count ?? '').trim()
-      const s = school || 'xxx学校'
-      return `学校：${s}\n\n科目：${subject}\n\n考场：${room}（${count}人）\n\n应到：\n\n实到：\n\n监考教师：\n\n考试情况：`
-   })
-})
-
-const examBagPreviewFooterText = computed(() => {
-   const pageNum = 1
-   if (sourceType.value === 'empty') return `第 ${pageNum} 页，共 1 页`
-   if (!examBagGroupedPages.value.length) return ''
-   const totalPages = Math.max(1, examBagGroupedPages.value.length)
-   const subject = String(examBagGroupedPages.value[0]?.subject ?? '').trim()
-   const base = `第 ${pageNum} 页，共 ${totalPages} 页`
-   return subject ? `${base}，当前科目：${subject}` : base
-})
-
-const getCornerPreviewData = (item: Record<string, any>) => {
-   const kaochang = String(item['考场'] ?? '')
-   const kaochangNo = String(item['考场号'] ?? '')
-   const seatNo = String(item['座位号'] ?? '')
-
-   // 高考模式：从科目数据数组中获取第一个科目的学生信息
-   let name = ''
-   let examNo = ''
-   let classStudent = ''
-
-   if (item['科目数据'] && Array.isArray(item['科目数据']) && item['科目数据'].length > 0) {
-      // 高考模式：使用第一个科目的数据作为预览
-      const firstSubject = item['科目数据'][0]
-      name = String(firstSubject['考生姓名'] ?? '')
-      examNo = String(firstSubject['考生考号'] ?? '')
-      classStudent = String(firstSubject['考生班级学号'] ?? '')
-   } else {
-      // 普通模式：直接从顶层获取
-      name = String(item['考生姓名'] ?? item['姓名'] ?? '')
-      examNo = String(item['考生考号'] ?? item['考号'] ?? '')
-      classStudent = String(item['考生班级学号'] ?? '')
-
-      if (!classStudent) {
-         const c = String(item['班级'] ?? '')
-         const n = String(item['学号'] ?? '')
-         if (c || n) {
-            classStudent = `${c}班${n}号`
-         }
-      }
-   }
-
-   return {
-      考场: kaochang,
-      考场号: kaochangNo,
-      座位号: seatNo,
-      考生姓名: name,
-      考生考号: examNo,
-      考生班级学号: classStudent,
-      科目数据: item['科目数据']  // 保留原始的科目数据数组，供辅助函数使用
-   }
-}
-
-// Helper functions for Gaokao mode compatibility
-// Corner paper helpers - get student info for a specific subject
-const getCornerStudentName = (item: any, subjectIndex: number): string => {
-  if (!item) return ''
-  // Gaokao mode: get from subject data array
-  if (item.科目数据 && Array.isArray(item.科目数据)) {
-    return item.科目数据[subjectIndex]?.考生姓名 || ''
-  }
-  // Normal mode: get directly
-  return item.考生姓名 || ''
-}
-
-const getCornerStudentExamNo = (item: any, subjectIndex: number): string => {
-  if (!item) return ''
-  if (item.科目数据 && Array.isArray(item.科目数据)) {
-    return item.科目数据[subjectIndex]?.考生考号 || ''
-  }
-  return item.考生考号 || ''
-}
-
-const getCornerStudentClassNo = (item: any, subjectIndex: number): string => {
-  if (!item) return ''
-  if (item.科目数据 && Array.isArray(item.科目数据)) {
-    return item.科目数据[subjectIndex]?.考生班级学号 || ''
-  }
-  return item.考生班级学号 || ''
-}
-
-// Admission ticket helpers - get room info for a specific subject
-const getTicketRoom = (item: any, subjectIndex: number): string => {
-  if (!item) return ''
-  // Gaokao mode: get from subject data array
-  if (item.科目数据 && Array.isArray(item.科目数据)) {
-    return item.科目数据[subjectIndex]?.考场 || ''
-  }
-  // Normal mode: get directly
-  return item.考场 || ''
-}
-
-const getTicketRoomNo = (item: any, subjectIndex: number): string => {
-  if (!item) return ''
-  if (item.科目数据 && Array.isArray(item.科目数据)) {
-    return item.科目数据[subjectIndex]?.考场号 || ''
-  }
-  return item.考场号 || ''
-}
-
-const getTicketSeatNo = (item: any, subjectIndex: number): string => {
-  if (!item) return ''
-  if (item.科目数据 && Array.isArray(item.科目数据)) {
-    return item.科目数据[subjectIndex]?.座位号 || ''
-  }
-  return item.座位号 || ''
-}
-
-const cornerPreview = computed(() => {
-   const fallback = {
-      考场: '',
-      考场号: '',
-      座位号: '',
-      考生姓名: '',
-      考生考号: '',
-      考生班级学号: '',
-   }
-   if (sourceType.value === 'empty') return fallback
-   const first = displayData.value[0]
-   if (!first) return fallback
-   return getCornerPreviewData(first)
-})
-
-const cornerSubjectRowsForStyle = computed(() => {
-   if (sourceType.value === 'empty') {
-      const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
-      return Array.from({ length: count }, () => '')
-   }
-
-   // 高考模式：从第一条数据的科目数据数组中获取科目名称
-   const first = displayData.value[0]
-   if (first && first['科目数据'] && Array.isArray(first['科目数据'])) {
-      return first['科目数据'].map((subj: any) => String(subj['科目'] ?? '').trim())
-   }
-
-   // 普通模式：从 subjectRows 获取
-   const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
-   return Array.from({ length: count }, (_, i) => {
-      return String(subjectRows.value[i]?.name ?? '').trim()
-   })
-})
-
-const cornerSubjectRows = computed(() => {
-   if (sourceType.value === 'empty') {
-      const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
-      return Array.from({ length: count }, () => '')
-   }
-
-   // 高考模式：从第一条数据的科目数据数组中获取科目名称
-   const first = displayData.value[0]
-   if (first && first['科目数据'] && Array.isArray(first['科目数据'])) {
-      return first['科目数据'].map((subj: any) => String(subj['科目'] ?? '').trim())
-   }
-
-   // 普通模式：从 subjectRows 获取
-   const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
-   return Array.from({ length: count }, (_, i) => {
-      const v = String(subjectRows.value[i]?.name ?? '').trim()
-      return v
-   })
-})
-
-const cornerTemplatesPerCol = computed(() => {
-   const subjectCount = cornerSubjectRows.value.length
-   if (subjectCount <= 3) return 5
-   if (subjectCount <= 5) return 4
-   if (subjectCount <= 9) return 3
-   return 2
-})
-
-const itemsPerPage = computed(() => {
-   if (activeTab.value === 'corner') {
-      return cornerTemplatesPerCol.value * 3
-   }
-   if (activeTab.value === 'ticket') {
-      // Assuming same layout logic for ticket for now, or use fixed
-      // Ticket usually has similar height constraints
-      // Based on backend AdmissionTicketPDFGenerator, it also uses 3 cols.
-      // Rows might differ, but let's reuse logic or default to 3 rows
-       const subjectCount = subjectRows.value.length
-       if (subjectCount <= 3) return 15 // 5 rows
-       if (subjectCount <= 5) return 12 // 4 rows
-       if (subjectCount <= 9) return 9 // 3 rows
-       return 6 // 2 rows
-   }
-   return 10
-})
-
-const previewTotalPages = computed(() => {
-   if (activeTab.value !== 'corner' && activeTab.value !== 'ticket') return 0
-   if (sourceType.value === 'empty') return 0
-   const total = previewTotal.value > 0 ? previewTotal.value : previewData.value.length
-   if (!total) return 0
-   return Math.max(1, Math.ceil(total / itemsPerPage.value))
-})
-
-const printPreviewList = computed(() => {
-   if (sourceType.value === 'empty') {
-      if (activeTab.value === 'corner') {
-         const blank = {
-            考场: '',
-            考场号: '',
-            座位号: '',
-            考生姓名: '',
-            考生考号: '',
-            考生班级学号: '',
-         }
-         return Array.from({ length: itemsPerPage.value }, () => ({ ...blank }))
-      }
-      if (activeTab.value === 'ticket') {
-         const blank = {
-            考场: '',
-            考场号: '',
-            座位号: '',
-            考生姓名: '',
-            考生考号: '',
-            班级: '',
-            学号: '',
-         }
-         return Array.from({ length: itemsPerPage.value }, () => ({ ...blank }))
-      }
-   }
-   const list = displayData.value.slice(0, itemsPerPage.value)
-   if (activeTab.value === 'corner') {
-      return list.map(item => getCornerPreviewData(item))
-   }
-   if (activeTab.value === 'ticket') {
-      return list.map(item => getTicketPreviewData(item))
-   }
-   return []
-})
-
-const getTicketPreviewData = (item: Record<string, any>) => {
-   const name = String(item['考生姓名'] ?? item['姓名'] ?? '')
-   const examNo = String(item['考生考号'] ?? item['考号'] ?? '')
-   const cls = String(item['班级'] ?? '')
-   const studentNo = String(item['学号'] ?? '')
-
-   // 高考模式：从科目数据数组中获取第一个科目的考场信息
-   let kaochang = ''
-   let kaochangNo = ''
-   let seatNo = ''
-
-   if (item['科目数据'] && Array.isArray(item['科目数据']) && item['科目数据'].length > 0) {
-      // 高考模式：使用第一个科目的考场数据作为预览
-      const firstSubject = item['科目数据'][0]
-      kaochang = String(firstSubject['考场'] ?? '')
-      kaochangNo = String(firstSubject['考场号'] ?? '')
-      seatNo = String(firstSubject['座位号'] ?? '')
-   } else {
-      // 普通模式：直接从顶层获取
-      kaochang = String(item['考场'] ?? '')
-      kaochangNo = String(item['考场号'] ?? '')
-      seatNo = String(item['座位号'] ?? '')
-   }
-
-   return {
-      考场: kaochang,
-      考场号: kaochangNo,
-      座位号: seatNo,
-      考生姓名: name,
-      考生考号: examNo,
-      班级: cls,
-      学号: studentNo,
-      科目数据: item['科目数据']  // 保留原始的科目数据数组，供辅助函数使用
-   }
-}
-
-const ticketPreview = computed(() => {
-   const fallback = {
-      考场: '',
-      考场号: '',
-      座位号: '',
-      考生姓名: '',
-      考生考号: '',
-      班级: '',
-      学号: '',
-   }
-   if (sourceType.value === 'empty') return fallback
-   const first = displayData.value[0]
-   if (!first) return fallback
-   return getTicketPreviewData(first)
-})
-
-const ticketSubjectRows = computed(() => {
-   if (sourceType.value === 'empty') {
-      const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
-      return Array.from({ length: count }, () => ({ name: '', time: '' }))
-   }
-
-   // 高考模式：从第一条数据的科目数据数组中获取科目名称和时间
-   const first = displayData.value[0]
-   if (first && first['科目数据'] && Array.isArray(first['科目数据'])) {
-      return first['科目数据'].map((subj: any) => ({
-         name: String(subj['科目'] ?? '').trim(),
-         time: String(subj['时间'] ?? '').trim()
-      }))
-   }
-
-   // 普通模式：从 subjectRows 获取
-   const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
-   return Array.from({ length: count }, (_, i) => {
-      const name = String(subjectRows.value[i]?.name ?? '').trim()
-      const time = String(subjectRows.value[i]?.time ?? '').trim()
-      return { name, time }
-   })
-})
-
-const ticketSubjectRowsForPrint = computed(() => {
-   if (previewMode.value === 'print' && sourceType.value === 'empty') {
-      const count = Math.min(20, Math.max(1, subjectRows.value.length || 9))
-      return Array.from({ length: count }, () => ({ name: '', time: '' }))
-   }
-   return ticketSubjectRows.value
-})
-
-const previewBadgeText = computed(() => {
-   if (activeTab.value !== 'corner' && activeTab.value !== 'ticket') return ''
-   if (previewMode.value === 'style') {
-      if (sourceType.value === 'empty') return '预览：样式参考'
-      if (previewTotal.value > 0) return `预览：第 1 条考生 / 共 ${previewTotal.value} 条`
-      if (previewData.value.length > 0) return '预览：第 1 条考生'
-      return '预览：未加载数据'
-   }
-   if (previewMode.value === 'print') {
-      if (sourceType.value === 'empty') return ''
-      const pages = previewTotalPages.value
-      if (pages > 0) return `预览：第 1 页/共 ${pages} 页`
-      return '预览：未加载数据'
-   }
-   return ''
-})
-
-const previewPrintFooterText = computed(() => {
-   if (previewMode.value !== 'print') return ''
-   if (activeTab.value !== 'corner' && activeTab.value !== 'ticket') return ''
-   const pageNum = 1
-   const totalPages = sourceType.value === 'empty' ? 1 : (previewTotalPages.value || 1)
-   const first = printPreviewList.value?.[0] as any
-   const base = `第 ${pageNum} 页，共 ${totalPages} 页`
-   if (activeTab.value === 'corner') {
-      const room = String(first?.['考场'] ?? '').trim()
-      return room ? `${base}，当前考场：${room}` : base
-   }
-   const raw = String(first?.['班级'] ?? '').trim()
-   const cls = raw && /^\d+$/.test(raw) ? `${raw}班` : raw
-   return cls ? `${base}，当前班级：${cls}` : base
-})
-
-const deskLayoutOptions = [
-   { name: '5行×6列', rows: 5, cols: 6 },
-   { name: '6行×5列', rows: 6, cols: 5 },
-   { name: '6行×7列', rows: 6, cols: 7 },
-   { name: '7行×6列', rows: 7, cols: 6 },
-   { name: '5行×9列', rows: 5, cols: 9 },
-   { name: '9行×5列', rows: 9, cols: 5 },
-]
-
-function parseCustomCounts(text: string): number[] | null {
-   const raw = String(text || '').trim().replace(/，/g, ',')
-   if (!raw) return null
-   const parts = raw.split(',').map(s => s.trim()).filter(Boolean)
-   const nums = parts.map(p => parseInt(p, 10)).filter(n => Number.isFinite(n) && n > 0)
-   if (!nums.length) return null
-   return nums
-}
-
-function getSeatMapping(
-   rows: number,
-   cols: number,
-   pattern: string,
-   startPos: 'left' | 'right',
-   customColCounts: number[] | null
-): Record<number, [number, number]> {
-   const mapping: Record<number, [number, number]> = {}
-   let currentSeat = 0
-
-   const safeRows = Math.max(1, Math.floor(rows || 0))
-   const safeCols = Math.max(1, Math.floor(cols || 0))
-   const custom = Array.isArray(customColCounts) && customColCounts.length ? customColCounts : null
-
-   const isValidPos = (r: number, actualC: number) => {
-      if (!custom) return true
-      if (actualC < 0 || actualC >= custom.length) return false
-      return r < custom[actualC]
-   }
-
-   const getActualCol = (logicCol: number) => {
-      if (startPos === 'left') return safeCols - 1 - logicCol
-      return logicCol
-   }
-
-   if (pattern === 'Z型横排') {
-      for (let r = 0; r < safeRows; r++) {
-         for (let c = 0; c < safeCols; c++) {
-            const actualC = getActualCol(c)
-            if (isValidPos(r, actualC)) mapping[currentSeat++] = [r, actualC]
-         }
-      }
-   } else if (pattern === 'S型横排') {
-      for (let r = 0; r < safeRows; r++) {
-         const even = r % 2 === 0
-         if (even) {
-            for (let c = 0; c < safeCols; c++) {
-               const actualC = getActualCol(c)
-               if (isValidPos(r, actualC)) mapping[currentSeat++] = [r, actualC]
-            }
-         } else {
-            for (let c = safeCols - 1; c >= 0; c--) {
-               const actualC = getActualCol(c)
-               if (isValidPos(r, actualC)) mapping[currentSeat++] = [r, actualC]
-            }
-         }
-      }
-   } else if (pattern === 'Z型竖排') {
-      for (let c = 0; c < safeCols; c++) {
-         const actualC = getActualCol(c)
-         for (let r = 0; r < safeRows; r++) {
-            if (isValidPos(r, actualC)) mapping[currentSeat++] = [r, actualC]
-         }
-      }
-   } else if (pattern === 'S型竖排') {
-      for (let c = 0; c < safeCols; c++) {
-         const even = c % 2 === 0
-         const actualC = getActualCol(c)
-         if (even) {
-            for (let r = 0; r < safeRows; r++) {
-               if (isValidPos(r, actualC)) mapping[currentSeat++] = [r, actualC]
-            }
-         } else {
-            for (let r = safeRows - 1; r >= 0; r--) {
-               if (isValidPos(r, actualC)) mapping[currentSeat++] = [r, actualC]
-            }
-         }
-      }
-   }
-
-   return mapping
-}
-
-const firstRoomData = computed(() => {
-   const list = displayData.value || []
-   if (!Array.isArray(list) || list.length === 0) return []
-   const first = list[0] || {}
-   const key = (first as any)['考场号'] ?? (first as any)['考场']
-   if (key === undefined || key === null) return list
-   return list.filter((item: any) => {
-      const k = item?.['考场号'] ?? item?.['考场']
-      return String(k ?? '') === String(key)
-   })
-})
-
-const deskEffectiveLayout = computed(() => {
-   const custom = config.desk.customColCounts
-   if (Array.isArray(custom) && custom.length) {
-      const cols = custom.length
-      const rows = Math.max(...custom.map(n => Math.max(0, n)))
-      const capacity = custom.reduce((acc, n) => acc + Math.max(0, n || 0), 0)
-      return { layoutName: '自定义', rows: Math.max(1, rows), cols: Math.max(1, cols), capacity: Math.max(1, capacity), customColCounts: custom }
-   }
-   const rows = Math.max(1, Math.floor(config.desk.layoutRows || 0))
-   const cols = Math.max(1, Math.floor(config.desk.layoutCols || 0))
-   return { layoutName: config.desk.layoutName || `${rows}行×${cols}列`, rows, cols, capacity: rows * cols, customColCounts: null as number[] | null }
-})
-
-const deskSeatGrid = computed(() => {
-   const { rows, cols, capacity, customColCounts } = deskEffectiveLayout.value
-   const grid: { valid: boolean; student: any | null }[][] = Array.from({ length: rows }, () =>
-      Array.from({ length: cols }, () => ({ valid: true, student: null }))
-   )
-
-   const custom = customColCounts
-   if (custom) {
-      for (let r = 0; r < rows; r++) {
-         for (let c = 0; c < cols; c++) {
-            grid[r][c].valid = r < (custom[c] || 0)
-         }
-      }
-   }
-
-   if (!hasPreviewData.value) return grid
-   const mapping = getSeatMapping(rows, cols, config.desk.layoutPattern, config.desk.startPos as any, customColCounts)
-   const students = firstRoomData.value.slice(0, capacity)
-   for (let i = 0; i < students.length; i++) {
-      const pos = mapping[i]
-      if (!pos) continue
-      const [r, c] = pos
-      if (r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c].valid) {
-         grid[r][c].student = students[i]
-      }
-   }
-   return grid
-})
-
-const deskSeatNumberGrid = computed(() => {
-   const { rows, cols, customColCounts } = deskEffectiveLayout.value
-   const grid: { valid: boolean; seatNo: number | null }[][] = Array.from({ length: rows }, () =>
-      Array.from({ length: cols }, () => ({ valid: true, seatNo: null }))
-   )
-
-   const custom = customColCounts
-   if (custom) {
-      for (let r = 0; r < rows; r++) {
-         for (let c = 0; c < cols; c++) {
-            grid[r][c].valid = r < (custom[c] || 0)
-         }
-      }
-   }
-
-   const mapping = getSeatMapping(rows, cols, config.desk.layoutPattern, config.desk.startPos as any, customColCounts)
-   const capacity = Object.keys(mapping).length
-   for (let i = 0; i < capacity; i++) {
-      const pos = mapping[i]
-      if (!pos) continue
-      const [r, c] = pos
-      if (r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c].valid) {
-         grid[r][c].seatNo = i + 1
-      }
-   }
-   return grid
-})
-
-const deskPrintGrid = computed(() => {
-   const { rows, cols, capacity, customColCounts } = deskEffectiveLayout.value
-   const grid: { valid: boolean; student: any | null }[][] = Array.from({ length: rows }, () =>
-      Array.from({ length: cols }, () => ({ valid: true, student: null }))
-   )
-
-   const custom = customColCounts
-   if (custom) {
-      for (let r = 0; r < rows; r++) {
-         for (let c = 0; c < cols; c++) {
-            grid[r][c].valid = r < (custom[c] || 0)
-         }
-      }
-   }
-
-   if (!hasPreviewData.value || sourceType.value === 'empty') return grid
-   const mapping = getSeatMapping(rows, cols, config.desk.layoutPattern, 'right', customColCounts)
-   const students = firstRoomData.value.slice(0, capacity)
-   for (let i = 0; i < students.length; i++) {
-      const pos = mapping[i]
-      if (!pos) continue
-      const [r, c] = pos
-      if (r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c].valid) {
-         grid[r][c].student = students[i]
-      }
-   }
-   return grid
-})
-
-function deskPrintCellText(r: number, c: number) {
-   const cell = deskPrintGrid.value?.[r]?.[c]
-   if (!cell || !cell.valid) return ''
-   const s = cell.student || {}
-   const name = String(s?.['考生姓名'] ?? s?.['姓名'] ?? '')
-   const no = String(s?.['考生考号'] ?? s?.['考号'] ?? '')
-   const room = String(s?.['考场'] ?? '')
-   const roomNo = String(s?.['考场号'] ?? '')
-   const seat = String(s?.['座位号'] ?? '')
-   return `姓名：${name}\n考号：${no}\n考场：${room}\n考场号：${roomNo}\n座位号：${seat}`
-}
-
-const deskLayoutSummary = computed(() => {
-   const layoutName = String(config.desk.layoutName || deskEffectiveLayout.value.layoutName)
-   const { rows, cols } = deskEffectiveLayout.value
-   const pattern = String(config.desk.layoutPattern || '')
-   const startPos = config.desk.startPos === 'right' ? '右手位' : '左手位'
-   const layoutText = layoutName === '自定义' ? `${rows}行×${cols}列` : layoutName
-   return `${layoutText} · ${pattern} · ${startPos}`
-})
-
-const previewPageSizeMm = computed(() => {
-   if (activeTab.value === 'desk' && deskPreviewMode.value === 'print') {
-      return { width: '210mm', height: '297mm' }
-   }
-   if (activeTab.value === 'table') {
-      return { width: '210mm', height: '297mm' }
-   }
-   if (activeTab.value === 'exam_bag_label') {
-      return { width: '210mm', height: '297mm' }
-   }
-   // Default to A4 Landscape for all other views (including desk seat layout)
-   return { width: '297mm', height: '210mm' }
-})
-
-const previewTargetPx = computed(() => {
-   if (activeTab.value === 'desk' && deskPreviewMode.value === 'print') return { w: 794, h: 1122 }
-   if (activeTab.value === 'table') return { w: 794, h: 1122 }
-   if (activeTab.value === 'exam_bag_label') return { w: 794, h: 1122 }
-   return { w: 1122, h: 794 }
-})
-
-const showDeskLayoutDialog = ref(false)
-const deskLayoutDraft = reactive({
-   layoutName: '7行×6列',
-   layoutRows: 7,
-   layoutCols: 6,
-   layoutPattern: 'S型竖排',
-   startPos: 'left' as 'left' | 'right',
-   customCountsText: '',
-})
-
-function openDeskLayoutDialog() {
-   deskLayoutDraft.layoutName = String(config.desk.layoutName || '7行×6列')
-   deskLayoutDraft.layoutRows = Number(config.desk.layoutRows || 7)
-   deskLayoutDraft.layoutCols = Number(config.desk.layoutCols || 6)
-   deskLayoutDraft.layoutPattern = String(config.desk.layoutPattern || 'S型竖排')
-   deskLayoutDraft.startPos = (config.desk.startPos === 'right' ? 'right' : 'left') as any
-   if (Array.isArray(config.desk.customColCounts) && config.desk.customColCounts.length) {
-      deskLayoutDraft.layoutName = '自定义'
-      deskLayoutDraft.customCountsText = config.desk.customColCounts.join(',')
-      deskLayoutDraft.layoutRows = deskEffectiveLayout.value.rows
-      deskLayoutDraft.layoutCols = deskEffectiveLayout.value.cols
-   } else {
-      deskLayoutDraft.customCountsText = ''
-   }
-   showDeskLayoutDialog.value = true
-}
-
-watch(
-   () => deskLayoutDraft.layoutName,
-   (name) => {
-      if (name === '自定义') return
-      const opt = deskLayoutOptions.find(o => o.name === name)
-      if (!opt) return
-      deskLayoutDraft.layoutRows = opt.rows
-      deskLayoutDraft.layoutCols = opt.cols
-      deskLayoutDraft.customCountsText = ''
-   }
-)
-
-watch(
-   () => deskLayoutDraft.customCountsText,
-   (text) => {
-      if (deskLayoutDraft.layoutName !== '自定义') return
-      const nums = parseCustomCounts(text)
-      if (!nums) return
-      deskLayoutDraft.layoutCols = nums.length
-      deskLayoutDraft.layoutRows = Math.max(1, Math.max(...nums))
-   }
-)
-
-async function applyDeskLayoutDraft() {
-   if (deskLayoutDraft.layoutName === '自定义') {
-      const nums = parseCustomCounts(deskLayoutDraft.customCountsText)
-      if (!nums) {
-         ElMessage.warning('请输入有效的自定义每列人数')
-         return
-      }
-      config.desk.layoutName = '自定义'
-      config.desk.customColCounts = nums
-      config.desk.layoutCols = nums.length
-      config.desk.layoutRows = Math.max(1, Math.max(...nums))
-   } else {
-      const opt = deskLayoutOptions.find(o => o.name === deskLayoutDraft.layoutName)
-      if (opt) {
-         config.desk.layoutName = opt.name
-         config.desk.layoutRows = opt.rows
-         config.desk.layoutCols = opt.cols
-      } else {
-         config.desk.layoutName = String(deskLayoutDraft.layoutName || '')
-      }
-      config.desk.customColCounts = null
-   }
-   config.desk.layoutPattern = deskLayoutDraft.layoutPattern
-   config.desk.startPos = deskLayoutDraft.startPos
-   showDeskLayoutDialog.value = false
-   await nextTick()
-   _measurePreviewBaseSize()
-   handleAutoFit()
-}
 
 // --- Methods ---
 
-const handleSelectFile = async () => {
-   const path = await open({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
-   if (path) {
-      sourceType.value = 'file'
-      dataPath.value = path as string
-      if (activeTab.value === 'exam_bag_label') {
-         headers.value = []
-         for (const key in mapping) delete mapping[key]
-         showMappingDialog.value = false
-         try {
-            const res = await pythonBackend.request<any>('printing.previewData', {
-               path,
-               mapping: {},
-               type: activeTab.value,
-            })
-            if (res.data) {
-               previewData.value = res.data
-               previewTotal.value = res.total
-            } else if (res.error) {
-               ElMessage.error(res.error)
-            }
-         } catch (e) {
-            ElMessage.error('加载预览失败: ' + e)
-         }
-      } else {
-         try {
-            const res = await pythonBackend.request<any>('printing.readHeaders', { path })
-            if (res.headers) {
-               headers.value = res.headers
-               if (filePreviewCache.dataPath === String(path) && Object.keys(filePreviewCache.mapping).length) {
-                  _applyMappingSnapshot(filePreviewCache.mapping)
-                  if (isMappingComplete()) {
-                     showMappingDialog.value = false
-                     loadPreview()
-                  } else {
-                     showMappingDialog.value = true
-                  }
-               } else {
-                  autoMapFields()
-                  showMappingDialog.value = true
-               }
-            } else if (res.error) {
-               ElMessage.error(res.error)
-            }
-         } catch (e) {
-            ElMessage.error('读取文件失败: ' + e)
-         }
-      }
-   }
-}
-
-const openMappingDialog = () => {
-   if (!dataPath.value) return
-   showMappingDialog.value = true
-}
-
-const autoMapFields = () => {
-   // Reset
-   for (const key in mapping) delete mapping[key]
-   
-   // Simple heuristic
-   for (const key in requiredFields) {
-      if (headers.value.includes(key)) {
-         mapping[key] = key
-      } else {
-         // Try partial match
-         const match = headers.value.find(h => h.includes(key) || key.includes(h))
-         if (match) mapping[key] = match
-      }
-   }
-}
-
-const handleConfirmMapping = async () => {
-   // Validate required
-   for (const [key, field] of Object.entries(requiredFields)) {
-      if (field.required && !mapping[key]) {
-         ElMessage.warning(`请映射必填字段: ${field.label}`)
-         return
-      }
-   }
-   
-   showMappingDialog.value = false
-   sourceType.value = 'file'
-   loadPreview()
-}
-
-const isMappingComplete = () => {
-   for (const [key, field] of Object.entries(requiredFields)) {
-      if (field.required && !mapping[key]) return false
-   }
-   return true
-}
-
-const loadPreview = async () => {
-   if (!dataPath.value) return
-   try {
-      const res = await pythonBackend.request<any>('printing.previewData', { 
-         path: dataPath.value,
-         mapping: mapping,
-         type: activeTab.value
-      })
-      if (res.data) {
-         previewData.value = res.data
-         previewTotal.value = res.total
-         if (sourceType.value === 'file') _cacheCurrentFileState()
-      } else if (res.error) {
-         ElMessage.error(res.error)
-      }
-   } catch (e) {
-      ElMessage.error('加载预览失败: ' + e)
-   }
-}
-
-const refreshSchedulePreviewSilently = async () => {
-   const roomsState = await pythonBackend.request<any>('rooms.getState', {})
-   if (roomsState && roomsState.config) {
-      const mode = roomsState.config.mode || ''
-      scheduleArrangementMode.value = mode === 'gaokao' ? 'gaokao_mode' : ''
-   }
-   await syncSubjectRowsForCurrentSource()
-
-   const res = await pythonBackend.request<any>('printing.loadFromSchedule', { type: activeTab.value })
-   if (res.data) {
-      previewData.value = res.data
-      previewTotal.value = res.total
-      return
-   }
-
-   previewData.value = []
-   previewTotal.value = 0
-}
-
-const handleLoadFromSchedule = async ({ silent = false }: { silent?: boolean } = {}) => {
-    loadingSchedule.value = true
-    if (silent) {
-        try {
-            await refreshSchedulePreviewSilently()
-        } catch {
-            previewData.value = []
-            previewTotal.value = 0
-        } finally {
-            loadingSchedule.value = false
-        }
-        return
-    }
-    try {
-        // 获取考场编排配置信息
-        const roomsState = await pythonBackend.request<any>('rooms.getState', {})
-        if (roomsState && roomsState.config) {
-            // 保存编排模式
-            const mode = roomsState.config.mode || ''
-            scheduleArrangementMode.value = mode === 'gaokao' ? 'gaokao_mode' : ''
-        }
-        await syncSubjectRowsForCurrentSource()
-
-        const res = await pythonBackend.request<any>('printing.loadFromSchedule', { type: activeTab.value })
-        if (res.data) {
-            previewData.value = res.data
-            previewTotal.value = res.total
-            ElMessage.success(`成功加载 ${res.total} 条考场编排数据`)
-        } else if (res.error) {
-            previewData.value = []
-            previewTotal.value = 0
-            const msg = String(res.error || '')
-            if (msg.includes('暂无考场编排数据')) {
-               ElMessage.warning(msg)
-            } else {
-               ElMessage.error(msg)
-            }
-        }
-    } catch (e) {
-        previewData.value = []
-        previewTotal.value = 0
-        ElMessage.error('加载考场数据失败: ' + e)
-    } finally {
-        loadingSchedule.value = false
-    }
-}
-
-const handleGenerate = async () => {
-   if (sourceType.value === 'file' && (!dataPath.value || previewData.value.length === 0)) {
-      return ElMessage.warning('请先加载数据')
-   }
-   if (sourceType.value === 'schedule' && previewData.value.length === 0) {
-      return ElMessage.warning('请先加载考场编排数据')
-   }
-   if (activeTab.value !== 'exam_bag_label' && sourceType.value === 'file' && !isMappingComplete()) {
-      showMappingDialog.value = true
-      return ElMessage.warning('请先完成字段映射')
-   }
-   if (activeTab.value === 'table' && sourceType.value === 'file' && config.table.includeSubjectFields) {
-      const missing = ['首选', '选科1', '选科2'].filter(k => !mapping[k])
-      if (missing.length) {
-         try {
-            await ElMessageBox.confirm(
-               `已勾选"包含选科列"，但未映射字段：${missing.join('、')}。\n继续生成将导致这些列为空。\n是否继续？`,
-               '字段映射提示',
-               { type: 'warning', confirmButtonText: '继续生成', cancelButtonText: '取消', closeOnClickModal: false }
-            )
-         } catch {
-            return
-         }
-      }
-   }
-   
-   const exportXlsx = Boolean(commonConfig.exportXlsx)
-   const exportPdf = Boolean(commonConfig.exportPdf)
-   if (!exportXlsx && !exportPdf) {
-      return ElMessage.warning('请至少选择一种输出格式（Excel 或 PDF）')
-   }
-
-   let tabName = tabs.find(t => t.id === activeTab.value)?.name || '生成结果'
-   if (activeTab.value === 'table') {
-      const mode = String(config.table.groupMode || 'class')
-      tabName = mode === 'examroom' ? '考生信息表（考场）' : '考生信息表（班级）'
-   }
-
-   // 当同时选择两种格式时，不显示扩展名，让用户只输入基础文件名
-   const bothFormats = exportXlsx && exportPdf
-   const defaultExt = bothFormats ? '' : (exportPdf ? 'pdf' : 'xlsx')
-   const defaultFileName = defaultExt ? `${tabName}_批量生成.${defaultExt}` : `${tabName}_批量生成`
-
-   await saveAndRun({
-      dialog: {
-         defaultPath: defaultFileName,
-         filters: bothFormats
-            ? [{ name: '所有文件', extensions: ['*'] }]
-            : [
-               ...(exportXlsx ? [{ name: 'Excel', extensions: ['xlsx'] }] : []),
-               ...(exportPdf ? [{ name: 'PDF', extensions: ['pdf'] }] : []),
-            ]
-      },
-      run: async (outputPath) => {
-         generating.value = true
-         try {
-            let specificConfig: any = {}
-            if (activeTab.value === 'corner') {
-               // 高考模式下使用固定的8个科目（物理历史合并）
-               const subjects = isGaokaoMode.value
-                  ? ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
-                  : subjectRows.value.map(r => r.name)
-               specificConfig = {
-                  title: config.corner.title,
-                  subjects
-               }
-            } else if (activeTab.value === 'desk') {
-               specificConfig = {
-                  ...config.desk,
-                  layoutRows: deskEffectiveLayout.value.rows,
-                  layoutCols: deskEffectiveLayout.value.cols,
-               }
-            } else if (activeTab.value === 'ticket') {
-               // 高考模式下使用固定的8个科目（物理历史合并）
-               const subjects = isGaokaoMode.value
-                  ? ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
-                  : subjectRows.value.map(r => r.name)
-               const subjectTimes = isGaokaoMode.value
-                  ? ['', '', '', '', '', '', '', ''] // 高考模式时间在数据中已包含
-                  : subjectRows.value.map(r => r.time)
-               specificConfig = {
-                  title: config.ticket.title,
-                  subjects,
-                  subjectTimes
-               }
-            } else if (activeTab.value === 'table') {
-               specificConfig = config.table
-            } else if (activeTab.value === 'exam_bag_label') {
-               specificConfig = config.examBag
-            }
-
-            const configPayload = {
-               ...commonConfig,
-               ...specificConfig,
-               totalCount: totalCount.value,
-               numTemplates: totalCount.value
-            }
-
-            const confirmFlags: Record<string, boolean> = {}
-            let result: any = await pythonBackend.request('printing.generate', {
-               type: activeTab.value,
-               sourceType: sourceType.value,
-               dataPath: dataPath.value,
-               mapping: mapping,
-               outputPath,
-               config: configPayload,
-               confirmFlags
-            })
-
-            while (true) {
-               if (result?.error) throw String(result.error)
-               if (!result?.confirm) break
-
-               const c = result.confirm
-               try {
-                  await ElMessageBox.confirm(String(c.message || ''), String(c.title || '提示'), {
-                     type: c.level === 'warning' ? 'warning' : c.level === 'question' ? 'warning' : 'info',
-                     confirmButtonText: '继续生成',
-                     cancelButtonText: '取消',
-                     closeOnClickModal: false,
-                  })
-               } catch {
-                  return { cancelled: true }
-               }
-
-               if (c.code === 'deskSort' || c.title === '排序警告') confirmFlags.deskSort = true
-               if (c.code === 'deskOverflow' || c.title === '人数超限提示') confirmFlags.deskOverflow = true
-
-               result = await pythonBackend.request('printing.generate', {
-                  type: activeTab.value,
-                  sourceType: sourceType.value,
-                  dataPath: dataPath.value,
-                  mapping: mapping,
-                  outputPath,
-                  config: configPayload,
-                  confirmFlags
-               })
-            }
-
-            const paths = result?.paths
-            if (Array.isArray(paths) && paths.length > 1) {
-               const fileNames = paths.map(p => p.split(/[\\/]/).pop()).join('、')
-               ElMessage.success(`生成成功：${fileNames}`)
-            } else {
-               ElMessage.success('生成成功!')
-            }
-
-            return result
-         } finally {
-            generating.value = false
-         }
-      },
-      errorText: '生成失败',
-      openFolderTitle: '生成成功',
-      isCancelled: (result) => Boolean((result as any)?.cancelled),
-      revealPath: (result, selectedPath) => {
-         const paths = (result as any)?.paths
-         if (Array.isArray(paths) && paths.length) return String(paths[0])
-         return selectedPath
-      },
-   })
-}
-
+const {
+   refreshSchedulePreviewSilently,
+   handleLoadFromSchedule,
+} = usePrintingScheduleSource({
+   activeTab,
+   loadingSchedule,
+   scheduleArrangementMode,
+   previewData,
+   previewTotal,
+   syncSubjectRowsForCurrentSource,
+})
 // Auto load schedule if mode selected
 watch(sourceType, (val, oldVal) => {
    if (oldVal === 'file') _cacheCurrentFileState()
@@ -3103,16 +1549,7 @@ watch(sourceType, (val, oldVal) => {
    }
 
    if (val === 'file') {
-      if (filePreviewCache.dataPath) {
-         dataPath.value = filePreviewCache.dataPath
-         headers.value = filePreviewCache.headers.slice()
-         _applyMappingSnapshot(filePreviewCache.mapping)
-         previewData.value = filePreviewCache.data.slice()
-         previewTotal.value = filePreviewCache.total
-      } else {
-         previewData.value = []
-         previewTotal.value = 0
-      }
+      applyCachedFileState()
       return
    }
 
@@ -3125,11 +1562,6 @@ watch(subjectRows, async () => {
    _measurePreviewBaseSize()
    _updatePreviewScale()
 }, { deep: true })
-
-onBeforeUnmount(() => {
-   if (previewResizeObserver) previewResizeObserver.disconnect()
-   previewResizeObserver = null
-})
 
 </script>
 
