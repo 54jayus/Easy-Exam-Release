@@ -30,21 +30,21 @@
       <section class="space-y-3">
         <div class="flex items-center gap-2 mb-2">
           <div class="w-1 h-3 bg-blue-500 rounded-full"></div>
-          <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">模板生成</span>
+          <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">模板下载</span>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <button
             class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md hover:shadow-blue-50 transition-all duration-200 group"
             @click="$emit('generate-template', 'settings')"
           >
-            <el-icon class="text-base text-slate-400 group-hover:text-blue-500 transition-colors"><Setting /></el-icon>
-            <span class="text-xs font-medium text-slate-600 group-hover:text-blue-700 font-bold transition-colors">考场设置</span>
+            <el-icon class="text-base text-slate-400 group-hover:text-blue-500 transition-colors"><Download /></el-icon>
+            <span class="text-xs font-medium text-slate-600 group-hover:text-blue-700 font-bold transition-colors">设置模板</span>
           </button>
 
           <el-dropdown trigger="click" @command="(cmd: string) => $emit('generate-template', cmd)" class="w-full">
             <button class="flex items-center justify-center gap-2 w-full p-2 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md hover:shadow-blue-50 transition-all duration-200 group">
-              <el-icon class="text-base text-slate-400 group-hover:text-blue-500 transition-colors"><User /></el-icon>
-              <span class="text-xs font-medium text-slate-600 group-hover:text-blue-700 font-bold transition-colors">考生名册</span>
+              <el-icon class="text-base text-slate-400 group-hover:text-blue-500 transition-colors"><Download /></el-icon>
+              <span class="text-xs font-medium text-slate-600 group-hover:text-blue-700 font-bold transition-colors">名册模板</span>
               <el-icon class="text-[10px] text-slate-400 group-hover:text-blue-500 ml-0.5"><ArrowDown /></el-icon>
             </button>
             <template #dropdown>
@@ -85,8 +85,8 @@
             :class="hasSettings ? '!border-emerald-500 bg-emerald-50/50' : ''"
             @click="$emit('import-settings')"
           >
-            <el-icon class="text-base transition-colors" :class="hasSettings ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'"><OfficeBuilding /></el-icon>
-            <span class="text-xs font-medium transition-colors" :class="hasSettings ? 'text-emerald-700 font-bold' : 'text-slate-600 group-hover:text-emerald-700'">考场设置</span>
+            <el-icon class="text-base transition-colors" :class="hasSettings ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'"><Upload /></el-icon>
+            <span class="text-xs font-medium transition-colors" :class="hasSettings ? 'text-emerald-700 font-bold' : 'text-slate-600 group-hover:text-emerald-700'">导入设置</span>
             <span
               v-if="hasSettings"
               class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors duration-200"
@@ -99,7 +99,7 @@
             @click="$emit('import-students')"
           >
             <el-icon class="text-base transition-colors" :class="hasStudents ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'"><Upload /></el-icon>
-            <span class="text-xs font-medium transition-colors" :class="hasStudents ? 'text-emerald-700 font-bold' : 'text-slate-600 group-hover:text-emerald-700'">考生名册</span>
+            <span class="text-xs font-medium transition-colors" :class="hasStudents ? 'text-emerald-700 font-bold' : 'text-slate-600 group-hover:text-emerald-700'">导入名册</span>
             <span
               v-if="hasStudents"
               class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors duration-200"
@@ -215,7 +215,7 @@
             :loading="isExporting"
             @click="$emit('export')"
           >
-            <el-icon v-if="!isExporting" class="mr-1.5"><Download /></el-icon> 导出Excel
+            <el-icon v-if="!isExporting" class="mr-1.5"><Download /></el-icon> 导出结果
           </el-button>
         </div>
       </section>
@@ -224,7 +224,7 @@
 </template>
 
 <script setup lang="ts">
-import { Setting, User, ArrowDown, OfficeBuilding, Upload, Download, Fold, Delete } from '@element-plus/icons-vue'
+import { Setting, ArrowDown, Upload, Download, Fold, Delete } from '@element-plus/icons-vue'
 import type { RoomsConfig } from './composables/useRoomsState'
 
 interface Props {

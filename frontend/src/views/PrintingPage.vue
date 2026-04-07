@@ -86,10 +86,10 @@
                    >
                       <div class="flex items-center gap-3">
                          <div class="p-2 rounded-lg" :class="sourceType === 'file' ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-400'">
-                            <el-icon><FolderOpened /></el-icon>
+                            <el-icon><Upload /></el-icon>
                          </div>
                          <div class="flex-1">
-                            <div class="text-sm font-bold" :class="sourceType === 'file' ? 'text-primary-700' : 'text-slate-700'">导入数据</div>
+                            <div class="text-sm font-bold" :class="sourceType === 'file' ? 'text-primary-700' : 'text-slate-700'">导入考生数据</div>
                             <div class="text-[10px] text-slate-400">从 Excel 文件导入考生名单</div>
                          </div>
                          <div v-if="sourceType === 'file'" class="text-primary-500">
@@ -929,7 +929,7 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated
 import { 
   Printer, VideoPlay, FolderOpened, DocumentChecked, Close, 
   Document, Minus, Plus, FullScreen, Grid, DataLine, Select, 
-  Calendar, CircleCheckFilled, Download, Setting, Fold, Expand, Delete, School,
+  Calendar, CircleCheckFilled, Download, Upload, Setting, Fold, Expand, Delete, School,
   Refresh, Reading, Timer, InfoFilled, Notebook, Back, Right
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'

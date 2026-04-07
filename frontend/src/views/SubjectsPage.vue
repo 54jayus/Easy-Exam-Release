@@ -52,7 +52,7 @@
                    :class="importedFromFile ? '!border-sky-500 bg-sky-50/50' : ''"
                    @click="handleImport"
                 >
-                   <el-icon class="text-base transition-colors duration-200" :class="importedFromFile ? 'text-sky-600' : 'text-slate-400 group-hover:text-sky-500'"><FolderOpened /></el-icon>
+                   <el-icon class="text-base transition-colors duration-200" :class="importedFromFile ? 'text-sky-600' : 'text-slate-400 group-hover:text-sky-500'"><Upload /></el-icon>
                    <span class="text-xs font-medium transition-colors duration-200" :class="importedFromFile ? 'text-sky-700 font-bold' : 'text-slate-600 group-hover:text-sky-700'">导入科目</span>
                    <span
                       v-if="importedFromFile"
@@ -74,8 +74,8 @@
                @click="handleExport"
                :disabled="subjects.length === 0"
              >
-                <el-icon class="text-base text-slate-400 group-hover:text-sky-500 transition-colors"><Share /></el-icon>
-                <span class="text-xs font-medium text-slate-600 group-hover:text-sky-700">导出数据</span>
+                 <el-icon class="text-base text-slate-400 group-hover:text-sky-500 transition-colors"><Download /></el-icon>
+                 <span class="text-xs font-medium text-slate-600 group-hover:text-sky-700">导出科目</span>
              </button>
           </section>
 
@@ -191,7 +191,7 @@
              <h3 class="text-lg font-bold text-slate-900 mb-1">暂无科目数据</h3>
              <p class="text-slate-500 mb-6">请导入 Excel 文件或手动添加科目</p>
              <div class="flex gap-3">
-                <el-button type="primary" @click="handleImport">立即导入</el-button>
+                <el-button type="primary" @click="handleImport">导入科目</el-button>
                 <el-button @click="handleAdd">手动添加</el-button>
              </div>
           </div>
@@ -404,7 +404,7 @@ import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePageSessionState } from '@/composables/usePageSessionState'
 import { 
-  Download, Share, FolderOpened, Plus, Warning, WarningFilled,
+  Download, Upload, Plus, Warning, WarningFilled,
   Calendar, Clock, Edit, Delete, Timer, Notebook, CollectionTag,
   List, Grid, Fold, Expand
 } from '@element-plus/icons-vue'
@@ -619,9 +619,9 @@ const handleTemplate = async () => {
     run: async (path) => {
       return await pythonBackend.request('subjects.template', { path })
     },
-    successText: '模板生成成功',
-    errorText: '模板生成失败',
-    openFolderTitle: '模板生成成功',
+    successText: '模板下载成功',
+    errorText: '模板下载失败',
+    openFolderTitle: '模板下载成功',
     onLog: logFromText
   })
 }

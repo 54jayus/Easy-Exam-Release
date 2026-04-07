@@ -63,8 +63,8 @@
                   class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md hover:shadow-blue-50 transition-all duration-200 group"
                   @click="handleTemplate"
                 >
-                   <el-icon class="text-base text-slate-400 group-hover:text-blue-500 transition-colors"><Document /></el-icon>
-                   <span class="text-xs font-medium text-slate-600 group-hover:text-blue-700">生成模板</span>
+                   <el-icon class="text-base text-slate-400 group-hover:text-blue-500 transition-colors"><Download /></el-icon>
+                   <span class="text-xs font-medium text-slate-600 group-hover:text-blue-700">教师模板</span>
                 </button>
              </div>
              
@@ -86,8 +86,8 @@
                    class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-indigo-400 hover:shadow-md hover:shadow-indigo-50 transition-all duration-200 group"
                    @click="handleImportSchedule"
                 >
-                   <el-icon class="text-slate-400 group-hover:text-indigo-500"><FolderOpened /></el-icon>
-                   <span class="text-xs text-slate-600 group-hover:text-indigo-700">恢复监考</span>
+                   <el-icon class="text-slate-400 group-hover:text-indigo-500"><Upload /></el-icon>
+                   <span class="text-xs text-slate-600 group-hover:text-indigo-700">导入安排</span>
                 </button>
              </div>
           </section>
@@ -165,7 +165,7 @@
                </el-button>
 
                <el-button plain size="default" class="!rounded-lg border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-200" :disabled="!hasSchedule" @click="handleExport">
-                  <el-icon class="mr-1.5"><Download /></el-icon> 导出Excel
+                  <el-icon class="mr-1.5"><Download /></el-icon> 导出安排
                </el-button>
              </div>
 
@@ -519,10 +519,10 @@
             >
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <el-icon :size="18"><Document /></el-icon>
+                  <el-icon :size="18"><Download /></el-icon>
                 </div>
                 <div class="text-left">
-                  <div class="text-sm font-semibold text-slate-800">生成空监考表</div>
+                  <div class="text-sm font-semibold text-slate-800">预设模板</div>
                   <div class="text-[11px] text-slate-400">
                     基于当前科目与考场数量生成 Excel 模板，方便批量编辑。
                   </div>
@@ -537,16 +537,16 @@
             >
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center group-hover:bg-white/10 transition-all">
-                  <el-icon :size="18"><FolderOpened /></el-icon>
+                  <el-icon :size="18"><Upload /></el-icon>
                 </div>
                 <div class="text-left">
-                  <div class="text-sm font-semibold">导入预设安排</div>
+                  <div class="text-sm font-semibold">导入预设</div>
                   <div class="text-[11px] opacity-80">
                     选择已填写好的预设监考 Excel，自动识别监考模式并校验数据。
                   </div>
                 </div>
               </div>
-              <el-icon :size="18" class="text-indigo-400 group-hover:text-white transition-colors"><ArrowDown /></el-icon>
+              <el-icon :size="18" class="text-indigo-400 group-hover:text-white transition-colors"><Upload /></el-icon>
             </button>
           </div>
 
@@ -698,7 +698,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { Document, Upload, Download, FolderOpened, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, ArrowDown, Fold, Expand, Setting, Check } from '@element-plus/icons-vue'
+import { Upload, Download, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, Fold, Expand, Setting, Check } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePageSessionState } from '@/composables/usePageSessionState'
 import { applyPageReset } from '@/composables/useAppCacheControl'
@@ -964,9 +964,9 @@ const handleTemplate = async () => {
       run: async (path) => {
          return await pythonBackend.request('proctoring.template', { path })
       },
-      successText: '模板已生成',
-      errorText: '模板生成失败',
-      openFolderTitle: '模板已生成',
+      successText: '教师模板下载成功',
+      errorText: '教师模板下载失败',
+      openFolderTitle: '教师模板下载成功',
       onLog: logFromText,
    })
 }
@@ -1138,9 +1138,9 @@ const handleGenerateEmptyTemplate = async () => {
             mode: config.mode
          })
       },
-      successText: '模板已生成',
-      errorText: '模板生成失败',
-      openFolderTitle: '模板已生成',
+      successText: '预设模板下载成功',
+      errorText: '预设模板下载失败',
+      openFolderTitle: '预设模板下载成功',
       onLog: logFromText,
    })
 }
