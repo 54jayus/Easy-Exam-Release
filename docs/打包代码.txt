@@ -1,1 +1,31 @@
-D:/ANACONDA/envs/exam_scheduler/python.exe -m PyInstaller --clean --noconfirm --name examflow-backend --onefile --noconsole --add-data "backend/resources;backend/resources" run_backend.py
+Easy Exam 打包命令速查
+
+推荐方式：
+
+1. 在仓库根目录执行
+   python package.py
+
+package.py 当前会执行两步：
+
+1. 使用 frontend/engine.spec 构建 Python sidecar
+2. 在 frontend/ 目录执行 npm.cmd run electron:build
+
+可选环境变量：
+
+- EXAM_PYTHON_PATH
+- VITE_PYTHON_PATH
+
+如果只想手动执行第二步：
+
+1. 进入 frontend 目录
+2. 执行 npm.cmd run electron:build
+
+如果 package.py 报找不到 Python：
+
+1. 先确认 python -V 可用
+2. 或显式设置 EXAM_PYTHON_PATH
+
+完整说明见：
+
+- docs/testing-and-release.md
+- docs/development.md
