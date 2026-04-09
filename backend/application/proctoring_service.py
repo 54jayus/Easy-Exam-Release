@@ -10,7 +10,7 @@ import uuid
 from typing import Any
 
 from backend.domain.state import AppState
-from backend.proctoring.core.cp_sat_solver import (
+from backend.proctoring.core.cp_sat import (
     SubjectContext,
     solve_schedule_with_cp_sat,
 )

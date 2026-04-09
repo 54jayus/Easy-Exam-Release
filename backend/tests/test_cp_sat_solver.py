@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.proctoring.core import cp_sat_solver
+from backend.proctoring.core import cp_sat
 from backend.proctoring.core.entities import Teacher
 from backend.proctoring.core.models import Schedule
 
@@ -11,8 +11,8 @@ def _make_context(
     exam_date: str,
     start_hour: int,
     end_hour: int,
-) -> cp_sat_solver.SubjectContext:
-    return cp_sat_solver.SubjectContext(
+) -> cp_sat.SubjectContext:
+    return cp_sat.SubjectContext(
         subject_id=subject_id,
         name=name,
         exam_date=exam_date,
@@ -26,7 +26,7 @@ def _make_context(
 
 def test_build_consecutive_pairs_links_each_session_to_same_day_next_session() -> None:
     subject_contexts = [
-        cp_sat_solver.SubjectContext(
+        cp_sat.SubjectContext(
             subject_id=1,
             name="Subject A",
             exam_date="2026-06-01",
@@ -36,7 +36,7 @@ def test_build_consecutive_pairs_links_each_session_to_same_day_next_session() -
             end_minute=10 * 60,
             sort_key=(1, 9 * 60),
         ),
-        cp_sat_solver.SubjectContext(
+        cp_sat.SubjectContext(
             subject_id=2,
             name="Subject B",
             exam_date="2026-06-01",
@@ -46,7 +46,7 @@ def test_build_consecutive_pairs_links_each_session_to_same_day_next_session() -
             end_minute=11 * 60 + 30,
             sort_key=(1, 10 * 60 + 30),
         ),
-        cp_sat_solver.SubjectContext(
+        cp_sat.SubjectContext(
             subject_id=3,
             name="Subject C",
             exam_date="2026-06-01",
@@ -58,14 +58,14 @@ def test_build_consecutive_pairs_links_each_session_to_same_day_next_session() -
         ),
     ]
 
-    pairs = cp_sat_solver._build_consecutive_pairs(subject_contexts, gap_minutes=0)
+    pairs = cp_sat._build_consecutive_pairs(subject_contexts, gap_minutes=0)
 
     assert pairs == [(1, 2), (2, 3)]
 
 
 def test_build_consecutive_pairs_uses_next_non_overlapping_block() -> None:
     subject_contexts = [
-        cp_sat_solver.SubjectContext(
+        cp_sat.SubjectContext(
             subject_id=1,
             name="Subject A",
             exam_date="2026-06-01",
@@ -75,7 +75,7 @@ def test_build_consecutive_pairs_uses_next_non_overlapping_block() -> None:
             end_minute=10 * 60,
             sort_key=(1, 9 * 60),
         ),
-        cp_sat_solver.SubjectContext(
+        cp_sat.SubjectContext(
             subject_id=2,
             name="Subject B",
             exam_date="2026-06-01",
@@ -85,7 +85,7 @@ def test_build_consecutive_pairs_uses_next_non_overlapping_block() -> None:
             end_minute=10 * 60,
             sort_key=(1, 9 * 60),
         ),
-        cp_sat_solver.SubjectContext(
+        cp_sat.SubjectContext(
             subject_id=3,
             name="Subject C",
             exam_date="2026-06-01",
@@ -97,14 +97,14 @@ def test_build_consecutive_pairs_uses_next_non_overlapping_block() -> None:
         ),
     ]
 
-    pairs = cp_sat_solver._build_consecutive_pairs(subject_contexts, gap_minutes=999)
+    pairs = cp_sat._build_consecutive_pairs(subject_contexts, gap_minutes=999)
 
     assert pairs == [(1, 3), (2, 3)]
 
 
 def test_build_solution_summary_reports_optimal_only_when_all_stages_are_proven() -> None:
-    summary = cp_sat_solver._build_solution_summary(
-        final_status=cp_sat_solver.cp_model.OPTIMAL,
+    summary = cp_sat._build_solution_summary(
+        final_status=cp_sat.cp_model.OPTIMAL,
         optimal=True,
         stage_reports=[
             {
@@ -123,8 +123,8 @@ def test_build_solution_summary_reports_optimal_only_when_all_stages_are_proven(
 
 
 def test_build_solution_summary_keeps_feasible_status_after_continued_partial_stage() -> None:
-    summary = cp_sat_solver._build_solution_summary(
-        final_status=cp_sat_solver.cp_model.OPTIMAL,
+    summary = cp_sat._build_solution_summary(
+        final_status=cp_sat.cp_model.OPTIMAL,
         optimal=False,
         stage_reports=[
             {
@@ -150,7 +150,7 @@ def test_build_infeasibility_diagnostic_message_reports_total_capacity_shortfall
         _make_context(2, "Subject B", "2026-06-01", 14, 15),
     ]
 
-    message = cp_sat_solver._build_infeasibility_diagnostic_message(
+    message = cp_sat._build_infeasibility_diagnostic_message(
         schedule,
         subject_contexts=subject_contexts,
         rooms_by_subject={1: [1], 2: [1]},
@@ -179,7 +179,7 @@ def test_build_infeasibility_diagnostic_message_reports_overlap_capacity_shortfa
         _make_context(3, "Subject C", "2026-06-01", 14, 15),
     ]
 
-    message = cp_sat_solver._build_infeasibility_diagnostic_message(
+    message = cp_sat._build_infeasibility_diagnostic_message(
         schedule,
         subject_contexts=subject_contexts,
         rooms_by_subject={1: [1, 2], 2: [1], 3: [1]},
@@ -206,7 +206,7 @@ def test_diagnose_locked_assignment_conflicts_reports_overlapping_locked_teacher
         _make_context(2, "Subject B", "2026-06-01", 10, 12),
     ]
 
-    message = cp_sat_solver._diagnose_locked_assignment_conflicts(
+    message = cp_sat._diagnose_locked_assignment_conflicts(
         schedule,
         fixed_slots={
             (1, 1, 0): 0,
