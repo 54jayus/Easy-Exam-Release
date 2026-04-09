@@ -94,25 +94,13 @@ def main() -> int:
     if teachers_after:
         print("first_teacher_current_minutes:", teachers_after[0].get("supervisionDuration"))
 
-    optimized = dispatch["proctoring.optimize"](
-        {
-            "teachers": teachers_after,
-            "subjects": subjects_minimal,
-            "schedule": res.get("schedule"),
-            "config": config,
-        }
-    )
-    print("optimize_schedule_subject_count:", len(optimized.get("schedule") or []))
-    print("optimize_detail_swap_count:", len((optimized.get("optimizationDetails") or {}).get("swaps") or []))
-    print("optimize_detail_preset_count:", len((optimized.get("optimizationDetails") or {}).get("presetDetails") or []))
-
     swapped = dispatch["proctoring.swap"](
         {
             "p1": {"room": 1, "subId": "1", "tIdx": 0},
             "p2": {"room": 2, "subId": "1", "tIdx": 0},
-            "teachers": optimized.get("teachers"),
+            "teachers": teachers_after,
             "subjects": subjects_minimal,
-            "schedule": optimized.get("schedule"),
+            "schedule": res.get("schedule"),
             "config": config,
         }
     )

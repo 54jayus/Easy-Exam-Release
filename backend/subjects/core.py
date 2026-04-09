@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time
-from typing import Iterable, List, Optional, Sequence
+from typing import Sequence
 
 
 @dataclass(frozen=True)
@@ -12,6 +12,7 @@ class Subject:
     exam_time: str
     remark: str = ""
     duration_minutes: int = 0
+    room_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -91,23 +92,30 @@ def _parse_time_range(value: object) -> tuple[str, int, int] | None:
     return normalized, start_min, end_min
 
 
-def _coerce_duration_minutes(value: object) -> int | None:
+def _coerce_non_negative_int(value: object) -> int | None:
     if value is None:
         return None
     s = str(value).strip()
     if not s or s.lower() == "nan":
         return None
     try:
-        minutes = int(float(s))
-        return minutes if minutes >= 0 else None
+        numeric = int(float(s))
+        return numeric if numeric >= 0 else None
     except Exception:
         return None
+
+
+def _coerce_duration_minutes(value: object) -> int | None:
+    return _coerce_non_negative_int(value)
+
+
+def _coerce_room_count(value: object) -> int | None:
+    return _coerce_non_negative_int(value)
 
 
 def validate_subjects(subjects: Sequence[Subject]) -> list[str]:
     errors: list[str] = []
     seen_names: set[str] = set()
-    date_slots: dict[str, list[tuple[int, int, str, str, int]]] = {}
 
     for idx, subject in enumerate(subjects):
         row = idx + 1
@@ -126,22 +134,14 @@ def validate_subjects(subjects: Sequence[Subject]) -> list[str]:
         if not subject.exam_time:
             errors.append(f"第{row}行数据错误：考试时间不能为空")
             continue
-
-        tr = _parse_time_range(subject.exam_time)
-        if tr is None:
+        if _parse_time_range(subject.exam_time) is None:
             errors.append(
-                f"第{row}行数据错误：考试时间格式不正确，应为HH:mm-HH:mm或H:mm-H:mm（如：09:00-11:30 或 9:00-11:30）"
+                f"第{row}行数据错误：考试时间格式不正确，应为HH:mm-HH:mm或H:mm-H:mm（如：9:00-11:30）"
             )
             continue
-        normalized_time, start_min, end_min = tr
-        exam_date = subject.exam_date
-        for s_min, e_min, exist_name, exist_time, exist_row in date_slots.get(exam_date, []):
-            if not (end_min <= s_min or start_min >= e_min):
-                errors.append(
-                    f"第{row}行（{name}）与第{exist_row}行（{exist_name}）在{exam_date}考试时间冲突：{normalized_time} 与 {exist_time}"
-                )
-                break
-        date_slots.setdefault(exam_date, []).append((start_min, end_min, name, normalized_time, row))
+
+        room_count = _coerce_room_count(getattr(subject, "room_count", 0))
+        if room_count is None:
+            errors.append(f"第{row}行数据错误：考场数量必须是非负整数")
 
     return errors
-

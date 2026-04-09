@@ -38,7 +38,7 @@ export type RpcMethods = {
   // Subjects
   "subjects.list": {
     params: {}
-    result: { subjects: Array<{ id?: string; name: string; duration?: number; duration_minutes?: number; date?: string; time?: string; exam_date?: string; exam_time?: string; remark?: string }> }
+    result: { subjects: Array<{ id?: string; name: string; duration?: number; duration_minutes?: number; room_count?: number; roomCount?: number; date?: string; time?: string; exam_date?: string; exam_time?: string; remark?: string }> }
   }
   "subjects.update": {
     params: { subjects: Array<{ name: string; duration: number; date: string; time: string }> }
@@ -66,6 +66,14 @@ export type RpcMethods = {
     params: {}
     result: { teachers: any[]; schedule: any[]; config: any }
   }
+  "proctoring.startSolverJob": {
+    params: { operation: "generate" | "continue"; teachers?: any[]; subjects?: any[]; schedule?: any[]; config?: any }
+    result: { jobId?: string; status?: string; operation?: string; error?: string; activeJobId?: string }
+  }
+  "proctoring.getJobStatus": {
+    params: { jobId: string }
+    result: { jobId: string; status: string; operation?: string; message?: string; error?: string; elapsedSeconds?: number | null; progressPercent?: number; progress?: any; result?: any }
+  }
   "proctoring.clearState": {
     params: {}
     result: {}
@@ -87,10 +95,6 @@ export type RpcMethods = {
     result: {}
   }
   "proctoring.continue": {
-    params: {}
-    result: { schedule: any[] }
-  }
-  "proctoring.optimize": {
     params: {}
     result: { schedule: any[] }
   }

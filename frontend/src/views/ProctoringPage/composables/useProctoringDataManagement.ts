@@ -15,6 +15,9 @@ type ProctoringConfig = {
   balanceMode: string
   genderMix: boolean
   internalMix: boolean
+  roomRepeatPreference?: string
+  avoidConsecutiveSessions?: boolean
+  consecutiveGapMinutes?: number
 }
 
 type UseProctoringDataManagementOptions = {
@@ -32,6 +35,7 @@ type UseProctoringDataManagementOptions = {
   optDetailVisible: Ref<boolean>
   optDetail: Ref<any>
   sidebarCollapsed: Ref<boolean>
+  advancedSettingsVisible: Ref<boolean>
   activeTab: Ref<string>
   schedulingProgress: Ref<number>
   schedulingStatus: Ref<string>
@@ -59,6 +63,7 @@ export function useProctoringDataManagement({
   optDetailVisible,
   optDetail,
   sidebarCollapsed,
+  advancedSettingsVisible,
   activeTab,
   schedulingProgress,
   schedulingStatus,
@@ -223,8 +228,12 @@ export function useProctoringDataManagement({
     config.balanceMode = 'duration'
     config.genderMix = false
     config.internalMix = false
+    config.roomRepeatPreference = ''
+    config.avoidConsecutiveSessions = false
+    config.consecutiveGapMinutes = 0
 
     sidebarCollapsed.value = false
+    advancedSettingsVisible.value = false
     activeTab.value = 'overview'
 
     schedulingProgress.value = 0
@@ -258,51 +267,13 @@ export function useProctoringDataManagement({
     const path = await open({ filters: [{ name: 'Excel', extensions: ['xlsx'] }] })
     if (!path) return
 
-    const importPreset = async () => {
-      return await pythonBackend.request<any>('proctoring.import_preset', {
+    try {
+      const res = await pythonBackend.request<any>('proctoring.import_preset', {
         path,
         teachers: teachers.value,
         subjects: subjects.value,
         config: { ...config }
       })
-    }
-
-    try {
-      const res = await importPreset()
-
-      const mismatch = res?.modeMismatch
-      if (res?.error && mismatch?.detected && mismatch?.current && mismatch?.detected !== mismatch?.current) {
-        const detectedMode = String(mismatch.detected)
-        const modeText = detectedMode === 'double' ? '双人监考' : '单人监考'
-        try {
-          await ElMessageBox.confirm(
-            `检测到导入的表格为${modeText}模式，是否切换到${modeText}并继续导入？`,
-            '导入预设安排',
-            { type: 'warning', confirmButtonText: '切换并导入', cancelButtonText: '取消' }
-          )
-        } catch {
-          logInfo('已取消导入预设安排：未切换模式')
-          await ElMessageBox.alert(res.error, '导入预设安排失败', { type: 'error' })
-          return
-        }
-
-        config.mode = detectedMode
-        const retryRes = await importPreset()
-        if (retryRes?.error) {
-          logError('导入预设安排失败：' + retryRes.error)
-          await ElMessageBox.alert(retryRes.error, '导入预设安排失败', { type: 'error' })
-          return
-        }
-        if (retryRes?.schedule) {
-          schedule.value = retryRes.schedule
-          if (retryRes.teachers) teachers.value = retryRes.teachers
-          if (retryRes.detectedRoomCount) config.roomCount = retryRes.detectedRoomCount
-          hasPreset.value = true
-          logSuccess('导入预设安排成功')
-          presetVisible.value = false
-          return
-        }
-      }
 
       if (res?.error) {
         logError('导入预设安排失败：' + res.error)
@@ -312,6 +283,7 @@ export function useProctoringDataManagement({
       if (res?.schedule) {
         schedule.value = res.schedule
         if (res.teachers) teachers.value = res.teachers
+        if (res.detectedMode) config.mode = String(res.detectedMode)
         if (res.detectedRoomCount) config.roomCount = res.detectedRoomCount
         hasPreset.value = true
         logSuccess('导入预设安排成功')

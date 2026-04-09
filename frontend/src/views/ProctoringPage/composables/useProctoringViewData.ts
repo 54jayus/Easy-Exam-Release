@@ -6,9 +6,20 @@ type ProctoringConfig = {
   balanceMode: string
   genderMix: boolean
   internalMix: boolean
+  roomRepeatPreference?: string
+  avoidConsecutiveSessions?: boolean
+  consecutiveGapMinutes?: number
 }
 
-type Subject = { id: string; name: string; time: string; durationMinutes: number }
+type Subject = {
+  id: string
+  name: string
+  examDate?: string
+  time: string
+  durationMinutes: number
+  roomCount: number
+  remark?: string
+}
 
 export function useProctoringViewData(options: {
   config: ProctoringConfig
@@ -20,16 +31,40 @@ export function useProctoringViewData(options: {
   const { config, subjects, teachers, schedule, selectedSubjectId } = options
 
   const subjectCount = computed(() => subjects.value.length)
-  const canSchedule = computed(() => teachers.value.length > 0 && config.roomCount > 0 && subjectCount.value > 0)
   const hasSchedule = computed(() => schedule.value.length > 0)
+  const getExpectedRoomNumbers = (subjectId: string) => {
+    const session = schedule.value.find((s: any) => s.subjectId === subjectId)
+    const scheduledRooms = Array.isArray(session?.rooms)
+      ? session.rooms
+          .map((room: any) => Number(room?.roomNum ?? room?.id ?? 0))
+          .filter((roomNum: number) => Number.isFinite(roomNum) && roomNum > 0)
+      : []
+    if (scheduledRooms.length > 0) {
+      return Array.from(new Set<number>(scheduledRooms)).sort((left, right) => left - right)
+    }
+
+    const subject = subjects.value.find((item) => item.id === subjectId)
+    const roomCount = Number(subject?.roomCount ?? 0) > 0
+      ? Number(subject?.roomCount ?? 0)
+      : Number(config.roomCount ?? 0)
+    return Array.from({ length: Math.max(0, roomCount) }, (_, index) => index + 1)
+  }
+  const maxVisibleRoomCount = computed(() => {
+    const counts = subjects.value.map((subject) => getExpectedRoomNumbers(subject.id).length)
+    return Math.max(0, ...counts)
+  })
+  const canSchedule = computed(() => {
+    if (teachers.value.length <= 0 || subjectCount.value <= 0) return false
+    return subjects.value.every((subject) => getExpectedRoomNumbers(subject.id).length > 0)
+  })
   const missingSlots = computed(() => {
     if (!hasSchedule.value) return 0
     const requiredSlots = config.mode === 'double' ? 2 : 1
     let missing = 0
     for (const sub of subjects.value) {
       const session = schedule.value.find((s) => s.subjectId === sub.id)
-      for (let roomId = 1; roomId <= config.roomCount; roomId++) {
-        const room = session?.rooms?.find((r: any) => r.id === roomId)
+      for (const roomId of getExpectedRoomNumbers(sub.id)) {
+        const room = session?.rooms?.find((r: any) => Number(r.roomNum ?? r.id) === roomId)
         const ts: any[] = room?.teachers || []
         const filled = ts.filter((t) => t).length
         if (filled < requiredSlots) missing += (requiredSlots - filled)
@@ -38,7 +73,6 @@ export function useProctoringViewData(options: {
     return missing
   })
   const canContinue = computed(() => hasSchedule.value && missingSlots.value > 0)
-  const canOptimize = computed(() => hasSchedule.value && missingSlots.value === 0)
 
   const getRoomRecord = (subjectId: string, roomNum: number) => {
     const session = schedule.value.find((s: any) => s.subjectId === subjectId)
@@ -83,7 +117,7 @@ export function useProctoringViewData(options: {
   const matrixData = computed(() => {
     if (!schedule.value.length) return []
     const rows = []
-    for (let i = 1; i <= config.roomCount; i++) {
+    for (let i = 1; i <= maxVisibleRoomCount.value; i++) {
       const row: any = { roomId: i }
       subjects.value.forEach((sub) => {
         if (config.mode === 'double') {
@@ -180,7 +214,6 @@ export function useProctoringViewData(options: {
     hasSchedule,
     missingSlots,
     canContinue,
-    canOptimize,
     getTeacherText,
     getTeacherTextClass,
     getUnavailableNames,

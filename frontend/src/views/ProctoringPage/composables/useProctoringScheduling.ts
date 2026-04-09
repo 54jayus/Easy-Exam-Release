@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { pythonBackend } from '@/lib/pythonBackend'
 
 type ProctoringConfig = {
@@ -8,9 +8,78 @@ type ProctoringConfig = {
   balanceMode: string
   genderMix: boolean
   internalMix: boolean
+  roomRepeatPreference?: string
+  avoidConsecutiveSessions?: boolean
+  consecutiveGapMinutes?: number
+  cpSatNoImprovementSeconds?: number
+  cpSatProgressIntervalSeconds?: number
 }
 
 type UiLogFn = (msg: string) => void
+
+const POLL_INTERVAL_MS = 3000
+const DEFAULT_NO_IMPROVEMENT_SECONDS = 3
+const DEFAULT_PROGRESS_INTERVAL_SECONDS = 3
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const countMissingAssignments = (scheduleData: any[] | undefined | null) => {
+  let missing = 0
+  for (const subject of scheduleData || []) {
+    for (const room of subject?.rooms || []) {
+      for (const teacher of room?.teachers || []) {
+        if (!teacher) missing += 1
+      }
+    }
+  }
+  return missing
+}
+
+const humanizeStageName = (stageName: string) => {
+  switch (stageName) {
+    case 'minimize_max_overall_duration':
+    case 'maximize_min_overall_duration':
+    case 'minimize_overall_duration_deviation':
+      return '正在平衡老师监考时长'
+    case 'minimize_count_range':
+    case 'minimize_max_count':
+    case 'minimize_count_deviation':
+      return '正在平衡老师监考场次'
+    case 'minimize_distinct_rooms':
+    case 'maximize_distinct_rooms':
+      return '正在调整老师的考场安排'
+    case 'minimize_consecutive_sessions':
+      return '正在尽量减少连续监考'
+    default:
+      return '正在整理监考编排数据'
+  }
+}
+
+const humanizeBackendMessage = (rawMessage: any, actionName: string) => {
+  const message = String(rawMessage || '').trim()
+  if (!message) return `${actionName}失败，请稍后重试。`
+  if (/[\u4e00-\u9fff]/.test(message)) return message
+
+  if (message.includes('No feasible schedule satisfies the current constraints')) {
+    return '未找到满足当前条件的监考安排，请检查老师人数、禁监考科目、最大监考场次和预设条件。'
+  }
+  if (message.includes('The CP-SAT solver did not find a feasible solution')) {
+    return '未找到可用的监考安排，请检查当前条件是否过于严格。'
+  }
+  if (message.includes('The CP-SAT model is invalid')) {
+    return '当前监考编排设置无效，请检查参数后重试。'
+  }
+  if (message.includes('Locked assignment is incompatible with the active constraints')) {
+    return '导入或锁定的监考安排与当前条件冲突，请检查锁定位置、预设考场和搭配条件。'
+  }
+  if (message.includes('No eligible teacher is available for subject')) {
+    return '部分考场暂时找不到符合条件的监考老师，请检查老师数量、禁监考科目和最大监考场次。'
+  }
+  if (message.includes('Job not found')) {
+    return '当前编排任务不存在，请重新开始。'
+  }
+  return message
+}
 
 export function useProctoringScheduling(options: {
   config: ProctoringConfig
@@ -18,7 +87,6 @@ export function useProctoringScheduling(options: {
   subjects: Ref<any[]>
   schedule: Ref<any[]>
   hasPreset: Ref<boolean>
-  showLogs: Ref<boolean>
   optDetailVisible: Ref<boolean>
   optDetail: Ref<any>
   schedulingProgress: Ref<number>
@@ -36,7 +104,6 @@ export function useProctoringScheduling(options: {
     subjects,
     schedule,
     hasPreset,
-    showLogs,
     optDetailVisible,
     optDetail,
     schedulingProgress,
@@ -53,9 +120,11 @@ export function useProctoringScheduling(options: {
     optDetail.value = {
       swaps: Array.isArray(details?.swaps) ? details.swaps : [],
       presetDetails: Array.isArray(details?.presetDetails) ? details.presetDetails : [],
+      stages: Array.isArray(details?.stages) ? details.stages : [],
+      progressSamples: Array.isArray(details?.progressSamples) ? details.progressSamples : [],
       before: optimization?.before,
       after: optimization?.after,
-      earlyStopReason: optimization?.earlyStopReason
+      earlyStopReason: optimization?.earlyStopReason,
     }
   }
 
@@ -65,138 +134,159 @@ export function useProctoringScheduling(options: {
     return isDev && showDetails
   }
 
+  const buildSolverConfig = () => ({
+    ...config,
+    roomRepeatPreference: config.roomRepeatPreference ?? '',
+    avoidConsecutiveSessions: Boolean(config.avoidConsecutiveSessions),
+    consecutiveGapMinutes: config.avoidConsecutiveSessions
+      ? Number(config.consecutiveGapMinutes ?? 0)
+      : 0,
+    cpSatNoImprovementSeconds: config.cpSatNoImprovementSeconds ?? DEFAULT_NO_IMPROVEMENT_SECONDS,
+    cpSatProgressIntervalSeconds: config.cpSatProgressIntervalSeconds ?? DEFAULT_PROGRESS_INTERVAL_SECONDS,
+  })
+
+  const buildProgressText = (job: any, actionName: string) => {
+    const progress = job?.progress || {}
+    const stageText = humanizeStageName(String(progress?.currentStageName || ''))
+
+    if (job?.status === 'queued') return `${actionName}：正在排队，准备开始`
+    if (job?.status === 'completed') return `${actionName}：已完成`
+    if (job?.status === 'failed') return `${actionName}：未完成`
+
+    return `${actionName}：${stageText}`
+  }
+
+  const buildProgressLogKey = (job: any) => {
+    const progress = job?.progress || {}
+    return [
+      job?.status || '',
+      humanizeStageName(String(progress?.currentStageName || '')),
+    ].join('|')
+  }
+
+  const applyCompletedResult = (res: any, actionName: string) => {
+    if (!res?.schedule) throw new Error('后端未返回监考编排结果')
+
+    schedule.value = res.schedule
+    teachers.value = res.teachers
+    setOptimizationDetail(res.optimization, res.optimizationDetails)
+    schedulingProgress.value = 100
+
+    const missingCount = countMissingAssignments(res.schedule)
+    if (missingCount > 0) {
+      schedulingStatus.value = 'warning'
+      schedulingStepText.value = `${actionName}已结束，仍有 ${missingCount} 个监考空缺`
+      logWarning(`${actionName}已结束，仍有 ${missingCount} 个监考空缺`)
+      return
+    }
+
+    schedulingStatus.value = 'success'
+    schedulingStepText.value = `${actionName}已完成`
+    logSuccess(`${actionName}已完成`)
+  }
+
+  const runSolverJob = async (args: {
+    operation: 'generate' | 'continue'
+    actionName: string
+    payload: Record<string, any>
+    completionToast: string
+  }) => {
+    const { operation, actionName, payload, completionToast } = args
+    const started = await pythonBackend.request<any>('proctoring.startSolverJob', {
+      operation,
+      ...payload,
+      config: buildSolverConfig(),
+    })
+    if (started?.error) throw new Error(humanizeBackendMessage(started.error, actionName))
+
+    const jobId = String(started?.jobId || '')
+    if (!jobId) throw new Error('后端未返回任务编号')
+
+    let lastLogKey = ''
+    schedulingProgress.value = 1
+    schedulingStatus.value = ''
+    schedulingStepText.value = `${actionName}：正在准备`
+
+    while (true) {
+      const job = await pythonBackend.request<any>('proctoring.getJobStatus', { jobId }, 15_000)
+      if (job?.status === 'missing') {
+        throw new Error(humanizeBackendMessage(job?.error || 'Job not found', actionName))
+      }
+
+      schedulingProgress.value = Number(job?.progressPercent ?? schedulingProgress.value ?? 0)
+      schedulingStepText.value = buildProgressText(job, actionName)
+
+      const progressLogKey = buildProgressLogKey(job)
+      if (progressLogKey !== lastLogKey && job?.status === 'running') {
+        lastLogKey = progressLogKey
+        logInfo(schedulingStepText.value)
+      }
+
+      if (job?.status === 'completed') {
+        applyCompletedResult(job.result, actionName)
+        await sleep(500)
+        isScheduling.value = false
+        if (optDetail.value && shouldShowOptimizationDetails()) {
+          optDetailVisible.value = true
+        } else {
+          ElMessage.success(completionToast)
+        }
+        return
+      }
+
+      if (job?.status === 'failed') {
+        const message = humanizeBackendMessage(
+          job?.error || job?.message || `${actionName}失败`,
+          actionName,
+        )
+        throw new Error(message)
+      }
+
+      if (job?.status !== 'queued' && job?.status !== 'running') {
+        throw new Error(
+          humanizeBackendMessage(
+            job?.message || `${actionName}状态异常：${String(job?.status)}`,
+            actionName,
+          ),
+        )
+      }
+
+      await sleep(POLL_INTERVAL_MS)
+    }
+  }
+
   const handleSmartSchedule = async () => {
     isScheduling.value = true
     schedulingProgress.value = 0
     schedulingStatus.value = ''
-    schedulingStepText.value = '准备开始...'
+    schedulingStepText.value = '正在准备...'
+
+    const actionName = hasPreset.value ? '补全编排' : '智能编排'
+    logInfo(`开始${actionName}`)
 
     try {
-      const method = hasPreset.value ? 'proctoring.continue' : 'proctoring.generateSchedule'
-      const actionName = hasPreset.value ? '补全安排' : '智能编排'
-
-      schedulingStepText.value = `正在进行${actionName}...`
-      schedulingProgress.value = 10
-      logInfo(`开始${actionName}`)
-
-      await new Promise((r) => setTimeout(r, 500))
-
-      const res = await pythonBackend.request<any>(method, {
-        teachers: teachers.value,
-        subjects: subjects.value,
-        schedule: hasPreset.value ? schedule.value : undefined,
-        config
+      await runSolverJob({
+        operation: hasPreset.value ? 'continue' : 'generate',
+        actionName,
+        payload: {
+          teachers: teachers.value,
+          subjects: subjects.value,
+          schedule: hasPreset.value ? schedule.value : undefined,
+        },
+        completionToast: '编排完成',
       })
-
-      if (!res.schedule) throw new Error('未返回排班结果')
-
-      schedule.value = res.schedule
-      teachers.value = res.teachers
-      schedulingProgress.value = 60
-      logSuccess(`${actionName}完成`)
-
-      schedulingStepText.value = '正在进行优化...'
-      logInfo('开始深度优化')
-
-      const optStart = Date.now()
-      const optPhaseMin = 60
-      const optPhaseMax = 96
-      const optExpectedMs = 60_000
-      const progressTimer = setInterval(() => {
-        const elapsed = Date.now() - optStart
-        const ratio = Math.min(1, elapsed / optExpectedMs)
-        const eased = 0.15 + 0.85 * ratio
-        const target = Math.floor(optPhaseMin + (optPhaseMax - optPhaseMin) * eased)
-        if (schedulingProgress.value < target && schedulingProgress.value < optPhaseMax) {
-          schedulingProgress.value += 1
-        }
-      }, 600)
-
-      const optRes = await pythonBackend.request<any>('proctoring.optimize', {
-        teachers: teachers.value,
-        subjects: subjects.value,
-        schedule: schedule.value,
-        config
-      }, 180_000)
-
-      clearInterval(progressTimer)
-
-      if (optRes?.error) {
-        logWarning(`二次均衡优化失败：${optRes.error}`)
-        ElMessage.warning('基础编排完成，但深度优化失败')
-      } else if (optRes.schedule) {
-        schedule.value = optRes.schedule
-        teachers.value = optRes.teachers
-        setOptimizationDetail(optRes.optimization, optRes.optimizationDetails)
-        logSuccess('二次均衡优化完成')
-      }
-
-      schedulingProgress.value = 100
-      schedulingStatus.value = 'success'
-      schedulingStepText.value = '全部完成！'
-
-      await new Promise((r) => setTimeout(r, 800))
-      isScheduling.value = false
-
-      if (optDetail.value && shouldShowOptimizationDetails()) optDetailVisible.value = true
-      else ElMessage.success('编排完成')
     } catch (e: any) {
       const msg = e?.message || String(e)
-      logError(`编排失败：${msg}`)
+      logError(`监考编排失败：${msg}`)
       schedulingStatus.value = 'exception'
-      schedulingStepText.value = '发生错误'
-      ElMessage.error(`编排失败: ${msg}`)
-      await new Promise((r) => setTimeout(r, 2000))
+      schedulingStepText.value = '监考编排未完成'
+      ElMessage.error(`监考编排失败：${msg}`)
+      await sleep(1500)
       isScheduling.value = false
-    }
-  }
-
-  const handleOptimize = async () => {
-    logInfo('开始优化')
-    try {
-      const res = await pythonBackend.request<any>('proctoring.optimize', {
-        teachers: teachers.value,
-        subjects: subjects.value,
-        schedule: schedule.value,
-        config
-      }, 180_000)
-      if (res?.error) {
-        logError(`二次均衡优化失败：${res.error}`)
-        if (res.trace) logInfo(String(res.trace))
-        showLogs.value = true
-        await ElMessageBox.alert(res.error, '二次均衡优化失败', { type: 'error' })
-        return
-      }
-      if (res.schedule) {
-        schedule.value = res.schedule
-        teachers.value = res.teachers
-        const info = res.optimization
-        if (info) {
-          const parts = []
-          if (typeof info.swapCount === 'number') parts.push(`交换 ${info.swapCount} 次`)
-          if (typeof info.presetMoves === 'number' && info.presetMoves > 0) parts.push(`预设修复 ${info.presetMoves} 次`)
-          if (info.earlyStopReason) parts.push(`提前结束：${info.earlyStopReason}`)
-          logSuccess(`二次均衡优化完成${parts.length ? `（${parts.join('；')}）` : ''}`)
-        } else {
-          logSuccess('二次均衡优化完成')
-        }
-
-        setOptimizationDetail(info, res.optimizationDetails)
-
-        if (shouldShowOptimizationDetails()) {
-          optDetailVisible.value = true
-        }
-      }
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e)
-      logError(`二次均衡优化异常：${msg}`)
-      showLogs.value = true
-      ElMessage.error('优化失败')
     }
   }
 
   return {
     handleSmartSchedule,
-    handleOptimize,
   }
 }

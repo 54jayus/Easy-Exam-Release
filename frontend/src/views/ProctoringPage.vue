@@ -101,10 +101,18 @@
              
              <div class="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-4">
                 <div class="space-y-1.5">
-                   <div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                   <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
                       <span>考场数量</span>
-                      <el-tooltip content="科目数量需从“科目设置”功能页中调整" placement="top">
-                         <span class="cursor-help border-b border-dashed border-slate-300 text-indigo-400">科目: {{ subjectCount }}</span>
+                      <el-tooltip content="已单独设置考场数的科目会优先使用自己的数量，其余科目使用这里的数量。" placement="top">
+                         <button
+                            type="button"
+                            class="text-indigo-500 transition-colors normal-case tracking-normal"
+                            :class="subjectCount > 0 ? 'cursor-pointer hover:text-indigo-600' : 'cursor-not-allowed text-slate-300 hover:text-slate-300'"
+                            :disabled="subjectCount === 0"
+                            @click="openSubjectRoomSettings"
+                         >
+                            科目：{{ subjectCount }}
+                         </button>
                       </el-tooltip>
                    </div>
                    <el-input-number 
@@ -138,17 +146,26 @@
                 </div>
 
                 <div class="space-y-1.5">
-                   <label class="text-[10px] font-bold text-slate-400 uppercase">均衡策略</label>
-                   <el-segmented v-model="config.balanceMode" :options="[
-                      { label: '时长均衡', value: 'duration' },
-                      { label: '场次均衡', value: 'session' }
-                   ]" block size="small" class="custom-segmented" />
+                   <div class="flex items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white/80 px-3 py-2">
+                      <el-tooltip placement="top" effect="light">
+                         <template #content>
+                            <div class="space-y-1 text-[12px] leading-5">
+                               <div>{{ advancedTooltipLines.priority }}</div>
+                               <div>{{ advancedTooltipLines.roomRepeat }}</div>
+                               <div>{{ advancedTooltipLines.consecutive }}</div>
+                            </div>
+                         </template>
+                         <el-button plain size="small" class="shrink-0 !rounded-lg" @click="advancedSettingsVisible = true">
+                            高级设置
+                         </el-button>
+                      </el-tooltip>
+                   </div>
                 </div>
              </div>
           </section>
 
           <!-- 3. Actions -->
-          <section class="pt-4 mt-auto space-y-3">
+          <section class="pt-1 space-y-3">
              <el-button type="primary" size="large" class="w-full !h-12 !text-base !font-bold !rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all hover:-translate-y-0.5" :disabled="!canSchedule" @click="handleSmartSchedule">
                 开始智能编排
              </el-button>
@@ -563,7 +580,7 @@
        </div>
     </el-dialog>
 
-    <el-dialog v-model="optDetailVisible" title="二次均衡优化明细" width="90%" class="max-w-5xl" append-to-body align-center>
+    <el-dialog v-model="optDetailVisible" title="CP-SAT 求解明细" width="90%" class="max-w-5xl" append-to-body align-center>
       <div v-if="optDetail" class="space-y-4 max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
         <!-- Comparison Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -680,9 +697,164 @@
               </el-table-column>
             </el-table>
           </el-tab-pane>
+          <el-tab-pane label="CP-SAT Stages">
+            <el-table :data="optDetail.stages" border stripe height="320" style="width: 100%">
+              <el-table-column prop="name" label="Stage" min-width="220" />
+              <el-table-column prop="status" label="Status" width="110" align="center" />
+              <el-table-column label="Optimal" width="90" align="center">
+                <template #default="{ row }">
+                  {{ row?.proven_optimal ? 'Yes' : 'No' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Best Obj" width="100" align="center">
+                <template #default="{ row }">
+                  {{ formatMetric(row?.value) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Best Bound" width="110" align="center">
+                <template #default="{ row }">
+                  {{ formatMetric(row?.best_bound) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Gap" width="90" align="center">
+                <template #default="{ row }">
+                  {{ formatMetric(row?.objective_gap) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Solve(s)" width="90" align="center">
+                <template #default="{ row }">
+                  {{ formatSeconds(row?.solve_seconds) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Last Improve(s)" width="120" align="center">
+                <template #default="{ row }">
+                  {{ formatSeconds(row?.last_improvement_seconds) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Idle After Improve(s)" width="150" align="center">
+                <template #default="{ row }">
+                  {{ formatSeconds(row?.idle_after_last_improvement_seconds) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Solutions" width="90" align="center">
+                <template #default="{ row }">
+                  {{ formatMetric(row?.solution_count) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Improvements" width="110" align="center">
+                <template #default="{ row }">
+                  {{ formatMetric(row?.improvement_count) }}
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
+          <el-tab-pane label="CP-SAT Timeline">
+            <el-table :data="optDetail.progressSamples" border stripe height="320" style="width: 100%">
+              <el-table-column prop="stage" label="Stage" min-width="220" />
+              <el-table-column label="Elapsed(s)" width="100" align="center">
+                <template #default="{ row }">
+                  {{ formatSeconds(row?.elapsedSeconds) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Objective" width="100" align="center">
+                <template #default="{ row }">
+                  {{ formatMetric(row?.objectiveValue) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Best Bound" width="110" align="center">
+                <template #default="{ row }">
+                  {{ formatMetric(row?.bestBound) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="Gap" width="90" align="center">
+                <template #default="{ row }">
+                  {{ formatMetric(row?.objectiveGap) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="reason" label="Reason" width="110" align="center" />
+            </el-table>
+          </el-tab-pane>
         </el-tabs>
       </div>
       <div v-else class="text-slate-500 text-sm">暂无可显示的优化明细</div>
+    </el-dialog>
+
+    <el-dialog v-model="advancedSettingsVisible" title="高级设置" width="520px" append-to-body>
+       <div class="space-y-5 py-1">
+          <div class="space-y-1.5">
+             <div class="flex items-center justify-between gap-2">
+                <label class="text-[11px] font-bold uppercase tracking-wide text-slate-500">编排侧重</label>
+                <span class="text-[11px] text-slate-400">默认优先时长均衡</span>
+             </div>
+             <el-segmented v-model="config.balanceMode" :options="[
+                { label: '优先时长均衡', value: 'duration' },
+                { label: '优先场次均衡', value: 'session' }
+             ]" block size="small" class="custom-segmented" />
+          </div>
+
+          <div class="space-y-1.5">
+             <label class="text-[11px] font-bold uppercase tracking-wide text-slate-500">考场安排偏好</label>
+             <el-select v-model="config.roomRepeatPreference" size="small" class="!w-full">
+                <el-option label="不设置" value="" />
+                <el-option label="尽量固定考场" value="fixed" />
+                <el-option label="尽量轮换考场" value="different" />
+             </el-select>
+             <p class="text-[11px] text-slate-400">保持默认，则不会额外考虑老师固定考场或轮换考场。</p>
+          </div>
+
+          <div class="space-y-2">
+             <div class="flex items-center justify-between gap-3">
+                <div class="space-y-0.5">
+                   <label class="text-[11px] font-bold uppercase tracking-wide text-slate-500">尽量减少连续监考</label>
+                   <p class="text-[11px] text-slate-400">开启后，系统会尽量避免同一位老师在上一场之后的下一场继续监考。</p>
+                </div>
+                <el-switch v-model="config.avoidConsecutiveSessions" />
+             </div>
+          </div>
+       </div>
+       <template #footer>
+          <div class="flex justify-end">
+             <el-button type="primary" @click="advancedSettingsVisible = false">完成</el-button>
+          </div>
+       </template>
+    </el-dialog>
+
+    <el-dialog v-model="subjectRoomSettingsVisible" title="科目考场数量" width="560px" append-to-body>
+       <div class="space-y-4 py-1">
+          <div class="text-[12px] leading-5 text-slate-500">
+             设置为 0 时，将使用参数设置中填写的考场数量。
+          </div>
+          <div class="max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+             <div class="space-y-2">
+                <div
+                   v-for="subject in subjectRoomDrafts"
+                   :key="subject.id"
+                   class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-3"
+                >
+                   <div class="min-w-0 flex-1">
+                      <div class="truncate text-sm font-semibold text-slate-700">{{ subject.name }}</div>
+                      <div class="text-[11px] text-slate-400">{{ formatSubjectSchedule(subject) }}</div>
+                   </div>
+                   <div class="w-[132px] shrink-0">
+                      <el-input-number
+                         v-model="subject.roomCount"
+                         :min="0"
+                         :max="200"
+                         size="small"
+                         class="!w-full"
+                         controls-position="right"
+                      />
+                   </div>
+                </div>
+             </div>
+          </div>
+       </div>
+       <template #footer>
+          <div class="flex justify-end gap-2">
+             <el-button @click="subjectRoomSettingsVisible = false">取消</el-button>
+             <el-button type="primary" @click="saveSubjectRoomSettings">保存</el-button>
+          </div>
+       </template>
     </el-dialog>
 
     <!-- Scheduling Progress Dialog -->
@@ -697,9 +869,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted } from 'vue'
-import { Upload, Download, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, Fold, Expand, Setting, Check } from '@element-plus/icons-vue'
+import { computed, ref, reactive, watch, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Upload, Download, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, Fold, Expand, Setting } from '@element-plus/icons-vue'
 import { usePageSessionState } from '@/composables/usePageSessionState'
+import { pythonBackend } from '@/lib/pythonBackend'
 import { useProctoringBootstrap } from '@/views/ProctoringPage/composables/useProctoringBootstrap'
 import { useProctoringDataManagement } from '@/views/ProctoringPage/composables/useProctoringDataManagement'
 import { useProctoringOptimizationMetrics } from '@/views/ProctoringPage/composables/useProctoringOptimizationMetrics'
@@ -715,8 +889,18 @@ const getStored = (key: string, def: string) => storage.getPref(key, def)
 
 const sidebarCollapsed = ref(getStored('sidebarCollapsed', 'false') === 'true')
 const activeTab = ref(getStored('activeTab', 'overview'))
+const advancedSettingsVisible = ref(getStored('advancedSettingsVisible', 'false') === 'true')
 const showLogs = ref(false)
 type UiLogLevel = 'info' | 'success' | 'warning' | 'error'
+type SubjectItem = {
+  id: string
+  name: string
+  examDate?: string
+  time: string
+  durationMinutes: number
+  roomCount: number
+  remark?: string
+}
 const logs = ref<{ time: string; level: UiLogLevel; msg: string }[]>([])
 const presetVisible = ref(false)
 const adjustMode = ref(false)
@@ -729,10 +913,13 @@ const schedulingProgress = ref(0)
 const schedulingStatus = ref('') // success, exception, warning
 const schedulingStepText = ref('')
 const isScheduling = ref(false)
+const subjectRoomSettingsVisible = ref(false)
+const subjectRoomDrafts = ref<SubjectItem[]>([])
 
 // Persistence Watchers
 watch(sidebarCollapsed, (val) => storage.setPref('sidebarCollapsed', String(val)))
 watch(activeTab, (val) => storage.setPref('activeTab', val))
+watch(advancedSettingsVisible, (val) => storage.setPref('advancedSettingsVisible', String(val)))
 
 // Configuration matches Python structure
 const config = reactive({
@@ -740,11 +927,14 @@ const config = reactive({
   mode: 'single', // single, double
   balanceMode: 'duration', // session, duration
   genderMix: false,
-  internalMix: false
+  internalMix: false,
+  roomRepeatPreference: '',
+  avoidConsecutiveSessions: false,
+  consecutiveGapMinutes: 0,
 })
 
 // Data
-const subjects = ref<{id: string, name: string, time: string, durationMinutes: number}[]>([])
+const subjects = ref<SubjectItem[]>([])
 const teachers = ref<any[]>([])
 const schedule = ref<any[]>([]) // [{subjectId, rooms: [{id, teachers: []}]}]
 const selectedSubjectId = ref('')
@@ -756,7 +946,6 @@ const {
    hasSchedule,
    missingSlots,
    canContinue,
-   canOptimize,
    getTeacherText,
    getTeacherTextClass,
    getUnavailableNames,
@@ -804,6 +993,129 @@ const logFromText = (msg: string) => {
 
 const { formatVariance, getDiff, getDiffClass } = useProctoringOptimizationMetrics()
 
+const formatMetric = (value: any) => {
+  if (value === undefined || value === null || value === '') return '-'
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return String(value)
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2)
+}
+
+const formatSeconds = (value: any) => {
+  if (value === undefined || value === null || value === '') return '-'
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return String(value)
+  return numeric.toFixed(2)
+}
+
+const advancedTooltipLines = computed(() => {
+  const roomRepeatLabel =
+    config.roomRepeatPreference === 'fixed'
+      ? '尽量固定考场'
+      : config.roomRepeatPreference === 'different'
+        ? '尽量轮换考场'
+        : '不设置'
+  const consecutiveLabel = config.avoidConsecutiveSessions ? '已开启' : '不设置'
+
+  return {
+    priority: `编排更侧重：${config.balanceMode === 'session' ? '优先场次均衡' : '优先时长均衡'}`,
+    roomRepeat: `考场安排：${roomRepeatLabel}`,
+    consecutive: `连续监考：${consecutiveLabel}`,
+  }
+})
+
+const cloneSubject = (subject: SubjectItem): SubjectItem => ({
+  id: subject.id,
+  name: subject.name,
+  examDate: subject.examDate || '',
+  time: subject.time || '',
+  durationMinutes: Number(subject.durationMinutes ?? 0) || 0,
+  roomCount: Math.max(0, Number(subject.roomCount ?? 0) || 0),
+  remark: subject.remark || '',
+})
+
+const clearScheduleAfterSubjectUpdate = () => {
+  schedule.value = []
+  hasPreset.value = false
+  adjustMode.value = false
+  selectedCells.value = []
+  optDetailVisible.value = false
+  optDetail.value = null
+}
+
+const formatSubjectSchedule = (subject: SubjectItem) => {
+  const parts: string[] = []
+  if (subject.examDate) {
+    const parsedDate = dayjs(subject.examDate)
+    parts.push(parsedDate.isValid() ? parsedDate.format('MM-DD') : subject.examDate)
+  }
+  if (subject.time) parts.push(subject.time)
+  return parts.join(' ') || '未设置考试时间'
+}
+
+const openSubjectRoomSettings = () => {
+  if (!subjects.value.length) {
+    ElMessage.warning('请先导入科目信息')
+    return
+  }
+  subjectRoomDrafts.value = subjects.value.map(cloneSubject)
+  subjectRoomSettingsVisible.value = true
+}
+
+const saveSubjectRoomSettings = async () => {
+  const normalizedDrafts = subjectRoomDrafts.value.map(cloneSubject)
+  const changed = normalizedDrafts.some((subject, index) => subject.roomCount !== (subjects.value[index]?.roomCount ?? 0))
+  if (!changed) {
+    subjectRoomSettingsVisible.value = false
+    return
+  }
+
+  if (hasSchedule.value) {
+    try {
+      await ElMessageBox.confirm(
+        '保存后将清空当前监考编排结果，是否继续？',
+        '调整科目考场数量',
+        { type: 'warning', confirmButtonText: '继续保存', cancelButtonText: '取消' }
+      )
+    } catch {
+      return
+    }
+  }
+
+  try {
+    const result = await pythonBackend.request<any>('subjects.update', {
+      subjects: normalizedDrafts.map((subject) => ({
+        id: subject.id,
+        name: subject.name,
+        exam_date: subject.examDate || '',
+        exam_time: subject.time || '',
+        duration_minutes: subject.durationMinutes || 0,
+        room_count: subject.roomCount || 0,
+        remark: subject.remark || '',
+      }))
+    })
+
+    subjects.value = normalizedDrafts
+    if (!selectedSubjectId.value && subjects.value.length > 0) {
+      selectedSubjectId.value = subjects.value[0].id
+    }
+    subjectRoomSettingsVisible.value = false
+
+    if (result?.proctoringReset) {
+      clearScheduleAfterSubjectUpdate()
+      ElMessage.warning('科目考场数量已更新，当前监考编排已自动清除')
+      logInfo('科目考场数量已更新，当前监考编排已自动清除')
+      return
+    }
+
+    ElMessage.success('科目考场数量已保存')
+    logSuccess('科目考场数量已保存')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    ElMessage.error(`保存失败：${message}`)
+    logError(`保存科目考场数量失败：${message}`)
+  }
+}
+
 const {
    handleTemplate,
    handleAddTeacher,
@@ -831,6 +1143,7 @@ const {
    optDetailVisible,
    optDetail,
    sidebarCollapsed,
+   advancedSettingsVisible,
    activeTab,
    schedulingProgress,
    schedulingStatus,
@@ -853,13 +1166,12 @@ const { initializePage } = useProctoringBootstrap({
    logError,
 })
 
-const { handleSmartSchedule, handleOptimize } = useProctoringScheduling({
+const { handleSmartSchedule } = useProctoringScheduling({
    config,
    teachers,
    subjects,
    schedule,
    hasPreset,
-   showLogs,
    optDetailVisible,
    optDetail,
    schedulingProgress,
@@ -885,11 +1197,6 @@ const { toggleAdjustMode, getCellStyle, handleCellClick } = useProctoringSwap({
    logWarning,
    logError,
 })
-
-const handleRoomCountChange = () => {
-   // Update subjects rooms? Or just config
-   // Backend generate uses config.roomCount
-}
 
 onMounted(async () => {
    await initializePage()

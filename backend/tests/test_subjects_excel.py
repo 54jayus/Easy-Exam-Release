@@ -10,7 +10,7 @@ from backend.subjects.excel import (
 )
 
 
-def test_validate_subjects_rejects_duplicates_and_time_conflicts() -> None:
+def test_validate_subjects_rejects_duplicate_names_but_allows_time_overlap() -> None:
     errors = validate_subjects(
         [
             Subject(name="语文", exam_date="2026-06-07", exam_time="09:00-11:30"),
@@ -20,14 +20,29 @@ def test_validate_subjects_rejects_duplicates_and_time_conflicts() -> None:
     )
 
     assert any("科目名称重复" in error for error in errors)
+    assert not any("考试时间冲突" in error for error in errors)
 
 
-def test_import_subjects_from_excel_parses_and_derives_duration(tmp_path) -> None:
+def test_import_subjects_from_excel_parses_duration_and_room_count(tmp_path) -> None:
     path = tmp_path / "subjects.xlsx"
     pd.DataFrame(
         [
-            {"科目名称": "语文", "考试日期": "2026/06/07", "考试时间": "09:00-11:30", "考试时长（分钟）—可以留空": "", "备注": "必修"},
-            {"科目名称": "数学", "考试日期": "2026-06-07", "考试时间": "15:00-17:00", "考试时长（分钟）—可以留空": 120, "备注": ""},
+            {
+                "科目名称": "语文",
+                "考试日期": "2026/06/07",
+                "考试时间": "09:00-11:30",
+                "考试时长（分钟）-可留空": "",
+                "考场数量（可留空）": 12,
+                "备注": "必修",
+            },
+            {
+                "科目名称": "数学",
+                "考试日期": "2026-06-07",
+                "考试时间": "15:00-17:00",
+                "考试时长（分钟）-可留空": 120,
+                "考场数量（可留空）": "",
+                "备注": "",
+            },
         ]
     ).to_excel(path, index=False)
 
@@ -35,8 +50,22 @@ def test_import_subjects_from_excel_parses_and_derives_duration(tmp_path) -> Non
 
     assert result.errors == []
     assert result.subjects == [
-        Subject(name="语文", exam_date="2026-06-07", exam_time="09:00-11:30", remark="必修", duration_minutes=150),
-        Subject(name="数学", exam_date="2026-06-07", exam_time="15:00-17:00", remark="", duration_minutes=120),
+        Subject(
+            name="语文",
+            exam_date="2026-06-07",
+            exam_time="09:00-11:30",
+            remark="必修",
+            duration_minutes=150,
+            room_count=12,
+        ),
+        Subject(
+            name="数学",
+            exam_date="2026-06-07",
+            exam_time="15:00-17:00",
+            remark="",
+            duration_minutes=120,
+            room_count=0,
+        ),
     ]
 
 
@@ -56,7 +85,15 @@ def test_export_subjects_to_excel_and_template_generation(tmp_path) -> None:
 
     export_subjects_to_excel(
         str(export_path),
-        subjects=[Subject(name="语文", exam_date="2026-06-07", exam_time="09:00-11:30", duration_minutes=150)],
+        subjects=[
+            Subject(
+                name="语文",
+                exam_date="2026-06-07",
+                exam_time="09:00-11:30",
+                duration_minutes=150,
+                room_count=20,
+            )
+        ],
     )
     generate_subject_template_xlsx(str(template_path))
 
@@ -68,7 +105,8 @@ def test_export_subjects_to_excel_and_template_generation(tmp_path) -> None:
             "科目名称": "语文",
             "考试日期": "2026-06-07",
             "考试时间": "09:00-11:30",
-            "考试时长（分钟）—可以留空": 150,
+            "考试时长（分钟）-可留空": 150,
+            "考场数量（可留空）": 20,
             "备注": "",
         }
     ]

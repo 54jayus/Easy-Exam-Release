@@ -8,6 +8,9 @@ type ProctoringConfig = {
   balanceMode: string
   genderMix: boolean
   internalMix: boolean
+  roomRepeatPreference?: string
+  avoidConsecutiveSessions?: boolean
+  consecutiveGapMinutes?: number
 }
 
 type SelectedCell = { roomId: number; c: string }

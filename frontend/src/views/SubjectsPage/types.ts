@@ -3,6 +3,7 @@ export interface Subject {
   exam_date: string
   exam_time: string
   duration_minutes: number
+  room_count: number
   remark: string
 }
 

@@ -5,7 +5,7 @@ from typing import Any
 
 from backend.domain.state import AppState
 from backend.repository.interfaces import IStateRepository
-from backend.subjects.core import Subject, validate_subjects
+from backend.subjects.core import Subject, _coerce_duration_minutes, _coerce_room_count, validate_subjects
 from backend.subjects.excel import (
     export_subjects_to_excel,
     generate_subject_template_xlsx,
@@ -17,6 +17,18 @@ class SubjectsService:
     def __init__(self, state: AppState, repo: IStateRepository):
         self._state = state
         self._repo = repo
+
+    def _subject_from_dict(self, data: dict[str, Any]) -> Subject:
+        return Subject(
+            name=data.get("name", ""),
+            exam_date=data.get("exam_date", data.get("date", "")),
+            exam_time=data.get("exam_time", data.get("time", "")),
+            remark=data.get("remark", ""),
+            duration_minutes=_coerce_duration_minutes(
+                data.get("duration_minutes", data.get("durationMinutes", data.get("duration", 0)))
+            ) or 0,
+            room_count=_coerce_room_count(data.get("room_count", data.get("roomCount", 0))) or 0,
+        )
 
     def list(self, _params: dict) -> Any:
         result = []
@@ -35,7 +47,8 @@ class SubjectsService:
         return False
 
     def update(self, params: dict) -> Any:
-        self._state.subjects = params.get("subjects", [])
+        subjects_data = params.get("subjects", [])
+        self._state.subjects = [asdict(self._subject_from_dict(subject)) for subject in subjects_data]
         proctoring_reset = self._reset_proctoring_if_scheduled()
         self._repo.save(self._state)
         return {"proctoringReset": proctoring_reset}
@@ -56,7 +69,7 @@ class SubjectsService:
     def export(self, params: dict) -> Any:
         path = params["path"]
         subjects_data = params["subjects"]
-        subjects = [Subject(**s) for s in subjects_data]
+        subjects = [self._subject_from_dict(s) for s in subjects_data]
         export_subjects_to_excel(path, subjects=subjects)
         return {}
 
@@ -67,6 +80,6 @@ class SubjectsService:
 
     def validate(self, params: dict) -> Any:
         subjects_data = params["subjects"]
-        subjects = [Subject(**s) for s in subjects_data]
+        subjects = [self._subject_from_dict(s) for s in subjects_data]
         errors = validate_subjects(subjects)
         return {"errors": errors}

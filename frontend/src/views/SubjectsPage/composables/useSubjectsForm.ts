@@ -13,6 +13,7 @@ const createEmptySubject = (): Subject => ({
   exam_date: '',
   exam_time: '',
   duration_minutes: 0,
+  room_count: 0,
   remark: '',
 })
 

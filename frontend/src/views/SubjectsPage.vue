@@ -255,6 +255,11 @@
                          <div class="h-full bg-gradient-to-r from-sky-400 to-indigo-500 rounded-full" :style="{ width: Math.min(subject.duration_minutes / 1.8, 100) + '%' }"></div>
                       </div>
                    </div>
+
+                   <div class="flex items-center justify-between pt-1 text-sm">
+                      <span class="text-slate-500">考场数</span>
+                      <span class="font-semibold text-slate-700">{{ subject.room_count > 0 ? `${subject.room_count} 个` : '沿用默认' }}</span>
+                   </div>
                 </div>
 
                 <!-- Remark Footer -->
@@ -289,6 +294,11 @@
                 <el-table-column prop="duration_minutes" label="时长(分钟)" width="100" align="center" sortable>
                    <template #default="{ row }">
                       <el-tag type="info" effect="plain">{{ row.duration_minutes }} min</el-tag>
+                   </template>
+                </el-table-column>
+                <el-table-column prop="room_count" label="考场数" width="100" align="center">
+                   <template #default="{ row }">
+                      <el-tag type="warning" effect="plain">{{ row.room_count > 0 ? row.room_count : '默认' }}</el-tag>
                    </template>
                 </el-table-column>
                 <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
@@ -382,9 +392,15 @@
             />
           </el-form-item>
         </div>
-        <el-form-item label="时长 (分钟)" prop="duration_minutes">
-          <el-input-number v-model="form.duration_minutes" :min="0" :step="10" class="!w-full" />
-        </el-form-item>
+        <div class="grid grid-cols-2 gap-4">
+          <el-form-item label="时长 (分钟)" prop="duration_minutes">
+            <el-input-number v-model="form.duration_minutes" :min="0" :step="10" class="!w-full" />
+          </el-form-item>
+          <el-form-item label="考场数" prop="room_count">
+            <el-input-number v-model="form.room_count" :min="0" :step="1" class="!w-full" />
+            <div class="mt-1 text-xs text-slate-400">留空或填 0 时，可在监考编排页使用默认考场数量。</div>
+          </el-form-item>
+        </div>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" :rows="3" />
         </el-form-item>

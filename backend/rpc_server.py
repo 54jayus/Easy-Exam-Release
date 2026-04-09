@@ -89,13 +89,14 @@ def build_dispatcher() -> RpcDispatcher:
 
     # Proctoring
     dispatcher.register("proctoring.getState", proctoring_svc.get_state)
+    dispatcher.register("proctoring.startSolverJob", proctoring_svc.start_solver_job)
+    dispatcher.register("proctoring.getJobStatus", proctoring_svc.get_job_status)
     dispatcher.register("proctoring.clearState", proctoring_svc.clear_state)
     dispatcher.register("proctoring.importTeachers", proctoring_svc.import_teachers)
     dispatcher.register("proctoring.generateSchedule", proctoring_svc.generate_schedule)
     dispatcher.register("proctoring.template", proctoring_svc.template)
     dispatcher.register("proctoring.export", proctoring_svc.export)
     dispatcher.register("proctoring.continue", proctoring_svc.continue_schedule)
-    dispatcher.register("proctoring.optimize", proctoring_svc.optimize)
     dispatcher.register("proctoring.importSchedule", proctoring_svc.import_schedule)
     dispatcher.register("proctoring.swap", proctoring_svc.swap)
     dispatcher.register("proctoring.export_empty_preset", proctoring_svc.export_empty_preset)

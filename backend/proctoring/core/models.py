@@ -12,7 +12,6 @@ from backend.proctoring.core.balance import (
     rebalance_double_roles_postprocess,
 )
 from backend.proctoring.core.entities import Exam, Teacher
-from backend.proctoring.core.optimizer import optimize_duration_postprocess as run_duration_optimizer
 from backend.proctoring.core.postprocess import enforce_preset_room_postprocess
 from backend.proctoring.core.scheduler import continue_schedule as run_continue_schedule
 from backend.proctoring.core.scheduler import generate_schedule as run_generate_schedule
@@ -62,6 +61,21 @@ class Schedule:
         """获取指定科目的考试时长(分钟)，无则返回0。"""
         subject_durations = self.get_constraint('subject_durations', [])
         return subject_durations[subject_id - 1] if (subject_id - 1) < len(subject_durations) else 0
+
+    def _get_subject_room_count(self, subject_id):
+        subject_room_counts = self.get_constraint('subject_room_counts', [])
+        if (subject_id - 1) < len(subject_room_counts):
+            return max(0, int(subject_room_counts[subject_id - 1] or 0))
+        return max(0, int(self.num_rooms or 0))
+
+    def _get_subject_rooms(self, subject_id):
+        for exam in self.exams or []:
+            if int(getattr(exam, 'subject_id', 0)) == int(subject_id):
+                rooms = [int(room) for room in (getattr(exam, 'rooms', []) or []) if int(room) > 0]
+                if rooms:
+                    return rooms
+        room_count = self._get_subject_room_count(subject_id)
+        return list(range(1, room_count + 1))
 
     def _shuffle_teachers_inplace(self):
         # 如果你未来想临时关闭随机（例如调试复现），可以在构建 Schedule 后设置：schedule.set_constraint('shuffle_teachers', False)；默认不设置就是开启随机。
@@ -127,14 +141,6 @@ class Schedule:
 
     def _find_teacher_index(self, subject_id, room, teacher):
         return find_teacher_index(self, subject_id, room, teacher)
-
-    def optimize_duration_postprocess(self, max_passes=5, enable_smoothing=True, smoothing_passes=20):
-        return run_duration_optimizer(
-            self,
-            max_passes=max_passes,
-            enable_smoothing=enable_smoothing,
-            smoothing_passes=smoothing_passes,
-        )
 
     def enforce_preset_room_postprocess(self):
         return enforce_preset_room_postprocess(self)

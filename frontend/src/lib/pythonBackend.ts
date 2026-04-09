@@ -298,7 +298,14 @@ export class PythonBackendClient {
     this.pending.delete(String(id))
 
     if (msg.ok) pending.resolve(msg.result)
-    else pending.reject(new Error(msg.error))
+    else {
+      const rawError: any = msg.error
+      const message =
+        typeof rawError === 'string'
+          ? rawError
+          : (rawError?.message || rawError?.code || JSON.stringify(rawError))
+      pending.reject(new Error(message))
+    }
   }
 }
 

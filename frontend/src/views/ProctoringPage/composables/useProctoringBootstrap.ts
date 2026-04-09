@@ -1,13 +1,24 @@
 import type { Ref } from 'vue'
 import { pythonBackend } from '@/lib/pythonBackend'
 
-type Subject = { id: string; name: string; time: string; durationMinutes: number }
+type Subject = {
+  id: string
+  name: string
+  examDate?: string
+  time: string
+  durationMinutes: number
+  roomCount: number
+  remark?: string
+}
 type ProctoringConfig = {
   roomCount: number
   mode: string
   balanceMode: string
   genderMix: boolean
   internalMix: boolean
+  roomRepeatPreference?: string
+  avoidConsecutiveSessions?: boolean
+  consecutiveGapMinutes?: number
 }
 
 export function useProctoringBootstrap(options: {
@@ -38,6 +49,17 @@ export function useProctoringBootstrap(options: {
         if (res.config) {
           Object.assign(config, res.config)
         }
+        config.balanceMode = config.balanceMode || 'duration'
+        const normalizedRoomRepeatPreference = String(config.roomRepeatPreference || '').trim().toLowerCase()
+        if (['high', 'same', 'prefer_same', 'fixed'].includes(normalizedRoomRepeatPreference)) {
+          config.roomRepeatPreference = 'fixed'
+        } else if (['low', 'different', 'prefer_different'].includes(normalizedRoomRepeatPreference)) {
+          config.roomRepeatPreference = 'different'
+        } else {
+          config.roomRepeatPreference = ''
+        }
+        config.avoidConsecutiveSessions = Boolean(config.avoidConsecutiveSessions)
+        config.consecutiveGapMinutes = Number(config.consecutiveGapMinutes ?? 0) || 0
 
         if (res.schedule && Array.isArray(res.schedule)) {
           hasPreset.value = res.schedule.some((subj: any) =>
@@ -59,8 +81,11 @@ export function useProctoringBootstrap(options: {
         subjects.value = res.subjects.map((s: any) => ({
           id: s.id,
           name: s.name,
+          examDate: s.exam_date || '',
           time: s.exam_time || s.time || '',
-          durationMinutes: Number(s.duration_minutes ?? s.durationMinutes ?? s.duration ?? 0) || 0
+          durationMinutes: Number(s.duration_minutes ?? s.durationMinutes ?? s.duration ?? 0) || 0,
+          roomCount: Number(s.room_count ?? s.roomCount ?? 0) || 0,
+          remark: s.remark || '',
         }))
         if (subjects.value.length > 0) selectedSubjectId.value = subjects.value[0].id
       }

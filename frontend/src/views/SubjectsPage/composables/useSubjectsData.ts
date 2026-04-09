@@ -35,6 +35,12 @@ export function useSubjectsData({
   logFromText,
   logger,
 }: UseSubjectsDataOptions) {
+  const normalizeSubjects = (items: any[]): Subject[] =>
+    (items || []).map((subject: any) => ({
+      ...subject,
+      room_count: Number(subject?.room_count ?? subject?.roomCount ?? 0) || 0,
+    }))
+
   const syncToBackend = async () => {
     try {
       const res = await pythonBackend.request<any>('subjects.update', { subjects: subjects.value })
@@ -51,7 +57,7 @@ export function useSubjectsData({
     try {
       const res = await pythonBackend.request<any>('subjects.list')
       if (res && res.subjects) {
-        subjects.value = res.subjects as Subject[]
+        subjects.value = normalizeSubjects(res.subjects)
         if (res.subjects.length > 0) importedFromFile.value = true
       }
     } catch (e) {
@@ -99,7 +105,7 @@ export function useSubjectsData({
       })
 
       if (res.subjects && res.subjects.length > 0) {
-        subjects.value = res.subjects
+        subjects.value = normalizeSubjects(res.subjects)
         importedFromFile.value = true
         ElMessage.success(`成功导入 ${res.subjects.length} 个科目`)
         logSuccess(`成功导入 ${res.subjects.length} 个科目`)
