@@ -1,5 +1,5 @@
 import { computed, nextTick, reactive, ref, watch, type ComputedRef } from 'vue'
-import { ElMessage } from 'element-plus'
+import { createUiFeedback, formatActionWarning } from '@/lib/uiFeedback'
 
 type DeskConfig = {
   layoutName: string
@@ -138,6 +138,7 @@ export function usePrintingDeskLayout({
   sourceType,
   onAfterApply
 }: UsePrintingDeskLayoutOptions) {
+  const feedback = createUiFeedback()
   const deskLayoutOptions = LAYOUT_OPTIONS
 
   const firstRoomData = computed(() => {
@@ -319,7 +320,7 @@ export function usePrintingDeskLayout({
     if (deskLayoutDraft.layoutName === CUSTOM_LAYOUT_NAME) {
       const nums = parseCustomCounts(deskLayoutDraft.customCountsText)
       if (!nums) {
-        ElMessage.warning('\u8bf7\u8f93\u5165\u6709\u6548\u7684\u81ea\u5b9a\u4e49\u6bcf\u5217\u4eba\u6570')
+        feedback.warning(formatActionWarning('应用座位布局', '请输入有效的自定义每列人数'))
         return
       }
       config.desk.layoutName = CUSTOM_LAYOUT_NAME

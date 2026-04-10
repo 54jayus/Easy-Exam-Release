@@ -1,6 +1,12 @@
 import type { Ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { open, saveAndRun } from '@/lib/dialog'
+import {
+  createUiFeedback,
+  formatActionError,
+  formatActionProgress,
+  formatActionSuccess,
+  formatActionWarning,
+} from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
 import type { Subject } from '../types'
 
@@ -35,6 +41,8 @@ export function useSubjectsData({
   logFromText,
   logger,
 }: UseSubjectsDataOptions) {
+  const feedback = createUiFeedback({ logInfo, logSuccess, logWarning, logError })
+
   const normalizeSubjects = (items: any[]): Subject[] =>
     (items || []).map((subject: any) => ({
       ...subject,
@@ -45,8 +53,9 @@ export function useSubjectsData({
     try {
       const res = await pythonBackend.request<any>('subjects.update', { subjects: subjects.value })
       if (res?.proctoringReset) {
-        ElMessage.warning('科目已更新，原监考编排结果已自动清除')
-        logInfo('科目变更，监考编排结果已自动重置')
+        feedback.warning('科目已更新，原监考编排结果已自动清除', {
+          logMessage: formatActionWarning('科目同步', '监考编排结果已自动清除'),
+        })
       }
     } catch (e) {
       logger.error('同步科目数据失败', e)
@@ -77,10 +86,11 @@ export function useSubjectsData({
       })
       validationErrors.value = res.errors
       if (res.errors.length > 0) {
-        ElMessage.warning(`发现 ${res.errors.length} 个潜在问题`)
-        logWarning(`数据校验发现 ${res.errors.length} 个问题`)
+        feedback.warning(`发现 ${res.errors.length} 个潜在问题`, {
+          logMessage: formatActionWarning('数据校验', `发现 ${res.errors.length} 个潜在问题`),
+        })
       } else {
-        logSuccess('数据校验通过')
+        logSuccess(formatActionSuccess('完成数据校验'))
       }
     } catch (err) {
       logger.error('数据校验失败', err)
@@ -89,7 +99,7 @@ export function useSubjectsData({
 
   const handleImport = async () => {
     try {
-      logInfo('正在打开文件选择器')
+      logInfo(formatActionProgress('打开文件选择器'))
       const selected = await open({
         multiple: false,
         filters: [{ name: 'Excel Files', extensions: ['xlsx', 'xls'] }],
@@ -99,7 +109,7 @@ export function useSubjectsData({
 
       logInfo(`已选择文件：${selected}`)
       loading.value = true
-      logInfo('正在导入科目数据')
+      logInfo(formatActionProgress('导入科目数据'))
       const res = await pythonBackend.request<any>('subjects.import', {
         path: selected,
       })
@@ -107,22 +117,23 @@ export function useSubjectsData({
       if (res.subjects && res.subjects.length > 0) {
         subjects.value = normalizeSubjects(res.subjects)
         importedFromFile.value = true
-        ElMessage.success(`成功导入 ${res.subjects.length} 个科目`)
-        logSuccess(`成功导入 ${res.subjects.length} 个科目`)
+        feedback.success(`成功导入 ${res.subjects.length} 个科目`, {
+          logMessage: formatActionSuccess('导入科目', `${res.subjects.length} 个`),
+        })
         if (res.proctoringReset) {
-          ElMessage.warning('科目已更新，原监考编排结果已自动清除')
-          logInfo('科目变更，监考编排结果已自动重置')
+          feedback.warning('科目已更新，原监考编排结果已自动清除', {
+            logMessage: formatActionWarning('导入科目', '监考编排结果已自动清除'),
+          })
         }
       }
 
       validationErrors.value = res.errors
       if (res.errors.length > 0) {
         showErrors.value = true
-        logError(`导入发现 ${res.errors.length} 个错误`)
+        logWarning(formatActionWarning('导入科目', `发现 ${res.errors.length} 个问题`))
       }
     } catch (err) {
-      ElMessage.error(`导入失败：${String(err)}`)
-      logError(`导入失败：${String(err)}`)
+      feedback.error(formatActionError('导入科目', err))
     } finally {
       loading.value = false
     }
@@ -130,18 +141,20 @@ export function useSubjectsData({
 
   const handleExport = async () => {
     if (subjects.value.length === 0) {
-      ElMessage.warning('没有数据可导出')
+      feedback.warning('暂无可导出的科目数据', {
+        log: false,
+      })
       return
     }
 
-    logInfo('正在打开文件保存对话框')
+    logInfo(formatActionProgress('打开文件保存对话框'))
     await saveAndRun({
       dialog: {
         filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],
         defaultPath: '科目信息.xlsx',
       },
       run: async (path) => {
-        logInfo('正在导出科目数据')
+        logInfo(formatActionProgress('导出科目数据'))
         return await pythonBackend.request('subjects.export', {
           path,
           subjects: subjects.value,
@@ -155,7 +168,7 @@ export function useSubjectsData({
   }
 
   const handleTemplate = async () => {
-    logInfo('正在打开文件保存对话框')
+    logInfo(formatActionProgress('打开文件保存对话框'))
     await saveAndRun({
       dialog: {
         filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],

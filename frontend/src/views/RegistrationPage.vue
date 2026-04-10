@@ -154,14 +154,15 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useClipboard } from '@vueuse/core'
-import { ElMessage } from 'element-plus'
 import { 
   Monitor, Calendar, CopyDocument, Check, User, TopRight
 } from '@element-plus/icons-vue'
 import { pythonBackend } from '../lib/pythonBackend'
 import { useLicenseStore } from '../stores/license'
+import { createUiFeedback, formatActionError, formatActionSuccess, formatActionWarning } from '../lib/uiFeedback'
 
 const licenseStore = useLicenseStore()
+const feedback = createUiFeedback()
 
 // WeChat QR Code
 const wechatDialogVisible = ref(false)
@@ -198,14 +199,14 @@ const licenseStatus = computed(() => licenseStore.status)
 
 const copyMachineCode = async () => {
   if (!isSupported.value) {
-    ElMessage.error('当前环境不支持复制到剪贴板')
+    feedback.warning(formatActionWarning('复制机器码', '当前环境不支持复制到剪贴板'))
     return
   }
   try {
     await copy(machineCode.value) // Explicitly pass the value to copy
-    ElMessage.success('机器码已复制到剪贴板')
+    feedback.success(formatActionSuccess('复制机器码'))
   } catch (e: any) {
-    ElMessage.error(`复制失败: ${e?.message || '未知错误'}`)
+    feedback.error(formatActionError('复制机器码', e))
   }
 }
 
@@ -219,7 +220,7 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error("读取机器码失败", e)
-    ElMessage.error('无法连接后端服务')
+    feedback.error(formatActionError('读取机器码', e))
   }
 })
 
@@ -274,7 +275,7 @@ const isValidating = ref(false)
 
 const handleRegister = async () => {
   if (!registrationCode.value) {
-    ElMessage.warning('请输入注册码')
+    feedback.warning(formatActionWarning('激活软件', '请输入注册码'))
     return
   }
 
@@ -292,11 +293,7 @@ const handleRegister = async () => {
           localStorage.setItem(REGISTRATION_CODE_LEN_STORAGE_KEY, String(lastRegistrationCodeLen.value))
         } catch {}
       }
-       ElMessage.success({
-        message: '软件激活成功！感谢您的支持。',
-        type: 'success',
-        duration: 3000
-      })
+      feedback.success(formatActionSuccess('激活软件', '感谢您的支持'))
       // Update store with new status
       licenseStore.applyStatus({
         valid: res.valid,
@@ -307,11 +304,11 @@ const handleRegister = async () => {
       registrationCode.value = '' // Clear input on success
       isEditingRegistrationCode.value = false
     } else {
-      ElMessage.error(res?.message || '注册验证失败，请确认注册码正确')
+      feedback.error(formatActionError('激活软件', res?.message || '请确认注册码正确'))
     }
   } catch (e: any) {
       console.error(e)
-      ElMessage.error(`激活失败: ${e.message || '未知错误'}`)
+      feedback.error(formatActionError('激活软件', e))
     } finally {
       isValidating.value = false
     }

@@ -1,5 +1,9 @@
-import { ElMessage } from 'element-plus'
 import { open, saveAndRun } from '@/lib/dialog'
+import {
+  createUiFeedback,
+  formatActionError,
+  formatActionSuccess,
+} from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { ref } from 'vue'
 import type { Ref } from 'vue'
@@ -18,6 +22,12 @@ export function useRoomsIO(deps: {
   logError: (msg: string) => void
   logFromText: (msg: string) => void
 }) {
+  const feedback = createUiFeedback({
+    logInfo: deps.logInfo,
+    logSuccess: deps.logSuccess,
+    logError: deps.logError,
+  })
+
   // Loading state for export
   const isExporting = ref(false)
   // Template Generation
@@ -42,8 +52,9 @@ export function useRoomsIO(deps: {
     if (path) {
       const res = await pythonBackend.request<any>('rooms.importSettings', { path })
       if (res?.error) {
-        ElMessage.error(res.error)
-        deps.logError(`导入考场设置失败：${res.error}`)
+        feedback.error(res.error, {
+          logMessage: formatActionError('导入考场设置', res.error),
+        })
       } else if (res?.settings) {
         deps.roomSettings.value = res.settings
         deps.config.totalRooms = res.settings.length
@@ -66,8 +77,9 @@ export function useRoomsIO(deps: {
           }
         }
 
-        ElMessage.success(`成功导入 ${res.settings.length} 个考场设置`)
-        deps.logSuccess(`已导入考场设置：${res.settings.length} 个考场`)
+        feedback.success(`成功导入 ${res.settings.length} 个考场设置`, {
+          logMessage: formatActionSuccess('导入考场设置', `${res.settings.length} 个考场`),
+        })
         deps.activeTab.value = 'settings'
       }
     }
@@ -80,12 +92,14 @@ export function useRoomsIO(deps: {
       deps.studentPath.value = path as string // Save path
       const res = await pythonBackend.request<any>('rooms.importStudents', { path })
       if (res?.error) {
-        ElMessage.error(res.error)
-        deps.logError(`导入考生名册失败：${res.error}`)
+        feedback.error(res.error, {
+          logMessage: formatActionError('导入考生名册', res.error),
+        })
       } else if (res?.students) {
         deps.students.value = res.students
-        ElMessage.success(`成功导入 ${res.total} 名考生`)
-        deps.logSuccess(`已导入考生名册：${res.total} 人`)
+        feedback.success(`成功导入 ${res.total} 名考生`, {
+          logMessage: formatActionSuccess('导入考生名册', `${res.total} 人`),
+        })
         deps.activeTab.value = 'students'
       }
     }
@@ -97,13 +111,15 @@ export function useRoomsIO(deps: {
     if (path) {
       const res = await pythonBackend.request<any>('rooms.importResults', { path })
       if (res?.error) {
-        ElMessage.error(res.error)
-        deps.logError(`导入编排结果失败：${res.error}`)
+        feedback.error(res.error, {
+          logMessage: formatActionError('导入编排结果', res.error),
+        })
       } else if (res?.results) {
         deps.results.value = res.results
         deps.cachedResultsPath.value = String(path)
-        ElMessage.success('导入成功')
-        deps.logSuccess(`已导入编排结果：共 ${res.results.length} 人`)
+        feedback.success('导入成功', {
+          logMessage: formatActionSuccess('导入编排结果', `共 ${res.results.length} 人`),
+        })
         deps.activeTab.value = 'results'
       }
     }

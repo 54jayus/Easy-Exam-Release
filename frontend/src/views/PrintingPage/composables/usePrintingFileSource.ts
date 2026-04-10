@@ -1,7 +1,7 @@
 import { computed, reactive, type Ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { open } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
+import { createUiFeedback, formatActionError, formatActionWarning } from '@/lib/uiFeedback'
 
 type StorageLike = {
   getJsonCache<T>(key: string, fallback: T): T
@@ -59,6 +59,7 @@ export function usePrintingFileSource({
   showMappingDialog,
   getSaveConfigPayload,
 }: UsePrintingFileSourceOptions) {
+  const feedback = createUiFeedback()
   const mapping = reactive<Record<string, string>>({})
   const requiredFields = {
     '考场号': { label: '考场号', required: true },
@@ -190,10 +191,10 @@ export function usePrintingFileSource({
         previewTotal.value = response.total
         if (sourceType.value === 'file') cacheCurrentFileState()
       } else if (response.error) {
-        ElMessage.error(response.error)
+        feedback.error(formatActionError('加载打印预览', response.error))
       }
     } catch (error) {
-      ElMessage.error(`加载预览失败: ${error}`)
+      feedback.error(formatActionError('加载打印预览', error))
     }
   }
 
@@ -218,10 +219,10 @@ export function usePrintingFileSource({
           previewData.value = response.data
           previewTotal.value = response.total
         } else if (response.error) {
-          ElMessage.error(response.error)
+          feedback.error(formatActionError('加载打印预览', response.error))
         }
       } catch (error) {
-        ElMessage.error(`加载预览失败: ${error}`)
+        feedback.error(formatActionError('加载打印预览', error))
       }
       return
     }
@@ -243,10 +244,10 @@ export function usePrintingFileSource({
           showMappingDialog.value = true
         }
       } else if (response.error) {
-        ElMessage.error(response.error)
+        feedback.error(formatActionError('读取打印数据文件', response.error))
       }
     } catch (error) {
-      ElMessage.error(`读取文件失败: ${error}`)
+      feedback.error(formatActionError('读取打印数据文件', error))
     }
   }
 
@@ -258,7 +259,7 @@ export function usePrintingFileSource({
   async function handleConfirmMapping() {
     for (const [key, field] of Object.entries(requiredFields)) {
       if (field.required && !mapping[key]) {
-        ElMessage.warning(`请映射必填字段: ${field.label}`)
+        feedback.warning(formatActionWarning('字段映射', `请映射必填字段：${field.label}`))
         return
       }
     }

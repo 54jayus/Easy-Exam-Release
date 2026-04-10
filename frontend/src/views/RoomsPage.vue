@@ -77,9 +77,11 @@
     />
 
     <!-- Logs Drawer -->
-    <RoomsLogsDrawer
+    <OperationLogsDrawer
       v-model:visible="showLogs"
       :logs="logs"
+      :modal="false"
+      size="380px"
       @clear-logs="clearLogs"
     />
   </div>
@@ -88,20 +90,25 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { Expand } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { applyPageReset } from '@/composables/useAppCacheControl'
+import { useUiLogs } from '@/composables/useUiLogs'
+import OperationLogsDrawer from '@/components/OperationLogsDrawer.vue'
+import {
+  createUiFeedback,
+  formatActionError,
+  formatActionSuccess,
+  formatActionWarning,
+} from '@/lib/uiFeedback'
 import RoomsSidebar from './RoomsPage/RoomsSidebar.vue'
 import RoomsDataTabs from './RoomsPage/RoomsDataTabs.vue'
 import SubjectPriorityDialog from './RoomsPage/SubjectPriorityDialog.vue'
 import GaokaoTimeSettingsDialog from './RoomsPage/GaokaoTimeSettingsDialog.vue'
-import RoomsLogsDrawer from './RoomsPage/RoomsLogsDrawer.vue'
 import { GAOKAO_TIME_DEFAULTS } from '@/types/gaokao'
 import type { GaokaoTimeSettings } from '@/types/gaokao'
 import {
   useRoomsState,
   useRoomsPersistence,
-  useRoomsLogging,
   useRoomsArrangement,
   useRoomsIO,
   SUBJECT_PRIORITY_DEFAULT
@@ -150,7 +157,9 @@ const {
   logError,
   logFromText,
   clearLogs
-} = useRoomsLogging()
+} = useUiLogs()
+
+const feedback = createUiFeedback({ logInfo, logSuccess, logWarning, logError })
 
 const { handleArrange } = useRoomsArrangement({
   studentPath,
@@ -216,19 +225,21 @@ const normalizeSubjectPriorityOrder = (order: unknown): string[] => {
 // Reset page handler
 const handleResetPage = async () => {
   try {
-    await ElMessageBox.confirm(
-      '确定要初始化当前页面吗？这将清除所有考场数据与设置。',
-      '初始化页面',
-      { type: 'warning', confirmButtonText: '初始化', cancelButtonText: '取消' }
-    )
+    await feedback.confirmWarning({
+      message: '确定要初始化当前页面吗？这将清除所有考场数据与设置。',
+      title: '初始化页面',
+      confirmButtonText: '初始化',
+      cancelButtonText: '取消',
+    })
   } catch {
     return
   }
 
   const res = await pythonBackend.request<any>('rooms.resetState', {})
   if (res?.error) {
-    ElMessage.error(res.error)
-    logError(`初始化失败：${res.error}`)
+    feedback.error(res.error, {
+      logMessage: formatActionError('初始化页面', res.error),
+    })
     return
   }
 
@@ -237,44 +248,49 @@ const handleResetPage = async () => {
   showLogs.value = false
   applyPageReset('rooms')
 
-  logInfo('已初始化考场编排页面')
-  ElMessage.success('页面已初始化')
+  feedback.success('页面已初始化', {
+    logMessage: formatActionSuccess('初始化考场编排页面'),
+  })
 }
 
 // Clear settings handler
 const handleClearSettings = async () => {
   try {
-    await ElMessageBox.confirm(
-      '确定要清除考场设置数据吗？',
-      '清除考场设置',
-      { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' }
-    )
+    await feedback.confirmWarning({
+      message: '确定要清除考场设置数据吗？',
+      title: '清除考场设置',
+      confirmButtonText: '清除',
+      cancelButtonText: '取消',
+    })
   } catch {
     return
   }
 
   roomSettings.value = []
   config.totalRooms = 30
-  logInfo('已清除考场设置数据')
-  ElMessage.success('已清除考场设置')
+  feedback.success('已清除考场设置', {
+    logMessage: formatActionSuccess('清除考场设置数据'),
+  })
 }
 
 // Clear students handler
 const handleClearStudents = async () => {
   try {
-    await ElMessageBox.confirm(
-      '确定要清除考生名册数据吗？',
-      '清除考生名册',
-      { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' }
-    )
+    await feedback.confirmWarning({
+      message: '确定要清除考生名册数据吗？',
+      title: '清除考生名册',
+      confirmButtonText: '清除',
+      cancelButtonText: '取消',
+    })
   } catch {
     return
   }
 
   students.value = []
   studentPath.value = ''
-  logInfo('已清除考生名册数据')
-  ElMessage.success('已清除考生名册')
+  feedback.success('已清除考生名册', {
+    logMessage: formatActionSuccess('清除考生名册数据'),
+  })
 }
 
 // Lifecycle
@@ -283,7 +299,7 @@ onMounted(async () => {
   try {
     res = await pythonBackend.request<any>('rooms.getState')
   } catch (e) {
-    logError(`加载状态失败：${e instanceof Error ? e.message : String(e)}`)
+    logError(formatActionError('加载考场编排状态', e))
   }
 
   if (res) {
@@ -311,10 +327,10 @@ onMounted(async () => {
       const r = await pythonBackend.request<any>('rooms.importResults', { path: cachedResultsPath.value })
       if (r?.results) {
         results.value = r.results
-        logInfo(`已从上次导入文件恢复编排结果：共 ${r.results.length} 人`)
+        logInfo(formatActionSuccess('恢复编排结果', `共 ${r.results.length} 人`))
       }
     } catch (e) {
-      logWarning(`自动恢复编排结果失败：${e instanceof Error ? e.message : String(e)}`)
+      logWarning(formatActionWarning('恢复编排结果', e instanceof Error ? e.message : String(e)))
     }
   }
 })

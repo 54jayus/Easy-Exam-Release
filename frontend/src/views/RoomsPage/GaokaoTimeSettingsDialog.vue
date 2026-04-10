@@ -149,6 +149,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
+import { formatActionError, formatActionSuccess } from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { GAOKAO_TIME_DEFAULTS, type GaokaoTimeSettings } from '@/types/gaokao'
 
@@ -236,6 +237,7 @@ const resetToDefault = () => {
     customSelfStudyTime[subject] = false
   }
   ElMessage.success('已恢复为默认时间设置')
+  emit('log-success', formatActionSuccess('恢复默认时间设置'))
 }
 
 const validateSettings = (): string | null => {
@@ -282,17 +284,17 @@ const handleSave = async () => {
 
     if (res?.error) {
       ElMessage.error(res.error)
-      emit('log-error', `保存时间设置失败：${res.error}`)
+      emit('log-error', formatActionError('保存时间设置', res.error))
       return
     }
 
     emit('update:settings', JSON.parse(JSON.stringify(localSettings.value)))
     ElMessage.success('时间设置已保存')
-    emit('log-success', '高考模式时间设置已保存')
+    emit('log-success', formatActionSuccess('保存高考模式时间设置'))
     emit('update:visible', false)
   } catch (e) {
-    ElMessage.error('保存失败: ' + e)
-    emit('log-error', `保存时间设置异常：${e instanceof Error ? e.message : String(e)}`)
+    ElMessage.error(formatActionError('保存时间设置', e))
+    emit('log-error', formatActionError('保存时间设置', e))
   } finally {
     saving.value = false
   }

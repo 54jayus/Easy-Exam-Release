@@ -1,6 +1,6 @@
 import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { pythonBackend } from '@/lib/pythonBackend'
+import { createUiFeedback, formatActionError, formatActionSuccess } from '@/lib/uiFeedback'
 
 export type SubjectRow = {
   name: string
@@ -82,6 +82,7 @@ function mapGaokaoSettingsToRows(settings: any): SubjectRow[] {
 }
 
 export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePrintingSubjectsOptions) {
+  const feedback = createUiFeedback()
   const showSubjectDialog = ref(false)
   const syncingSubjects = ref(false)
   const subjectRows = ref<SubjectRow[]>([])
@@ -191,16 +192,16 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
         const mapped = mapGaokaoSettingsToRows(response?.settings)
         subjectDraftCount.value = Math.min(20, Math.max(1, mapped.length || 8))
         subjectDraftRows.value = ensureSubjectRowsLength(mapped, subjectDraftCount.value)
-        ElMessage.success('已从高考高级设置同步')
+        feedback.success(formatActionSuccess('同步高考高级设置'))
       } else {
         const response = await pythonBackend.request<any>('subjects.list', {})
         const mapped = mapRegularSubjectsToRows((response?.subjects || []) as any[])
         subjectDraftCount.value = Math.min(20, Math.max(1, mapped.length || 9))
         subjectDraftRows.value = ensureSubjectRowsLength(mapped, subjectDraftCount.value)
-        ElMessage.success('已从科目设置同步')
+        feedback.success(formatActionSuccess('同步科目设置'))
       }
     } catch (error) {
-      ElMessage.error(`同步失败: ${error}`)
+      feedback.error(formatActionError('同步科目与时间', error))
     } finally {
       syncingSubjects.value = false
     }

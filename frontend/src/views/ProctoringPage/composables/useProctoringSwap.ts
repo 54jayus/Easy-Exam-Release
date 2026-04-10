@@ -1,5 +1,12 @@
 import type { Ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
+import {
+  createUiFeedback,
+  formatActionError,
+  formatActionStart,
+  formatActionSuccess,
+  formatActionWarning,
+} from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
 
 type ProctoringConfig = {
@@ -41,6 +48,7 @@ export function useProctoringSwap(options: {
     logWarning,
     logError,
   } = options
+  const feedback = createUiFeedback({ logInfo, logSuccess, logWarning, logError })
 
   const toggleAdjustMode = () => {
     adjustMode.value = !adjustMode.value
@@ -48,7 +56,7 @@ export function useProctoringSwap(options: {
     if (adjustMode.value) {
       ElMessageBox.alert('请在监考总览表中点击要交换的两个监考教师姓名。', '进入手动调整模式')
     } else {
-      ElMessage.info('退出手动调整模式')
+      feedback.info(formatActionSuccess('退出手动调整模式'), { toast: true })
     }
   }
 
@@ -118,7 +126,7 @@ export function useProctoringSwap(options: {
       }
     }
 
-    logInfo('开始交换监考安排')
+    logInfo(formatActionStart('交换监考安排'))
     try {
       const p1 = parseCell(c1.roomId, c1.c)
       const p2 = parseCell(c2.roomId, c2.c)
@@ -135,15 +143,17 @@ export function useProctoringSwap(options: {
       if (res.success) {
         schedule.value = res.schedule
         teachers.value = res.teachers
-        logSuccess('交换成功')
-        ElMessage.success('交换成功')
+        feedback.success('交换成功', {
+          logMessage: formatActionSuccess('交换监考安排'),
+        })
       } else {
-        logWarning('交换失败：' + res.message)
-        ElMessage.warning(res.message)
+        feedback.warning(res.message, {
+          logMessage: formatActionWarning('交换监考安排', res.message),
+        })
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      logError('交换异常：' + msg)
+      logError(formatActionError('交换监考安排', msg))
     }
     selectedCells.value = []
   }

@@ -1,4 +1,5 @@
 import { computed, reactive, ref } from 'vue'
+import { formatActionSuccess } from '@/lib/uiFeedback'
 import type { Subject } from '../types'
 
 interface UseSubjectsFormOptions {
@@ -63,14 +64,14 @@ export function useSubjectsForm({
     const deletedName = subjects.value[index].name
     subjects.value.splice(index, 1)
     await syncToBackend()
-    logInfo(`删除科目：${deletedName}`)
+    logInfo(formatActionSuccess('删除科目', deletedName))
     await validateData()
   }
 
   const handleClearAll = async () => {
     subjects.value = []
     await syncToBackend()
-    logInfo('已清空全部科目数据')
+    logInfo(formatActionSuccess('清空科目数据'))
   }
 
   const submitForm = async () => {
@@ -80,10 +81,10 @@ export function useSubjectsForm({
         const newSubject = { ...form }
         if (isEdit.value && editingIndex.value > -1) {
           subjects.value[editingIndex.value] = newSubject
-          logInfo(`更新科目：${newSubject.name}`)
+          logInfo(formatActionSuccess('更新科目', newSubject.name))
         } else {
           subjects.value.push(newSubject)
-          logInfo(`新增科目：${newSubject.name}`)
+          logInfo(formatActionSuccess('新增科目', newSubject.name))
         }
         await syncToBackend()
         dialogVisible.value = false

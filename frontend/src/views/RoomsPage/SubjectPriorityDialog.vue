@@ -60,6 +60,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { formatActionError, formatActionSuccess } from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { SUBJECT_PRIORITY_DEFAULT } from './composables/useRoomsState'
 
@@ -156,16 +157,16 @@ const handleSave = async () => {
     const res = await pythonBackend.request<any>('rooms.setSubjectPriority', { order: normalized })
     if (res?.error) {
       ElMessage.error(res.error)
-      emit('log-error', `保存高级设置失败：${res.error}`)
+      emit('log-error', formatActionError('保存高级设置', res.error))
       return
     }
     emit('update:priorityOrder', [...normalized])
     ElMessage.success('高级设置已保存')
-    emit('log-success', `高级设置已保存：${normalized.join(' > ')}`)
+    emit('log-success', formatActionSuccess('保存高级设置', normalized.join(' > ')))
     emit('update:visible', false)
   } catch (e) {
-    ElMessage.error('保存失败: ' + e)
-    emit('log-error', `保存高级设置异常：${e instanceof Error ? e.message : String(e)}`)
+    ElMessage.error(formatActionError('保存高级设置', e))
+    emit('log-error', formatActionError('保存高级设置', e))
   } finally {
     saving.value = false
   }

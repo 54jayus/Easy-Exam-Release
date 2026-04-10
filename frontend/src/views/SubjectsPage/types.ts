@@ -6,11 +6,3 @@ export interface Subject {
   room_count: number
   remark: string
 }
-
-export type UiLogLevel = 'info' | 'success' | 'warning' | 'error'
-
-export interface UiLogEntry {
-  time: string
-  level: UiLogLevel
-  msg: string
-}

@@ -767,10 +767,10 @@ import {
   Calendar, CircleCheckFilled, Download, Upload, Setting, Fold, Expand, Delete, School,
   Refresh, Back, Right
 } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePageSessionState } from '@/composables/usePageSessionState'
 import { applyPageReset, useAppCacheControl } from '@/composables/useAppCacheControl'
 import { pythonBackend } from '@/lib/pythonBackend'
+import { createUiFeedback, formatActionSuccess } from '@/lib/uiFeedback'
 import { usePrintingFileSource } from './PrintingPage/composables/usePrintingFileSource'
 import { usePrintingDeskLayout } from './PrintingPage/composables/usePrintingDeskLayout'
 import { usePrintingGenerate } from './PrintingPage/composables/usePrintingGenerate'
@@ -785,6 +785,7 @@ import PrintingDeskLayoutDialog from './PrintingPage/components/PrintingDeskLayo
 // --- State ---
 const storage = usePageSessionState('printing')
 const { printingSubjectDependencyEpoch, printingScheduleDependencyEpoch } = useAppCacheControl()
+const feedback = createUiFeedback()
 const getStored = (key: string, def: string) => storage.getPref(key, def)
 
 const sidebarCollapsed = ref(getStored('sidebarCollapsed', 'false') === 'true')
@@ -1017,137 +1018,6 @@ watch(() => config.table.title, (val) => {
    studentInfoTitles[m] = String(val ?? '')
    storage.setJsonPref('studentInfoTitles_v1', { ...studentInfoTitles })
 })
-
-
-
-
-/* Subject management moved to usePrintingSubjects().
-function _formatMonthDay(examDate: string): string {
-   const s = String(examDate || '').trim()
-   const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
-   if (!m) return ''
-   const month = String(parseInt(m[2], 10))
-   const day = String(parseInt(m[3], 10))
-    return `${month}月${day}日`
-}
-
-function _parseSubjectTime(raw: string): { dateText: string; range?: [string, string] } {
-   const s = String(raw ?? '').trim()
-   const m = s.match(/(\d{1,2}:\d{2})\s*[-~]\s*(\d{1,2}:\d{2})/)
-   if (!m) return { dateText: s }
-   const start = m[1]
-   const end = m[2]
-   const idx = m.index ?? 0
-   const dateText = `${s.slice(0, idx)}${s.slice(idx + m[0].length)}`.trim()
-   return { dateText, range: [start, end] }
-}
-
-function _buildSubjectTime(dateText: string, range?: [string, string]): string {
-   const d = String(dateText ?? '').trim()
-   if (range && range[0] && range[1]) return `${d}${range[0]}-${range[1]}`.trim()
-   return d
-}
-
-function _mapRegularSubjectsToRows(list: any[]): SubjectRow[] {
-   return list.slice(0, 20).map((s) => {
-      const name = String(s?.name ?? '')
-      const datePart = _formatMonthDay(String(s?.exam_date ?? ''))
-      const timePart = String(s?.exam_time ?? '')
-      return { name, time: `${datePart}${timePart}`.trim() }
-   })
-}
-
-function _mapGaokaoSettingsToRows(settings: any): SubjectRow[] {
-   const examTimes = settings?.examTimes ?? {}
-   return GAOKAO_PRINTING_SUBJECTS.map((name) => {
-      const cfg = examTimes?.[name]
-      const datePart = _formatMonthDay(String(cfg?.date ?? ''))
-      const start = String(cfg?.startTime ?? '').trim()
-      const end = String(cfg?.endTime ?? '').trim()
-      const range = start && end ? `${start}-${end}` : ''
-      return { name, time: `${datePart}${range}`.trim() }
-   })
-}
-
-async function syncSubjectRowsForCurrentSource() {
-   if (sourceType.value !== 'schedule') return
-
-   if (isGaokaoMode.value) {
-      const res = await pythonBackend.request<any>('rooms.getGaokaoTimeSettings', {})
-      const rows = _mapGaokaoSettingsToRows(res?.settings)
-      _setAndPersistSubjectRows(rows, rows.length || 8)
-      return
-   }
-
-   const res = await pythonBackend.request<any>('subjects.list', {})
-   const rows = _mapRegularSubjectsToRows((res?.subjects || []) as any[])
-   _setAndPersistSubjectRows(rows, rows.length || 9)
-}
-
-function getRowDate(row: SubjectRow): string {
-   return _parseSubjectTime(row.time).dateText
-}
-
-function setRowDate(row: SubjectRow, dateText: string) {
-   const parsed = _parseSubjectTime(row.time)
-   row.time = _buildSubjectTime(dateText, parsed.range)
-}
-
-function getRowTimeRange(row: SubjectRow): [string, string] | undefined {
-   return _parseSubjectTime(row.time).range
-}
-
-function setRowTimeRange(row: SubjectRow, val: unknown) {
-   const parsed = _parseSubjectTime(row.time)
-   if (Array.isArray(val) && val.length === 2 && val[0] && val[1]) {
-      row.time = _buildSubjectTime(parsed.dateText, [String(val[0]), String(val[1])])
-      return
-   }
-   row.time = _buildSubjectTime(parsed.dateText)
-}
-
-function openSubjectDialog() {
-   subjectDraftCount.value = subjectRows.value.length || 9
-   subjectDraftRows.value = subjectRows.value.map(r => ({ ...r }))
-   subjectDraftRows.value = _ensureSubjectRowsLen(subjectDraftRows.value, subjectDraftCount.value)
-   showSubjectDialog.value = true
-}
-
-watch(subjectDraftCount, (val) => {
-   subjectDraftRows.value = _ensureSubjectRowsLen(subjectDraftRows.value, val)
-})
-
-async function handleSyncSubjects() {
-   syncingSubjects.value = true
-   try {
-      if (sourceType.value === 'schedule' && isGaokaoMode.value) {
-         const res = await pythonBackend.request<any>('rooms.getGaokaoTimeSettings', {})
-         const mapped = _mapGaokaoSettingsToRows(res?.settings)
-         subjectDraftCount.value = Math.min(20, Math.max(1, mapped.length || 8))
-         subjectDraftRows.value = _ensureSubjectRowsLen(mapped, subjectDraftCount.value)
-         ElMessage.success('已从高考高级设置同步')
-      } else {
-         const res = await pythonBackend.request<any>('subjects.list', {})
-         const mapped = _mapRegularSubjectsToRows((res?.subjects || []) as any[])
-         subjectDraftCount.value = Math.min(20, Math.max(1, mapped.length || 9))
-         subjectDraftRows.value = _ensureSubjectRowsLen(mapped, subjectDraftCount.value)
-         ElMessage.success('已从科目设置同步')
-      }
-   } catch (e) {
-      ElMessage.error('同步失败: ' + e)
-   } finally {
-      syncingSubjects.value = false
-   }
-}
-
-function handleSaveSubjects() {
-   const rows = _ensureSubjectRowsLen(subjectDraftRows.value, subjectDraftCount.value)
-   subjectRows.value = rows
-   _persistSubjectRows(rows)
-   showSubjectDialog.value = false
-}
-
-*/
 onMounted(async () => {
    // Restore printing state
    try {
@@ -1221,11 +1091,12 @@ onActivated(async () => {
 
 const handleResetPage = async () => {
    try {
-      await ElMessageBox.confirm(
-         '确定要初始化当前页面吗？这将清除所有数据与设置。',
-         '初始化页面',
-         { type: 'warning', confirmButtonText: '初始化', cancelButtonText: '取消' }
-      )
+      await feedback.confirmWarning({
+         message: '确定要初始化当前页面吗？这将清除所有数据与设置。',
+         title: '初始化页面',
+         confirmButtonText: '初始化',
+         cancelButtonText: '取消',
+      })
    } catch {
       return
    }
@@ -1275,7 +1146,7 @@ const handleResetPage = async () => {
    _updatePreviewScale()
 
    applyPageReset('printing')
-   ElMessage.success('页面已初始化')
+   feedback.success(formatActionSuccess('初始化打印页面'))
 }
 
 // --- Computed ---

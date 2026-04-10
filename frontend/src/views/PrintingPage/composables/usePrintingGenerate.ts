@@ -1,7 +1,7 @@
 import { ref, type ComputedRef, type Ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
+import { createUiFeedback, formatActionSuccess, formatActionWarning } from '@/lib/uiFeedback'
 import type { SubjectRow } from './usePrintingSubjects'
 
 type TabOption = {
@@ -53,6 +53,7 @@ export function usePrintingGenerate({
   tabs,
 }: UsePrintingGenerateOptions) {
   const generating = ref(false)
+  const feedback = createUiFeedback()
 
   function getSubjectNames() {
     return isGaokaoMode.value ? [...GAOKAO_SUBJECTS] : subjectRows.value.map((row) => row.name)
@@ -115,16 +116,13 @@ export function usePrintingGenerate({
     if (!missing.length) return true
 
     try {
-      await ElMessageBox.confirm(
-        `已勾选“包含选科列”，但未映射字段：${missing.join('、')}。\n继续生成将导致这些列为空。\n是否继续？`,
-        '字段映射提示',
-        {
-          type: 'warning',
-          confirmButtonText: '继续生成',
-          cancelButtonText: '取消',
-          closeOnClickModal: false,
-        }
-      )
+      await feedback.confirmWarning({
+        message: `已勾选“包含选科列”，但未映射字段：${missing.join('、')}。\n继续生成将导致这些列为空。\n是否继续？`,
+        title: '字段映射提示',
+        confirmButtonText: '继续生成',
+        cancelButtonText: '取消',
+        closeOnClickModal: false,
+      })
       return true
     } catch {
       return false
@@ -158,7 +156,9 @@ export function usePrintingGenerate({
 
         const confirm = result.confirm
         try {
-          await ElMessageBox.confirm(String(confirm.message || ''), String(confirm.title || '提示'), {
+          await feedback.confirm({
+            message: String(confirm.message || ''),
+            title: String(confirm.title || '提示'),
             type: confirm.level === 'warning' || confirm.level === 'question' ? 'warning' : 'info',
             confirmButtonText: '继续生成',
             cancelButtonText: '取消',
@@ -185,9 +185,9 @@ export function usePrintingGenerate({
       const paths = result?.paths
       if (Array.isArray(paths) && paths.length > 1) {
         const fileNames = paths.map((path: string) => path.split(/[\\/]/).pop()).join('、')
-        ElMessage.success(`生成成功：${fileNames}`)
+        feedback.success(formatActionSuccess('生成打印文件', fileNames))
       } else {
-        ElMessage.success('生成成功!')
+        feedback.success(formatActionSuccess('生成打印文件'))
       }
 
       return result
@@ -198,21 +198,21 @@ export function usePrintingGenerate({
 
   async function handleGenerate() {
     if (sourceType.value === 'file' && (!dataPath.value || previewData.value.length === 0)) {
-      return ElMessage.warning('请先加载数据')
+      return feedback.warning(formatActionWarning('生成打印文件', '请先加载数据'))
     }
     if (sourceType.value === 'schedule' && previewData.value.length === 0) {
-      return ElMessage.warning('请先加载考场编排数据')
+      return feedback.warning(formatActionWarning('生成打印文件', '请先加载考场编排数据'))
     }
     if (activeTab.value !== 'exam_bag_label' && sourceType.value === 'file' && !isMappingComplete()) {
       showMappingDialog.value = true
-      return ElMessage.warning('请先完成字段映射')
+      return feedback.warning(formatActionWarning('生成打印文件', '请先完成字段映射'))
     }
     if (!(await confirmOptionalSubjectColumns())) return
 
     const exportXlsx = Boolean(commonConfig.exportXlsx)
     const exportPdf = Boolean(commonConfig.exportPdf)
     if (!exportXlsx && !exportPdf) {
-      return ElMessage.warning('请至少选择一种输出格式（Excel 或 PDF）')
+      return feedback.warning(formatActionWarning('生成打印文件', '请至少选择一种输出格式（Excel 或 PDF）'))
     }
 
     const { bothFormats, defaultFileName } = buildDefaultFileName()

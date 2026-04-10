@@ -4,13 +4,13 @@
     @update:model-value="$emit('update:visible', $event)"
     title="系统操作日志"
     direction="rtl"
-    size="380px"
-    :modal="false"
+    :size="size"
+    :modal="modal"
     class="!shadow-2xl"
   >
     <div class="flex flex-col h-full">
       <div class="flex justify-between items-center mb-6 px-1">
-        <span class="text-xs text-slate-400">记录最近的操作与状态</span>
+        <span class="text-xs text-slate-400">{{ description }}</span>
         <el-button size="small" type="danger" plain @click="$emit('clear-logs')" :disabled="logs.length === 0">
           <el-icon class="mr-1"><Delete /></el-icon> 清空
         </el-button>
@@ -18,7 +18,7 @@
       <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
         <div v-if="logs.length === 0" class="flex flex-col items-center justify-center h-[300px] text-slate-300">
           <el-icon class="text-5xl mb-3 opacity-20"><CollectionTag /></el-icon>
-          <span class="text-sm">暂无日志记录</span>
+          <span class="text-sm">{{ emptyText }}</span>
         </div>
         <div v-else class="space-y-3">
           <div
@@ -51,15 +51,30 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Delete, CollectionTag } from '@element-plus/icons-vue'
-import type { LogEntry } from './composables/useRoomsLogging'
+import type { UiLogEntry } from '@/composables/useUiLogs'
 
 interface Props {
   visible: boolean
-  logs: LogEntry[]
+  logs: UiLogEntry[]
+  description?: string
+  emptyText?: string
+  size?: string
+  modal?: boolean
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  description: '记录最近的操作与状态',
+  emptyText: '暂无日志记录',
+  size: '350px',
+  modal: true,
+})
+
+const description = computed(() => props.description)
+const emptyText = computed(() => props.emptyText)
+const size = computed(() => props.size)
+const modal = computed(() => props.modal)
 
 defineEmits<{
   'update:visible': [value: boolean]

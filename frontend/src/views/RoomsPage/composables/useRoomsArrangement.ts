@@ -1,5 +1,11 @@
-import { ElMessage } from 'element-plus'
 import { pythonBackend } from '@/lib/pythonBackend'
+import {
+  createUiFeedback,
+  formatActionError,
+  formatActionStart,
+  formatActionSuccess,
+  formatActionWarning,
+} from '@/lib/uiFeedback'
 import type { Ref } from 'vue'
 import type { RoomsConfig } from './useRoomsState'
 
@@ -14,13 +20,21 @@ export function useRoomsArrangement(deps: {
   logSuccess: (msg: string) => void
   logError: (msg: string) => void
 }) {
+  const feedback = createUiFeedback({
+    logInfo: deps.logInfo,
+    logSuccess: deps.logSuccess,
+    logError: deps.logError,
+  })
+
   const handleArrange = async () => {
     if (!deps.studentPath.value) {
-      ElMessage.warning('请先导入考生名册')
+      feedback.warning('请先导入考生名册', {
+        logMessage: formatActionWarning('考场编排', '请先导入考生名册'),
+      })
       return
     }
 
-    deps.logInfo('开始考场编排')
+    deps.logInfo(formatActionStart('考场编排'))
     try {
       const res = await pythonBackend.request<any>('rooms.arrange', {
         studentPath: deps.studentPath.value,
@@ -29,17 +43,18 @@ export function useRoomsArrangement(deps: {
       })
 
       if (res?.error) {
-        ElMessage.error(res.error)
-        deps.logError(`编排失败：${res.error}`)
+        feedback.error(res.error, {
+          logMessage: formatActionError('考场编排', res.error),
+        })
       } else if (res?.results) {
         deps.results.value = res.results
-        ElMessage.success('编排完成')
-        deps.logSuccess(`编排完成：共 ${res.results.length} 人`)
+        feedback.success('编排完成', {
+          logMessage: formatActionSuccess('完成考场编排', `共 ${res.results.length} 人`),
+        })
         deps.activeTab.value = 'results'
       }
     } catch (e) {
-      ElMessage.error('编排失败: ' + e)
-      deps.logError(`编排异常：${e instanceof Error ? e.message : String(e)}`)
+      feedback.error(formatActionError('考场编排', e))
     }
   }
 

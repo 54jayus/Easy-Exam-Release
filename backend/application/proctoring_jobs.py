@@ -78,6 +78,9 @@ class ProctoringJobManager:
                 progress["timeLimitSeconds"] = event.get("time_limit_seconds")
                 progress["progressIntervalSeconds"] = event.get("progress_interval_seconds")
                 progress["noImprovementLimitSeconds"] = event.get("no_improvement_limit_seconds")
+                progress["previewResult"] = None
+                progress["previewStageIndex"] = 0
+                progress["previewStageName"] = ""
                 return
 
             if event_type == "stage_started":
@@ -110,7 +113,11 @@ class ProctoringJobManager:
             if event_type == "stage_finished":
                 stages = progress.setdefault("stages", [])
                 stage_index = _to_int(event.get("stage_index"), 0)
-                stage_payload = {k: v for k, v in event.items() if k != "type"}
+                stage_payload = {
+                    k: v
+                    for k, v in event.items()
+                    if k not in {"type", "preview_result"}
+                }
                 replaced = False
                 for idx, stage in enumerate(stages):
                     if _to_int(stage.get("stage_index"), 0) == stage_index:
@@ -130,6 +137,12 @@ class ProctoringJobManager:
                 progress["bestObjectiveValue"] = event.get("value")
                 progress["bestBound"] = event.get("best_bound")
                 progress["objectiveGap"] = event.get("objective_gap")
+                preview_result = event.get("preview_result")
+                if preview_result is not None:
+                    progress["previewResult"] = copy.deepcopy(preview_result)
+                    progress["previewStageIndex"] = stage_index
+                    progress["previewStageName"] = event.get("name")
+                    progress["previewStatus"] = event.get("status")
 
     def _build_job_status_payload(self, job: dict[str, Any]) -> dict[str, Any]:
         now = time.monotonic()
@@ -262,6 +275,9 @@ class ProctoringJobManager:
                     "currentStageName": "",
                     "stages": [],
                     "progressSamples": [],
+                    "previewResult": None,
+                    "previewStageIndex": 0,
+                    "previewStageName": "",
                 },
                 "result": None,
             }

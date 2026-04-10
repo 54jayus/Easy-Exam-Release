@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import { formatActionError } from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
 
 type Subject = {
@@ -70,7 +71,7 @@ export function useProctoringBootstrap(options: {
         }
       }
     } catch (e) {
-      logError('读取监考编排状态失败：' + (e instanceof Error ? e.message : String(e)))
+      logError(formatActionError('读取监考编排状态', e))
     }
   }
 
@@ -92,7 +93,7 @@ export function useProctoringBootstrap(options: {
 
       await loadState()
     } catch (e) {
-      logError('初始化失败：' + (e instanceof Error ? e.message : String(e)))
+      logError(formatActionError('初始化页面', e))
     }
   }
 

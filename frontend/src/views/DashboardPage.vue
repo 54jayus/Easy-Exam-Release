@@ -157,9 +157,10 @@ import {
 import { pythonBackend } from '../lib/pythonBackend'
 import { useLicenseStore } from '../stores/license'
 import { resetFrontendCaches } from '../composables/useAppCacheControl'
-import { ElMessage } from 'element-plus'
+import { createUiFeedback, formatActionError, formatActionSuccess } from '../lib/uiFeedback'
 
 const licenseStore = useLicenseStore()
+const feedback = createUiFeedback()
 
 const iconMap: Record<string, any> = {
   'Notebook': markRaw(Notebook),
@@ -341,11 +342,11 @@ const handleReset = async () => {
     await pythonBackend.request('system.resetData', {})
     resetFrontendCaches()
     await licenseStore.refreshStatus()
-    ElMessage.success('系统已重置')
+    feedback.success(formatActionSuccess('重置系统数据'))
     await loadStats()
     await updateCountdown()
   } catch (e: any) {
-    ElMessage.error(`重置失败: ${e.message || e}`)
+    feedback.error(formatActionError('重置系统数据', e))
   }
 }
 

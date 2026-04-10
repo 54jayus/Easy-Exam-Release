@@ -1,7 +1,11 @@
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { applyPageReset } from '@/composables/useAppCacheControl'
+import type { UiLogEntry } from '@/composables/useUiLogs'
+import {
+  createUiFeedback,
+  formatActionSuccess,
+  formatActionWarning,
+} from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
-import type { UiLogEntry } from '../types'
 
 interface LoggerLike {
   error: (msg: string, err?: unknown) => void
@@ -40,10 +44,13 @@ export function useSubjectsReset({
   logSuccess,
   resetFormState,
 }: UseSubjectsResetOptions) {
+  const feedback = createUiFeedback({ logInfo, logWarning, logSuccess })
+
   const handleClearImport = async () => {
     try {
-      await ElMessageBox.confirm('确定要清除所有科目数据吗？', '清除科目数据', {
-        type: 'warning',
+      await feedback.confirmWarning({
+        message: '确定要清除所有科目数据吗？',
+        title: '清除科目数据',
         confirmButtonText: '清除',
         cancelButtonText: '取消',
       })
@@ -55,16 +62,17 @@ export function useSubjectsReset({
     importedFromFile.value = false
     validationErrors.value = []
     await pythonBackend.request('subjects.update', { subjects: [] })
-    logInfo('已清除科目数据')
+    logSuccess(formatActionSuccess('清除科目数据'))
   }
 
   const handleResetPage = async () => {
     try {
-      await ElMessageBox.confirm(
-        '确定要初始化当前页面吗？这将清除所有数据与设置（科目数据、校验状态、日志、视图偏好等）。',
-        '初始化页面',
-        { type: 'warning', confirmButtonText: '初始化', cancelButtonText: '取消' },
-      )
+      await feedback.confirmWarning({
+        message: '确定要初始化当前页面吗？这将清除所有数据与设置（科目数据、校验状态、日志、视图偏好等）。',
+        title: '初始化页面',
+        confirmButtonText: '初始化',
+        cancelButtonText: '取消',
+      })
     } catch {
       return
     }
@@ -86,19 +94,20 @@ export function useSubjectsReset({
       await pythonBackend.request('subjects.update', { subjects: [] })
     } catch (e) {
       logger.error('初始化时同步科目数据失败', e)
-      logWarning('初始化时同步科目数据失败，重新进入页面时可能恢复旧状态')
+      logWarning(formatActionWarning('初始化页面', '同步科目数据失败，重新进入页面时可能恢复旧状态'))
     }
 
     try {
       await pythonBackend.request('proctoring.clearState')
     } catch (e) {
       logger.error('初始化时重置监考编排失败', e)
-      logWarning('初始化时重置监考编排失败，重新进入页面时可能恢复旧状态')
+      logWarning(formatActionWarning('初始化页面', '重置监考编排失败，重新进入页面时可能恢复旧状态'))
     }
 
     applyPageReset('subjects')
-    logSuccess('页面已初始化，相关监考与打印依赖已同步失效')
-    ElMessage.success('页面已初始化，相关监考与打印依赖已同步失效')
+    feedback.success('页面已初始化，相关监考与打印依赖已同步失效', {
+      logMessage: formatActionSuccess('初始化页面', '相关监考与打印依赖已同步失效'),
+    })
   }
 
   return {

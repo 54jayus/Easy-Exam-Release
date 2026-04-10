@@ -328,39 +328,11 @@
       </div>
     </el-drawer>
 
-    <!-- Logs Drawer -->
-    <el-drawer v-model="showLogs" title="系统操作日志" direction="rtl" size="350px">
-       <div class="flex flex-col h-full">
-          <div class="flex justify-end mb-4">
-             <el-button size="small" type="danger" plain @click="logs = []">
-                <el-icon class="mr-1"><Delete /></el-icon> 清空日志
-             </el-button>
-          </div>
-          <div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
-             <div v-if="logs.length === 0" class="text-slate-400 italic text-center mt-10 flex flex-col items-center">
-                <el-icon class="text-4xl mb-2 opacity-20"><CollectionTag /></el-icon>
-                暂无日志记录...
-             </div>
-             <div v-else class="relative pl-4 border-l border-slate-200 ml-2 space-y-6">
-                <div v-for="(log, idx) in logs" :key="idx" class="relative group">
-                   <!-- Timeline Dot -->
-                   <div class="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm transition-colors"
-                        :class="{
-                           'bg-sky-500': log.level === 'info',
-                           'bg-emerald-500': log.level === 'success',
-                           'bg-rose-500': log.level === 'error',
-                           'bg-amber-500': log.level === 'warning'
-                        }"></div>
-                   
-                   <div class="text-xs text-slate-400 font-mono mb-0.5">{{ log.time }}</div>
-                   <div class="text-sm text-slate-700 break-words group-hover:text-sky-600 transition-colors bg-slate-50 p-2 rounded-lg border border-slate-100 group-hover:border-sky-100 group-hover:bg-sky-50/50">
-                      {{ log.msg }}
-                   </div>
-                </div>
-             </div>
-          </div>
-       </div>
-    </el-drawer>
+    <OperationLogsDrawer
+      v-model:visible="showLogs"
+      :logs="logs"
+      @clear-logs="clearLogs"
+    />
 
     <!-- Dialog -->
     <el-dialog
@@ -418,13 +390,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { usePageSessionState } from '@/composables/usePageSessionState'
+import { useUiLogs } from '@/composables/useUiLogs'
+import OperationLogsDrawer from '@/components/OperationLogsDrawer.vue'
 import {
   Download, Upload, Plus, Warning, WarningFilled,
   Calendar, Clock, Edit, Delete, Timer, Notebook, CollectionTag,
   List, Grid, Fold, Expand
 } from '@element-plus/icons-vue'
 import { createLogger } from '@/lib/logger'
-import { useSubjectsLogs } from './SubjectsPage/composables/useSubjectsLogs'
 import { useSubjectsData } from './SubjectsPage/composables/useSubjectsData'
 import { useSubjectsForm } from './SubjectsPage/composables/useSubjectsForm'
 import { useSubjectsReset } from './SubjectsPage/composables/useSubjectsReset'
@@ -448,10 +421,11 @@ const {
   logInfo,
   logSuccess,
   logWarning,
-  pushLog,
+  logError,
+  clearLogs,
   attachBackendLogs,
   logFromText,
-} = useSubjectsLogs()
+} = useUiLogs()
 
 const {
   syncToBackend,
@@ -469,7 +443,7 @@ const {
   logInfo,
   logSuccess,
   logWarning,
-  logError: (msg: string) => pushLog('error', msg),
+  logError,
   logFromText,
   logger,
 })

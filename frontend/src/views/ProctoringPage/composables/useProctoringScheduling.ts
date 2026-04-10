@@ -1,5 +1,10 @@
 import type { Ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import {
+  createUiFeedback,
+  formatActionError,
+  formatActionStart,
+  formatActionSuccess,
+} from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
 
 type ProctoringConfig = {
@@ -115,6 +120,7 @@ export function useProctoringScheduling(options: {
     logWarning,
     logError,
   } = options
+  const feedback = createUiFeedback({ logInfo, logSuccess, logWarning, logError })
 
   const setOptimizationDetail = (optimization: any, details: any) => {
     optDetail.value = {
@@ -148,10 +154,17 @@ export function useProctoringScheduling(options: {
   const buildProgressText = (job: any, actionName: string) => {
     const progress = job?.progress || {}
     const stageText = humanizeStageName(String(progress?.currentStageName || ''))
+    const previewStageIndex = Number(progress?.previewStageIndex ?? 0)
 
     if (job?.status === 'queued') return `${actionName}：正在排队，准备开始`
     if (job?.status === 'completed') return `${actionName}：已完成`
     if (job?.status === 'failed') return `${actionName}：未完成`
+    if (job?.status === 'running' && progress?.previewResult?.schedule) {
+      const previewLabel = previewStageIndex > 0
+        ? `已显示第 ${previewStageIndex} 阶段结果`
+        : '已显示阶段结果'
+      return `${actionName}：${previewLabel}，${stageText}`
+    }
 
     return `${actionName}：${stageText}`
   }
@@ -176,13 +189,19 @@ export function useProctoringScheduling(options: {
     if (missingCount > 0) {
       schedulingStatus.value = 'warning'
       schedulingStepText.value = `${actionName}已结束，仍有 ${missingCount} 个监考空缺`
-      logWarning(`${actionName}已结束，仍有 ${missingCount} 个监考空缺`)
+      logWarning(`${actionName}提示：仍有 ${missingCount} 个监考空缺`)
       return
     }
 
     schedulingStatus.value = 'success'
     schedulingStepText.value = `${actionName}已完成`
-    logSuccess(`${actionName}已完成`)
+    logSuccess(formatActionSuccess(actionName))
+  }
+
+  const applyPreviewResult = (res: any) => {
+    if (!res?.schedule) return
+    schedule.value = res.schedule
+    teachers.value = res.teachers
   }
 
   const runSolverJob = async (args: {
@@ -203,6 +222,7 @@ export function useProctoringScheduling(options: {
     if (!jobId) throw new Error('后端未返回任务编号')
 
     let lastLogKey = ''
+    let lastPreviewStageIndex = 0
     schedulingProgress.value = 1
     schedulingStatus.value = ''
     schedulingStepText.value = `${actionName}：正在准备`
@@ -222,6 +242,17 @@ export function useProctoringScheduling(options: {
         logInfo(schedulingStepText.value)
       }
 
+      const previewStageIndex = Number(job?.progress?.previewStageIndex ?? 0)
+      if (
+        job?.status === 'running'
+        && previewStageIndex > lastPreviewStageIndex
+        && job?.progress?.previewResult?.schedule
+      ) {
+        lastPreviewStageIndex = previewStageIndex
+        applyPreviewResult(job.progress.previewResult)
+        logInfo(`已显示第 ${previewStageIndex} 阶段结果，系统仍在继续优化`)
+      }
+
       if (job?.status === 'completed') {
         applyCompletedResult(job.result, actionName)
         await sleep(500)
@@ -229,7 +260,7 @@ export function useProctoringScheduling(options: {
         if (optDetail.value && shouldShowOptimizationDetails()) {
           optDetailVisible.value = true
         } else {
-          ElMessage.success(completionToast)
+          feedback.success(completionToast, { log: false })
         }
         return
       }
@@ -262,7 +293,7 @@ export function useProctoringScheduling(options: {
     schedulingStepText.value = '正在准备...'
 
     const actionName = hasPreset.value ? '补全编排' : '智能编排'
-    logInfo(`开始${actionName}`)
+    logInfo(formatActionStart(actionName))
 
     try {
       await runSolverJob({
@@ -277,10 +308,10 @@ export function useProctoringScheduling(options: {
       })
     } catch (e: any) {
       const msg = e?.message || String(e)
-      logError(`监考编排失败：${msg}`)
+      logError(formatActionError(actionName, msg))
       schedulingStatus.value = 'exception'
       schedulingStepText.value = '监考编排未完成'
-      ElMessage.error(`监考编排失败：${msg}`)
+      feedback.error(formatActionError(actionName, msg), { log: false })
       await sleep(1500)
       isScheduling.value = false
     }

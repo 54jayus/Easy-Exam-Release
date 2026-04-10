@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import time
 
+import backend.application.proctoring_service as proctoring_service_module
 from backend.application.proctoring_service import (
     ProctoringService,
     _build_cp_sat_run_log,
@@ -12,6 +13,8 @@ from backend.application.proctoring_service import (
     _teacher_from_dict,
 )
 from backend.domain.state import AppState
+from backend.proctoring.core.entities import Exam
+from backend.proctoring.core.models import Schedule
 
 
 def test_teacher_from_dict_keeps_optional_fields() -> None:
@@ -328,6 +331,76 @@ def test_generate_schedule_cp_sat_reports_stage_progress(recording_repo) -> None
     assert "improvement_count" in first_stage
     assert "progress_samples" in first_stage
     assert isinstance(details["progressSamples"], list)
+
+
+def test_run_cp_sat_formats_stage_preview_result(recording_repo, monkeypatch) -> None:
+    service = ProctoringService(AppState(), recording_repo)
+
+    schedule = Schedule([_teacher_from_dict({"name": "张老师", "maxSessions": 1})], 1, 1, mode="single")
+    schedule.set_constraint("subject_durations", [60])
+    schedule.set_constraint("subject_room_counts", [1])
+
+    preview_teacher = _teacher_from_dict({"name": "张老师", "maxSessions": 1})
+    preview_teacher.assign((1, 1), 60)
+    preview_schedule = Schedule([preview_teacher], 1, 1, mode="single")
+    preview_schedule.set_constraint("subject_durations", [60])
+    preview_schedule.set_constraint("subject_room_counts", [1])
+    preview_exam = Exam(1, [1])
+    preview_exam.schedule[1] = [preview_teacher]
+    preview_schedule.exams = [preview_exam]
+
+    captured_events: list[dict] = []
+
+    def fake_solver(schedule_arg, subject_contexts, **kwargs):
+        assert schedule_arg is schedule
+        assert len(subject_contexts) == 1
+        kwargs["progress_observer"](
+            {
+                "type": "stage_finished",
+                "name": "minimize_max_count",
+                "stage_index": 1,
+                "stage_count": 2,
+                "status": "FEASIBLE",
+                "proven_optimal": False,
+                "preview_schedule": preview_schedule,
+            }
+        )
+        return {
+            "status": "FEASIBLE",
+            "optimal": False,
+            "message": "preview ready",
+            "metrics": {},
+            "stages": [],
+        }
+
+    monkeypatch.setattr(proctoring_service_module, "solve_schedule_with_cp_sat", fake_solver)
+
+    result = service._run_cp_sat(
+        schedule=schedule,
+        subjects_data=[
+            {
+                "id": "1",
+                "name": "语文",
+                "exam_time": "09:00-10:00",
+                "durationMinutes": 60,
+                "rooms": [{"id": 1, "location": "第一考场"}],
+            }
+        ],
+        config={"roomCount": 1, "mode": "single", "balanceMode": "duration"},
+        fix_existing_assignments=False,
+        use_current_solution_as_hint=False,
+        default_time_limit_seconds=90.0,
+        progress_observer=captured_events.append,
+    )
+
+    assert result["status"] == "FEASIBLE"
+    assert len(captured_events) == 1
+    preview_event = captured_events[0]
+    assert "preview_schedule" not in preview_event
+    assert preview_event["preview_result"]["meta"]["complete"] is False
+    assert preview_event["preview_result"]["meta"]["isPreview"] is True
+    assert preview_event["preview_result"]["meta"]["stageIndex"] == 1
+    assert preview_event["preview_result"]["schedule"][0]["rooms"][0]["teachers"][0]["name"] == "张老师"
 
 
 def test_generate_schedule_cp_sat_uses_duration_first_objectives(recording_repo) -> None:

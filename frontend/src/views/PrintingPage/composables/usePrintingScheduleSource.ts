@@ -1,5 +1,5 @@
-import { ElMessage } from 'element-plus'
 import { pythonBackend } from '@/lib/pythonBackend'
+import { createUiFeedback, formatActionError, formatActionSuccess, formatActionWarning } from '@/lib/uiFeedback'
 import type { Ref } from 'vue'
 
 type UsePrintingScheduleSourceOptions = {
@@ -19,6 +19,8 @@ export function usePrintingScheduleSource({
   previewTotal,
   syncSubjectRowsForCurrentSource
 }: UsePrintingScheduleSourceOptions) {
+  const feedback = createUiFeedback()
+
   const applyScheduleModeFromRoomsState = async () => {
     const roomsState = await pythonBackend.request<any>('rooms.getState', {})
     if (roomsState && roomsState.config) {
@@ -70,18 +72,18 @@ export function usePrintingScheduleSource({
 
       const response = await loadSchedulePreview()
       if (response?.data) {
-        ElMessage.success(`\u6210\u529f\u52a0\u8f7d ${response.total} \u6761\u8003\u573a\u7f16\u6392\u6570\u636e`)
+        feedback.success(formatActionSuccess('加载考场编排数据', `${response.total} 条`))
       } else if (response?.error) {
         const message = String(response.error || '')
         if (message.includes('\u6682\u65e0\u8003\u573a\u7f16\u6392\u6570\u636e')) {
-          ElMessage.warning(message)
+          feedback.warning(formatActionWarning('加载考场编排数据', message))
         } else {
-          ElMessage.error(message)
+          feedback.error(formatActionError('加载考场编排数据', message))
         }
       }
     } catch (error) {
       clearSchedulePreview()
-      ElMessage.error(`\u52a0\u8f7d\u8003\u573a\u6570\u636e\u5931\u8d25: ${error}`)
+      feedback.error(formatActionError('加载考场编排数据', error))
     } finally {
       loadingSchedule.value = false
     }

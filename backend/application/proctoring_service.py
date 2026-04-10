@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -37,6 +38,8 @@ from .proctoring_support import (
     _to_int,
 )
 
+logger = logging.getLogger("backend.application.proctoring_service")
+
 class ProctoringService:
     def __init__(self, state: AppState, repo: IStateRepository):
         self._state = state
@@ -59,6 +62,10 @@ class ProctoringService:
         default_time_limit_seconds: float,
         progress_observer=None,
     ) -> dict[str, Any]:
+        solver_progress_observer = self._build_cp_sat_progress_observer(
+            subjects_data=subjects_data,
+            progress_observer=progress_observer,
+        )
         subject_contexts = _build_subject_contexts(subjects_data)
         raw_time_limit = config.get("cpSatTimeLimitSeconds", default_time_limit_seconds)
         try:
@@ -95,8 +102,40 @@ class ProctoringService:
             log_search_progress=bool(config.get("cpSatLogSearchProgress", False)),
             progress_interval_seconds=progress_interval_seconds,
             no_improvement_limit_seconds=no_improvement_limit_seconds,
-            progress_observer=progress_observer,
+            progress_observer=solver_progress_observer,
         )
+
+    def _build_cp_sat_progress_observer(
+        self,
+        *,
+        subjects_data: list[dict],
+        progress_observer,
+    ):
+        if progress_observer is None:
+            return None
+
+        def _forward(event: dict[str, Any]) -> None:
+            payload = dict(event)
+            preview_schedule = payload.pop("preview_schedule", None)
+            if preview_schedule is not None:
+                try:
+                    preview_result = _format_schedule_result(preview_schedule, subjects_data)
+                    preview_result["meta"] = {
+                        "complete": False,
+                        "solver": "cp_sat",
+                        "solverStatus": payload.get("status"),
+                        "optimal": bool(payload.get("proven_optimal", False)),
+                        "stageIndex": payload.get("stage_index"),
+                        "stageCount": payload.get("stage_count"),
+                        "stageName": payload.get("name"),
+                        "isPreview": True,
+                    }
+                    payload["preview_result"] = preview_result
+                except Exception:
+                    logger.debug("Failed to format CP-SAT stage preview result.", exc_info=True)
+            progress_observer(payload)
+
+        return _forward
 
     def start_solver_job(self, params: dict) -> Any:
         return self._job_manager.start_solver_job(params)

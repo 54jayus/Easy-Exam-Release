@@ -1,9 +1,23 @@
 import { ref } from 'vue'
 import dayjs from 'dayjs'
 import { pythonBackend } from '@/lib/pythonBackend'
-import type { UiLogEntry, UiLogLevel } from '../types'
 
-export function useSubjectsLogs() {
+export type UiLogLevel = 'info' | 'success' | 'warning' | 'error'
+
+export interface UiLogEntry {
+  time: string
+  level: UiLogLevel
+  msg: string
+}
+
+type AttachBackendLogsOptions = {
+  rpcErrorPrefix?: string
+  stdoutPrefix?: string
+  stderrPrefix?: string
+  maxLineLength?: number
+}
+
+export function useUiLogs() {
   const showLogs = ref(false)
   const logs = ref<UiLogEntry[]>([])
 
@@ -24,22 +38,31 @@ export function useSubjectsLogs() {
     return logInfo(text)
   }
 
-  const attachBackendLogs = () =>
+  const clearLogs = () => {
+    logs.value = []
+  }
+
+  const attachBackendLogs = (options: AttachBackendLogsOptions = {}) =>
     pythonBackend.onLog((msg, type) => {
+      const maxLineLength = Math.max(20, Number(options.maxLineLength ?? 300) || 300)
+      const rpcErrorPrefix = options.rpcErrorPrefix ?? '后端 RPC 失败'
+      const stdoutPrefix = options.stdoutPrefix ?? '后端stdout'
+      const stderrPrefix = options.stderrPrefix ?? '后端stderr'
+
       if (type === 'stdout') {
         try {
           const obj = JSON.parse(msg)
           if (obj.id !== undefined && (obj.result !== undefined || obj.error !== undefined)) {
             if (obj.error) {
-              logError(`后端 RPC 失败：${String(obj.error)}`)
+              logError(`${rpcErrorPrefix}：${String(obj.error)}`)
             }
             return
           }
         } catch {}
       }
 
-      const displayMsg = msg.length > 300 ? `${msg.slice(0, 300)}...` : msg
-      pushLog(type === 'stderr' ? 'warning' : 'info', `后端${type === 'stderr' ? 'stderr' : 'stdout'}：${displayMsg}`)
+      const displayMsg = msg.length > maxLineLength ? `${msg.slice(0, maxLineLength)}...` : msg
+      pushLog(type === 'stderr' ? 'warning' : 'info', `${type === 'stderr' ? stderrPrefix : stdoutPrefix}：${displayMsg}`)
     })
 
   return {
@@ -51,6 +74,7 @@ export function useSubjectsLogs() {
     logWarning,
     logError,
     logFromText,
+    clearLogs,
     attachBackendLogs,
   }
 }

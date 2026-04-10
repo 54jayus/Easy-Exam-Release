@@ -1,7 +1,5 @@
 import { ref, reactive, computed } from 'vue'
 
-export type UiLogLevel = 'info' | 'success' | 'warning' | 'error'
-
 export interface RoomsConfig {
   totalRooms: number
   seatsPerRoom: number

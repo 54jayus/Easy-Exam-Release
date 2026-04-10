@@ -465,39 +465,11 @@
        </div>
     </div>
 
-    <!-- Logs Drawer -->
-    <el-drawer v-model="showLogs" title="系统操作日志" direction="rtl" size="350px">
-       <div class="flex flex-col h-full">
-          <div class="flex justify-end mb-4">
-             <el-button size="small" type="danger" plain @click="logs = []">
-                <el-icon class="mr-1"><Delete /></el-icon> 清空日志
-             </el-button>
-          </div>
-          <div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
-             <div v-if="logs.length === 0" class="text-slate-400 italic text-center mt-10 flex flex-col items-center">
-                <el-icon class="text-4xl mb-2 opacity-20"><CollectionTag /></el-icon>
-                暂无日志记录...
-             </div>
-             <div v-else class="relative pl-4 border-l border-slate-200 ml-2 space-y-6">
-                <div v-for="(log, idx) in logs" :key="idx" class="relative group">
-                   <!-- Timeline Dot -->
-                   <div class="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm transition-colors"
-                        :class="{
-                           'bg-blue-500': log.level === 'info',
-                           'bg-emerald-500': log.level === 'success',
-                           'bg-rose-500': log.level === 'error',
-                           'bg-amber-500': log.level === 'warning'
-                        }"></div>
-                   
-                   <div class="text-xs text-slate-400 font-mono mb-0.5">{{ log.time }}</div>
-                   <div class="text-sm text-slate-700 break-words group-hover:text-blue-600 transition-colors bg-slate-50 p-2 rounded-lg border border-slate-100 group-hover:border-blue-100 group-hover:bg-blue-50/50">
-                      {{ log.msg }}
-                   </div>
-                </div>
-             </div>
-          </div>
-       </div>
-    </el-drawer>
+    <OperationLogsDrawer
+      v-model:visible="showLogs"
+      :logs="logs"
+      @clear-logs="clearLogs"
+    />
 
     <!-- Preset Dialog -->
     <el-dialog v-model="presetVisible" width="480px" class="preset-dialog">
@@ -870,9 +842,16 @@
 
 <script setup lang="ts">
 import { computed, ref, reactive, watch, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Download, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, Fold, Expand, Setting } from '@element-plus/icons-vue'
 import { usePageSessionState } from '@/composables/usePageSessionState'
+import { useUiLogs } from '@/composables/useUiLogs'
+import OperationLogsDrawer from '@/components/OperationLogsDrawer.vue'
+import {
+  createUiFeedback,
+  formatActionError,
+  formatActionSuccess,
+  formatActionWarning,
+} from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { useProctoringBootstrap } from '@/views/ProctoringPage/composables/useProctoringBootstrap'
 import { useProctoringDataManagement } from '@/views/ProctoringPage/composables/useProctoringDataManagement'
@@ -890,8 +869,6 @@ const getStored = (key: string, def: string) => storage.getPref(key, def)
 const sidebarCollapsed = ref(getStored('sidebarCollapsed', 'false') === 'true')
 const activeTab = ref(getStored('activeTab', 'overview'))
 const advancedSettingsVisible = ref(getStored('advancedSettingsVisible', 'false') === 'true')
-const showLogs = ref(false)
-type UiLogLevel = 'info' | 'success' | 'warning' | 'error'
 type SubjectItem = {
   id: string
   name: string
@@ -901,7 +878,6 @@ type SubjectItem = {
   roomCount: number
   remark?: string
 }
-const logs = ref<{ time: string; level: UiLogLevel; msg: string }[]>([])
 const presetVisible = ref(false)
 const adjustMode = ref(false)
 const selectedCells = ref<{roomId: number, c: string}[]>([])
@@ -973,23 +949,19 @@ const getTeacherObj = (subjectId: string, roomNum: number, idx: number) => {
    return ts.find((t) => t) || null
 }
 
+const {
+  showLogs,
+  logs,
+  logInfo,
+  logSuccess,
+  logWarning,
+  logError,
+  logFromText,
+  clearLogs,
+} = useUiLogs()
+const feedback = createUiFeedback({ logInfo, logSuccess, logWarning, logError })
 
 // --- Methods ---
-
-const pushLog = (level: UiLogLevel, msg: string) => {
-  logs.value.unshift({ time: dayjs().format('HH:mm:ss'), level, msg })
-}
-const logInfo = (msg: string) => pushLog('info', msg)
-const logSuccess = (msg: string) => pushLog('success', msg)
-const logWarning = (msg: string) => pushLog('warning', msg)
-const logError = (msg: string) => pushLog('error', msg)
-const logFromText = (msg: string) => {
-  const m = String(msg || '')
-  if (m.includes('失败') || m.includes('异常') || m.includes('错误')) return logError(m)
-  if (m.includes('警告')) return logWarning(m)
-  if (m.includes('成功') || m.includes('完成')) return logSuccess(m)
-  return logInfo(m)
-}
 
 const { formatVariance, getDiff, getDiffClass } = useProctoringOptimizationMetrics()
 
@@ -1054,7 +1026,7 @@ const formatSubjectSchedule = (subject: SubjectItem) => {
 
 const openSubjectRoomSettings = () => {
   if (!subjects.value.length) {
-    ElMessage.warning('请先导入科目信息')
+    feedback.warning('请先导入科目信息', { log: false })
     return
   }
   subjectRoomDrafts.value = subjects.value.map(cloneSubject)
@@ -1071,11 +1043,12 @@ const saveSubjectRoomSettings = async () => {
 
   if (hasSchedule.value) {
     try {
-      await ElMessageBox.confirm(
-        '保存后将清空当前监考编排结果，是否继续？',
-        '调整科目考场数量',
-        { type: 'warning', confirmButtonText: '继续保存', cancelButtonText: '取消' }
-      )
+      await feedback.confirmWarning({
+        message: '保存后将清空当前监考编排结果，是否继续？',
+        title: '调整科目考场数量',
+        confirmButtonText: '继续保存',
+        cancelButtonText: '取消',
+      })
     } catch {
       return
     }
@@ -1102,17 +1075,18 @@ const saveSubjectRoomSettings = async () => {
 
     if (result?.proctoringReset) {
       clearScheduleAfterSubjectUpdate()
-      ElMessage.warning('科目考场数量已更新，当前监考编排已自动清除')
-      logInfo('科目考场数量已更新，当前监考编排已自动清除')
+      feedback.warning('科目考场数量已更新，当前监考编排已自动清除', {
+        logMessage: formatActionWarning('保存科目考场数量', '监考编排结果已自动清除'),
+      })
       return
     }
 
-    ElMessage.success('科目考场数量已保存')
-    logSuccess('科目考场数量已保存')
+    feedback.success('科目考场数量已保存', {
+      logMessage: formatActionSuccess('保存科目考场数量'),
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    ElMessage.error(`保存失败：${message}`)
-    logError(`保存科目考场数量失败：${message}`)
+    feedback.error(formatActionError('保存科目考场数量', message))
   }
 }
 

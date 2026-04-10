@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import threading
 import time
 from typing import Any, Callable, Sequence
@@ -470,6 +471,11 @@ def solve_schedule_with_cp_sat(
             }
 
         objective_value = _normalize_report_number(solver.ObjectiveValue())
+        continued_with_locked_value = (
+            status != cp_model.OPTIMAL
+            and stage_index < len(stages)
+            and deadline - time.monotonic() > 1e-9
+        )
         stage_reports.append(
             {
                 "name": stage["name"],
@@ -480,18 +486,33 @@ def solve_schedule_with_cp_sat(
                 "stage_count": len(stages),
                 "stop_reason": watchdog_reason.get("reason"),
                 "stop_reason_idle_seconds": watchdog_reason.get("idle_seconds"),
-                "continued_with_locked_value": False,
+                "continued_with_locked_value": continued_with_locked_value,
                 **progress_report,
             }
         )
+        stage_preview_schedule = None
         if progress_observer is not None:
             try:
-                progress_observer(
-                    {
-                        "type": "stage_finished",
-                        **stage_reports[-1],
-                    }
+                stage_preview_schedule = copy.deepcopy(schedule)
+                _apply_solver_result(
+                    stage_preview_schedule,
+                    final_solver=solver,
+                    slot_vars=slot_vars,
+                    subject_contexts=subject_contexts,
+                    rooms_by_subject=rooms_by_subject,
+                    required_slots=required_slots,
                 )
+            except Exception:
+                logger.debug("Failed to build CP-SAT stage preview.", exc_info=True)
+        if progress_observer is not None:
+            try:
+                event = {
+                    "type": "stage_finished",
+                    **stage_reports[-1],
+                }
+                if stage_preview_schedule is not None:
+                    event["preview_schedule"] = stage_preview_schedule
+                progress_observer(event)
             except Exception:
                 logger.debug("Failed to publish CP-SAT stage finish event.", exc_info=True)
         final_solver = solver
@@ -500,9 +521,8 @@ def solve_schedule_with_cp_sat(
         model.Add(stage["expr"] == objective_value)
         if status != cp_model.OPTIMAL:
             optimal = False
-            if stage_index < len(stages) and deadline - time.monotonic() > 1e-9:
+            if continued_with_locked_value:
                 _set_solution_hints(model, solver=solver, slot_vars=slot_vars)
-                stage_reports[-1]["continued_with_locked_value"] = True
                 continue
             break
         if stage_index < len(stages) and deadline - time.monotonic() <= 1e-9:
