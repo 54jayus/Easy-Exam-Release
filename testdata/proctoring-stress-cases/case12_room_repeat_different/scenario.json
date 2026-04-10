@@ -1,0 +1,18 @@
+{
+  "slug": "case12_room_repeat_different",
+  "description": "Single-monitor case with different-room preference enabled.",
+  "operation": "generate",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "single",
+    "balanceMode": "duration",
+    "roomRepeatPreference": "different",
+    "cpSatTimeLimitSeconds": 12,
+    "cpSatNumWorkers": 4
+  },
+  "subject_count": 4,
+  "teacher_count": 12
+}

@@ -1,0 +1,22 @@
+{
+  "slug": "case06_dirty_teacher_import",
+  "description": "Teacher import robustness case with duplicate names and malformed cells.",
+  "operation": "generate",
+  "expected_kind": "teacher_import_error",
+  "subject_file": "testdata\\proctoring-stress-cases\\case06_dirty_teacher_import\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case06_dirty_teacher_import\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [
+    "教师姓名存在重复，不允许导入：['Teacher-01']。建议在重复姓名后加数字1、2区分",
+    "教师 Teacher-03 的最大监考段数不是数字：abc",
+    "教师 Teacher-04 的不监考科目中存在无法识别的项: ['UnknownSubject']。请使用[1..4]的编号或已导入的科目名称",
+    "教师 Teacher-04 的不监考科目中存在越界编号: ['999']（有效范围1..4）",
+    "教师 Teacher-04 的历次监考时长不能为负数：-30"
+  ],
+  "teacher_import_warnings": [
+    "教师 Teacher-04 的预设监考考场包含无法识别的值：room-x，已忽略该预设"
+  ],
+  "observed_status": "teacher_import_error",
+  "error": "教师姓名存在重复，不允许导入：['Teacher-01']。建议在重复姓名后加数字1、2区分\n教师 Teacher-03 的最大监考段数不是数字：abc\n教师 Teacher-04 的不监考科目中存在无法识别的项: ['UnknownSubject']。请使用[1..4]的编号或已导入的科目名称\n教师 Teacher-04 的不监考科目中存在越界编号: ['999']（有效范围1..4）\n教师 Teacher-04 的历次监考时长不能为负数：-30",
+  "passed": true
+}

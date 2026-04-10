@@ -1,0 +1,20 @@
+{
+  "slug": "case04_capacity_shortfall",
+  "description": "Single-monitor case that should fail fast because total capacity is insufficient.",
+  "operation": "generate",
+  "expected": {
+    "kind": "error",
+    "error_contains": [
+      "全局监考名额不足"
+    ]
+  },
+  "config": {
+    "roomCount": 12,
+    "mode": "single",
+    "balanceMode": "duration",
+    "cpSatTimeLimitSeconds": 10,
+    "cpSatNumWorkers": 2
+  },
+  "subject_count": 4,
+  "teacher_count": 10
+}

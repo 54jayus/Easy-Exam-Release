@@ -1,0 +1,21 @@
+{
+  "slug": "case02_double_mixed_constraints",
+  "description": "Double-monitor case with gender and internal/external pairing constraints.",
+  "operation": "generate",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "double",
+    "balanceMode": "session",
+    "genderMix": true,
+    "internalMix": true,
+    "cpSatTimeLimitSeconds": 25,
+    "cpSatNumWorkers": 4,
+    "cpSatNoImprovementSeconds": 3,
+    "cpSatProgressIntervalSeconds": 0.5
+  },
+  "subject_count": 6,
+  "teacher_count": 48
+}

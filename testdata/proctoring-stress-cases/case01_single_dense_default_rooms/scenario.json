@@ -1,0 +1,19 @@
+{
+  "slug": "case01_single_dense_default_rooms",
+  "description": "Single-monitor dense schedule with default room count and mild restrictions.",
+  "operation": "generate",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 20,
+    "mode": "single",
+    "balanceMode": "duration",
+    "cpSatTimeLimitSeconds": 20,
+    "cpSatNumWorkers": 4,
+    "cpSatNoImprovementSeconds": 3,
+    "cpSatProgressIntervalSeconds": 0.5
+  },
+  "subject_count": 8,
+  "teacher_count": 56
+}

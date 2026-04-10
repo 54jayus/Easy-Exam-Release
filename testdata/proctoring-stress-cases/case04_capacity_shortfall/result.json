@@ -1,0 +1,15 @@
+{
+  "slug": "case04_capacity_shortfall",
+  "description": "Single-monitor case that should fail fast because total capacity is insufficient.",
+  "operation": "generate",
+  "expected_kind": "error",
+  "subject_file": "testdata\\proctoring-stress-cases\\case04_capacity_shortfall\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case04_capacity_shortfall\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "solve_seconds": 0.0,
+  "observed_status": "error",
+  "error": "全局监考名额不足：需要 48 人次，只有 20 人次。",
+  "passed": true
+}

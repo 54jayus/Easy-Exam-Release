@@ -1,0 +1,16 @@
+{
+  "slug": "case16_swap_blocked_by_preset",
+  "description": "Manual swap is rejected when a teacher has a fixed preset room.",
+  "operation": "swap",
+  "expected_kind": "error",
+  "subject_file": "testdata\\proctoring-stress-cases\\case16_swap_blocked_by_preset\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case16_swap_blocked_by_preset\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "preset_file": "testdata\\proctoring-stress-cases\\case16_swap_blocked_by_preset\\preset.xlsx",
+  "solve_seconds": 0.008,
+  "observed_status": "error",
+  "error": "教师 Teacher-01 预设房间为 1，不能交换到考场 2",
+  "passed": true
+}

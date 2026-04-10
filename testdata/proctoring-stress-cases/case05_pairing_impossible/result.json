@@ -1,0 +1,15 @@
+{
+  "slug": "case05_pairing_impossible",
+  "description": "Double-monitor case that is infeasible under gender plus internal/external pairing rules.",
+  "operation": "generate",
+  "expected_kind": "error",
+  "subject_file": "testdata\\proctoring-stress-cases\\case05_pairing_impossible\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case05_pairing_impossible\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "solve_seconds": 0.0,
+  "observed_status": "error",
+  "error": "科目1在‘性别+本外校’约束下，合法配对最多 2 对，不足以覆盖 10 个考场。",
+  "passed": true
+}

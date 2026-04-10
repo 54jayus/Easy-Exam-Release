@@ -91,7 +91,9 @@
               v-if="hasSettings"
               class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors duration-200"
               @click.stop.prevent="$emit('clear-settings')"
-            >×</span>
+            >
+              <el-icon :size="12"><Close /></el-icon>
+            </span>
           </button>
           <button
             class="flex items-center justify-center gap-2 p-2 pr-7 bg-white border border-slate-200 rounded-lg hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-50 transition-all duration-200 group relative"
@@ -104,7 +106,9 @@
               v-if="hasStudents"
               class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors duration-200"
               @click.stop.prevent="$emit('clear-students')"
-            >×</span>
+            >
+              <el-icon :size="12"><Close /></el-icon>
+            </span>
           </button>
         </div>
       </section>
@@ -224,7 +228,7 @@
 </template>
 
 <script setup lang="ts">
-import { Setting, ArrowDown, Upload, Download, Fold, Delete } from '@element-plus/icons-vue'
+import { Setting, ArrowDown, Upload, Download, Fold, Delete, Close } from '@element-plus/icons-vue'
 import type { RoomsConfig } from './composables/useRoomsState'
 
 interface Props {

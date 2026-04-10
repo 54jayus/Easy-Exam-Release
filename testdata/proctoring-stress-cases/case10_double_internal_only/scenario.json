@@ -1,0 +1,19 @@
+{
+  "slug": "case10_double_internal_only",
+  "description": "Double-monitor case with only internal/external mix enabled.",
+  "operation": "generate",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "double",
+    "balanceMode": "session",
+    "genderMix": false,
+    "internalMix": true,
+    "cpSatTimeLimitSeconds": 12,
+    "cpSatNumWorkers": 4
+  },
+  "subject_count": 4,
+  "teacher_count": 12
+}

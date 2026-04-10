@@ -1,0 +1,26 @@
+{
+  "slug": "case15_swap_success",
+  "description": "Manual swap succeeds on an imported complete schedule.",
+  "operation": "swap",
+  "expected_kind": "success",
+  "subject_file": "testdata\\proctoring-stress-cases\\case15_swap_success\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case15_swap_success\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "preset_file": "testdata\\proctoring-stress-cases\\case15_swap_success\\preset.xlsx",
+  "solve_seconds": 0.008,
+  "observed_status": "success",
+  "total_slots": 2,
+  "assigned_slots": 2,
+  "unassigned_slots": 0,
+  "solver": null,
+  "solver_status": null,
+  "optimal": false,
+  "teacher_count_after": 2,
+  "position_snapshot": {
+    "subject1-room1-slot0": "Teacher-02",
+    "subject1-room2-slot0": "Teacher-01"
+  },
+  "passed": true
+}

@@ -1,0 +1,23 @@
+{
+  "slug": "case08_feasible_continue_partial_preset",
+  "description": "Feasible continue-scheduling case with partial double-monitor preset assignments.",
+  "operation": "continue",
+  "expected_kind": "success",
+  "subject_file": "testdata\\proctoring-stress-cases\\case08_feasible_continue_partial_preset\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case08_feasible_continue_partial_preset\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "preset_file": "testdata\\proctoring-stress-cases\\case08_feasible_continue_partial_preset\\preset.xlsx",
+  "preset_error": "",
+  "solve_seconds": 4.008,
+  "observed_status": "success",
+  "total_slots": 64,
+  "assigned_slots": 64,
+  "unassigned_slots": 0,
+  "solver": "cp_sat",
+  "solver_status": "FEASIBLE",
+  "optimal": false,
+  "teacher_count_after": 24,
+  "passed": true
+}

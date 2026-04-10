@@ -212,7 +212,7 @@ export function useProctoringDataManagement({
   const handleResetPage = async () => {
     try {
       await feedback.confirmWarning({
-        message: '确定要初始化当前页面吗？这将清除所有数据与设置（教师、科目、编排、预设、日志、参数等）。',
+        message: '确定要初始化当前页面吗？这将清除教师、编排、预设、日志与参数设置，但保留已导入的科目信息。',
         title: '初始化页面',
         confirmButtonText: '初始化',
         cancelButtonText: '取消',
@@ -227,12 +227,12 @@ export function useProctoringDataManagement({
       logWarning(formatActionWarning('初始化页面', `后端状态同步失败：${e instanceof Error ? e.message : String(e)}`))
     }
 
-    subjects.value = []
     teachers.value = []
     logs.value = []
     showLogs.value = false
 
     resetScheduleState()
+    selectedSubjectId.value = subjects.value[0]?.id || ''
 
     config.roomCount = 0
     config.mode = 'single'
@@ -253,7 +253,7 @@ export function useProctoringDataManagement({
 
     applyPageReset('proctoring')
     feedback.success('页面已初始化', {
-      logMessage: formatActionSuccess('初始化页面'),
+      logMessage: formatActionSuccess('初始化页面', '已清除监考页面状态并保留科目数据'),
     })
   }
 

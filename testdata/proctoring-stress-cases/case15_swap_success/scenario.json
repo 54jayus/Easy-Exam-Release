@@ -1,0 +1,19 @@
+{
+  "slug": "case15_swap_success",
+  "description": "Manual swap succeeds on an imported complete schedule.",
+  "operation": "swap",
+  "expected": {
+    "kind": "success",
+    "positions": {
+      "subject1-room1-slot0": "Teacher-02",
+      "subject1-room2-slot0": "Teacher-01"
+    }
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "single",
+    "balanceMode": "duration"
+  },
+  "subject_count": 1,
+  "teacher_count": 2
+}

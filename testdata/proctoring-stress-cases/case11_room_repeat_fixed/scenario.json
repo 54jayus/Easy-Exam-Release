@@ -1,0 +1,18 @@
+{
+  "slug": "case11_room_repeat_fixed",
+  "description": "Single-monitor case with fixed-room preference enabled.",
+  "operation": "generate",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "single",
+    "balanceMode": "duration",
+    "roomRepeatPreference": "fixed",
+    "cpSatTimeLimitSeconds": 12,
+    "cpSatNumWorkers": 4
+  },
+  "subject_count": 4,
+  "teacher_count": 12
+}

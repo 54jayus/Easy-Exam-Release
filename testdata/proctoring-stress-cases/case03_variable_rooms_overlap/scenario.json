@@ -1,0 +1,20 @@
+{
+  "slug": "case03_variable_rooms_overlap",
+  "description": "Single-monitor case with per-subject room counts, overlaps, and anti-consecutive preference.",
+  "operation": "generate",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "single",
+    "balanceMode": "duration",
+    "avoidConsecutiveSessions": true,
+    "cpSatTimeLimitSeconds": 20,
+    "cpSatNumWorkers": 4,
+    "cpSatNoImprovementSeconds": 3,
+    "cpSatProgressIntervalSeconds": 0.5
+  },
+  "subject_count": 7,
+  "teacher_count": 30
+}

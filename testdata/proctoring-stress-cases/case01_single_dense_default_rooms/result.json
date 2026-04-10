@@ -1,0 +1,21 @@
+{
+  "slug": "case01_single_dense_default_rooms",
+  "description": "Single-monitor dense schedule with default room count and mild restrictions.",
+  "operation": "generate",
+  "expected_kind": "success",
+  "subject_file": "testdata\\proctoring-stress-cases\\case01_single_dense_default_rooms\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case01_single_dense_default_rooms\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "solve_seconds": 13.046,
+  "observed_status": "success",
+  "total_slots": 160,
+  "assigned_slots": 160,
+  "unassigned_slots": 0,
+  "solver": "cp_sat",
+  "solver_status": "FEASIBLE",
+  "optimal": false,
+  "teacher_count_after": 56,
+  "passed": true
+}

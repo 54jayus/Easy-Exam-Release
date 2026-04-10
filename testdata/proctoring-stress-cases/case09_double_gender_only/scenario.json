@@ -1,0 +1,19 @@
+{
+  "slug": "case09_double_gender_only",
+  "description": "Double-monitor case with only gender-mix enabled.",
+  "operation": "generate",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "double",
+    "balanceMode": "duration",
+    "genderMix": true,
+    "internalMix": false,
+    "cpSatTimeLimitSeconds": 12,
+    "cpSatNumWorkers": 4
+  },
+  "subject_count": 4,
+  "teacher_count": 12
+}

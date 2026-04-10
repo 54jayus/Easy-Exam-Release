@@ -1,0 +1,18 @@
+{
+  "slug": "case16_swap_blocked_by_preset",
+  "description": "Manual swap is rejected when a teacher has a fixed preset room.",
+  "operation": "swap",
+  "expected": {
+    "kind": "error",
+    "error_contains": [
+      "预设房间为"
+    ]
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "single",
+    "balanceMode": "duration"
+  },
+  "subject_count": 1,
+  "teacher_count": 2
+}

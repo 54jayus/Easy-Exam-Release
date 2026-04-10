@@ -1,0 +1,21 @@
+{
+  "slug": "case02_double_mixed_constraints",
+  "description": "Double-monitor case with gender and internal/external pairing constraints.",
+  "operation": "generate",
+  "expected_kind": "success",
+  "subject_file": "testdata\\proctoring-stress-cases\\case02_double_mixed_constraints\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case02_double_mixed_constraints\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "solve_seconds": 7.885,
+  "observed_status": "success",
+  "total_slots": 192,
+  "assigned_slots": 192,
+  "unassigned_slots": 0,
+  "solver": "cp_sat",
+  "solver_status": "FEASIBLE",
+  "optimal": false,
+  "teacher_count_after": 48,
+  "passed": true
+}

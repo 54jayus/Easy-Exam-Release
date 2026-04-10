@@ -48,34 +48,38 @@
 
              <div class="grid grid-cols-2 gap-2">
                 <button
-                   class="flex items-center justify-center gap-2 p-2 pr-7 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group relative"
+                  class="flex min-h-10 items-center justify-center gap-1 px-2.5 py-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group"
+                  @click="handleTemplate"
+                >
+                   <el-icon class="shrink-0 text-sm leading-none text-slate-400 group-hover:text-sky-500 transition-colors duration-200"><Download /></el-icon>
+                   <span class="whitespace-nowrap text-xs leading-none font-medium text-slate-600 group-hover:text-sky-700 transition-colors duration-200">下载模板</span>
+                </button>
+                <button
+                   class="flex min-h-10 items-center justify-center px-2.5 py-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group"
                    :class="importedFromFile ? '!border-sky-500 bg-sky-50/50' : ''"
                    @click="handleImport"
                 >
-                   <el-icon class="text-base transition-colors duration-200" :class="importedFromFile ? 'text-sky-600' : 'text-slate-400 group-hover:text-sky-500'"><Upload /></el-icon>
-                   <span class="text-xs font-medium transition-colors duration-200" :class="importedFromFile ? 'text-sky-700 font-bold' : 'text-slate-600 group-hover:text-sky-700'">导入科目</span>
-                   <span
-                      v-if="importedFromFile"
-                      class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-sky-600 hover:bg-sky-100 transition-colors duration-200"
-                      @click.stop.prevent="handleClearImport"
-                   >x</span>
-                </button>
-                <button
-                  class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group"
-                  @click="handleTemplate"
-                >
-                   <el-icon class="text-base text-slate-400 group-hover:text-sky-500 transition-colors"><Download /></el-icon>
-                   <span class="text-xs font-medium text-slate-600 group-hover:text-sky-700">下载模板</span>
+                   <span class="inline-flex items-center justify-center gap-1">
+                      <el-icon class="shrink-0 text-sm leading-none transition-colors duration-200" :class="importedFromFile ? 'text-sky-600' : 'text-slate-400 group-hover:text-sky-500'"><Upload /></el-icon>
+                      <span class="whitespace-nowrap text-xs leading-none font-medium transition-colors duration-200" :class="importedFromFile ? 'text-sky-700 font-semibold' : 'text-slate-600 group-hover:text-sky-700'">导入科目</span>
+                      <span
+                         v-if="importedFromFile"
+                         class="flex h-4 w-4 items-center justify-center rounded text-sky-600 hover:bg-sky-100 transition-colors duration-200"
+                         @click.stop.prevent="handleClearImport"
+                      >
+                         <el-icon :size="10"><Close /></el-icon>
+                      </span>
+                   </span>
                 </button>
              </div>
 
              <button
-               class="flex w-full items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group"
+               class="flex min-h-10 w-full items-center justify-center gap-1 px-2.5 py-2 bg-white border border-slate-200 rounded-lg hover:border-sky-400 hover:shadow-md hover:shadow-sky-50 transition-[border-color,box-shadow] duration-200 group"
                @click="handleExport"
                :disabled="subjects.length === 0"
              >
-                 <el-icon class="text-base text-slate-400 group-hover:text-sky-500 transition-colors"><Download /></el-icon>
-                 <span class="text-xs font-medium text-slate-600 group-hover:text-sky-700">导出科目</span>
+                 <el-icon class="shrink-0 text-sm leading-none text-slate-400 group-hover:text-sky-500 transition-colors duration-200"><Download /></el-icon>
+                 <span class="whitespace-nowrap text-xs leading-none font-medium text-slate-600 group-hover:text-sky-700 transition-colors duration-200">导出科目</span>
              </button>
           </section>
 
@@ -395,7 +399,7 @@ import OperationLogsDrawer from '@/components/OperationLogsDrawer.vue'
 import {
   Download, Upload, Plus, Warning, WarningFilled,
   Calendar, Clock, Edit, Delete, Timer, Notebook, CollectionTag,
-  List, Grid, Fold, Expand
+  List, Grid, Fold, Expand, Close
 } from '@element-plus/icons-vue'
 import { createLogger } from '@/lib/logger'
 import { useSubjectsData } from './SubjectsPage/composables/useSubjectsData'

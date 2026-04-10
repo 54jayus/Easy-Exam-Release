@@ -1,0 +1,24 @@
+{
+  "slug": "case13_invalid_preset_warning_success",
+  "description": "Teacher import warnings for invalid preset rooms should not block scheduling.",
+  "operation": "generate",
+  "expected_kind": "success",
+  "subject_file": "testdata\\proctoring-stress-cases\\case13_invalid_preset_warning_success\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case13_invalid_preset_warning_success\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [
+    "教师 Teacher-01 的预设监考考场越界：99（有效范围1..2），已忽略该预设",
+    "教师 Teacher-02 的预设监考考场包含无法识别的值：room-x，已忽略该预设"
+  ],
+  "solve_seconds": 0.074,
+  "observed_status": "success",
+  "total_slots": 6,
+  "assigned_slots": 6,
+  "unassigned_slots": 0,
+  "solver": "cp_sat",
+  "solver_status": "OPTIMAL",
+  "optimal": true,
+  "teacher_count_after": 6,
+  "passed": true
+}

@@ -1,0 +1,20 @@
+{
+  "slug": "case07_locked_conflict_continue",
+  "description": "Continue-scheduling case with overlapping locked assignments for the same teacher.",
+  "operation": "continue",
+  "expected": {
+    "kind": "error",
+    "error_contains": [
+      "导入的锁定安排存在冲突"
+    ]
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "single",
+    "balanceMode": "duration",
+    "cpSatTimeLimitSeconds": 10,
+    "cpSatNumWorkers": 2
+  },
+  "subject_count": 2,
+  "teacher_count": 5
+}

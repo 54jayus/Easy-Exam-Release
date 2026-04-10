@@ -1,0 +1,25 @@
+{
+  "slug": "case06_dirty_teacher_import",
+  "description": "Teacher import robustness case with duplicate names and malformed cells.",
+  "operation": "generate",
+  "expected": {
+    "kind": "teacher_import_error",
+    "error_contains": [
+      "教师姓名存在重复",
+      "最大监考段数不是数字",
+      "无法识别的项",
+      "越界编号",
+      "历次监考时长不能为负数"
+    ],
+    "warning_contains": [
+      "预设监考考场"
+    ]
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "single",
+    "balanceMode": "duration"
+  },
+  "subject_count": 4,
+  "teacher_count": 4
+}

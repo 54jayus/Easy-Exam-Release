@@ -1,0 +1,15 @@
+{
+  "slug": "case14_import_schedule_complete",
+  "description": "Import a complete single-monitor schedule workbook.",
+  "operation": "import_schedule",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "single",
+    "balanceMode": "duration"
+  },
+  "subject_count": 2,
+  "teacher_count": 6
+}

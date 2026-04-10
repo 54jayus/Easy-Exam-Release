@@ -1,0 +1,22 @@
+{
+  "slug": "case14_import_schedule_complete",
+  "description": "Import a complete single-monitor schedule workbook.",
+  "operation": "import_schedule",
+  "expected_kind": "success",
+  "subject_file": "testdata\\proctoring-stress-cases\\case14_import_schedule_complete\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case14_import_schedule_complete\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "preset_file": "testdata\\proctoring-stress-cases\\case14_import_schedule_complete\\preset.xlsx",
+  "solve_seconds": 0.008,
+  "observed_status": "success",
+  "total_slots": 6,
+  "assigned_slots": 6,
+  "unassigned_slots": 0,
+  "solver": null,
+  "solver_status": null,
+  "optimal": false,
+  "teacher_count_after": 6,
+  "passed": true
+}

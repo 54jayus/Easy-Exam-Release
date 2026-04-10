@@ -1,0 +1,21 @@
+{
+  "slug": "case08_feasible_continue_partial_preset",
+  "description": "Feasible continue-scheduling case with partial double-monitor preset assignments.",
+  "operation": "continue",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 8,
+    "mode": "double",
+    "balanceMode": "duration",
+    "genderMix": true,
+    "internalMix": true,
+    "cpSatTimeLimitSeconds": 20,
+    "cpSatNumWorkers": 4,
+    "cpSatNoImprovementSeconds": 3,
+    "cpSatProgressIntervalSeconds": 0.5
+  },
+  "subject_count": 4,
+  "teacher_count": 24
+}

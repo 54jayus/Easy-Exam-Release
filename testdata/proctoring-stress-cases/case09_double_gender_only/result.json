@@ -1,0 +1,21 @@
+{
+  "slug": "case09_double_gender_only",
+  "description": "Double-monitor case with only gender-mix enabled.",
+  "operation": "generate",
+  "expected_kind": "success",
+  "subject_file": "testdata\\proctoring-stress-cases\\case09_double_gender_only\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case09_double_gender_only\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "solve_seconds": 0.191,
+  "observed_status": "success",
+  "total_slots": 48,
+  "assigned_slots": 48,
+  "unassigned_slots": 0,
+  "solver": "cp_sat",
+  "solver_status": "OPTIMAL",
+  "optimal": true,
+  "teacher_count_after": 12,
+  "passed": true
+}

@@ -1,0 +1,21 @@
+{
+  "slug": "case12_room_repeat_different",
+  "description": "Single-monitor case with different-room preference enabled.",
+  "operation": "generate",
+  "expected_kind": "success",
+  "subject_file": "testdata\\proctoring-stress-cases\\case12_room_repeat_different\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case12_room_repeat_different\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "solve_seconds": 1.325,
+  "observed_status": "success",
+  "total_slots": 24,
+  "assigned_slots": 24,
+  "unassigned_slots": 0,
+  "solver": "cp_sat",
+  "solver_status": "OPTIMAL",
+  "optimal": true,
+  "teacher_count_after": 12,
+  "passed": true
+}

@@ -1,0 +1,17 @@
+{
+  "slug": "case07_locked_conflict_continue",
+  "description": "Continue-scheduling case with overlapping locked assignments for the same teacher.",
+  "operation": "continue",
+  "expected_kind": "error",
+  "subject_file": "testdata\\proctoring-stress-cases\\case07_locked_conflict_continue\\subjects.xlsx",
+  "teacher_file": "testdata\\proctoring-stress-cases\\case07_locked_conflict_continue\\teachers.xlsx",
+  "subject_import_errors": [],
+  "teacher_import_errors": [],
+  "teacher_import_warnings": [],
+  "preset_file": "testdata\\proctoring-stress-cases\\case07_locked_conflict_continue\\preset.xlsx",
+  "preset_error": "",
+  "solve_seconds": 0.012,
+  "observed_status": "error",
+  "error": "导入的锁定安排存在冲突：Teacher-01 同时被锁定在 科目01 和 科目02，两场考试时间重叠，无法同时监考。",
+  "passed": true
+}

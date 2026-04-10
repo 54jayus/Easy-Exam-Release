@@ -1,0 +1,22 @@
+{
+  "slug": "case05_pairing_impossible",
+  "description": "Double-monitor case that is infeasible under gender plus internal/external pairing rules.",
+  "operation": "generate",
+  "expected": {
+    "kind": "error",
+    "error_contains": [
+      "性别+本外校"
+    ]
+  },
+  "config": {
+    "roomCount": 0,
+    "mode": "double",
+    "balanceMode": "session",
+    "genderMix": true,
+    "internalMix": true,
+    "cpSatTimeLimitSeconds": 10,
+    "cpSatNumWorkers": 2
+  },
+  "subject_count": 3,
+  "teacher_count": 20
+}
