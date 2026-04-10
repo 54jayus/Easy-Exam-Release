@@ -906,7 +906,6 @@ const config = reactive({
   internalMix: false,
   roomRepeatPreference: '',
   avoidConsecutiveSessions: false,
-  consecutiveGapMinutes: 0,
 })
 
 // Data

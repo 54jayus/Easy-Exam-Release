@@ -17,7 +17,6 @@ type ProctoringConfig = {
   internalMix: boolean
   roomRepeatPreference?: string
   avoidConsecutiveSessions?: boolean
-  consecutiveGapMinutes?: number
 }
 
 type SelectedCell = { roomId: number; c: string }

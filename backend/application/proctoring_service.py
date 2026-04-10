@@ -6,8 +6,12 @@ from typing import Any
 
 import pandas as pd
 
+from backend.proctoring.core.cp_sat import (
+    _diagnose_locked_assignment_conflicts,
+    solve_schedule_with_cp_sat,
+)
+from backend.proctoring.core.cp_sat.assignment import _collect_existing_slot_assignments
 from backend.domain.state import AppState
-from backend.proctoring.core.cp_sat import solve_schedule_with_cp_sat
 from backend.proctoring.core.models import Schedule
 from backend.proctoring.schedule_export import export_schedule_workbook_to_excel
 from backend.proctoring.schedule_import import import_schedule_from_excel
@@ -67,6 +71,18 @@ class ProctoringService:
             progress_observer=progress_observer,
         )
         subject_contexts = _build_subject_contexts(subjects_data)
+        precheck_error = self._precheck_cp_sat_inputs(
+            schedule=schedule,
+            subject_contexts=subject_contexts,
+            fix_existing_assignments=fix_existing_assignments,
+        )
+        if precheck_error:
+            return {
+                "status": "INFEASIBLE",
+                "optimal": False,
+                "message": precheck_error,
+                "stages": [],
+            }
         raw_time_limit = config.get("cpSatTimeLimitSeconds", default_time_limit_seconds)
         try:
             time_limit_seconds = float(raw_time_limit)
@@ -98,11 +114,43 @@ class ProctoringService:
             num_workers=max(1, _to_int(config.get("cpSatNumWorkers"), 8)),
             room_repeat_preference=(config.get("roomRepeatPreference") or "").strip() or None,
             avoid_consecutive_sessions=bool(config.get("avoidConsecutiveSessions", False)),
-            consecutive_gap_minutes=max(0, _to_int(config.get("consecutiveGapMinutes"), 0)),
             log_search_progress=bool(config.get("cpSatLogSearchProgress", False)),
             progress_interval_seconds=progress_interval_seconds,
             no_improvement_limit_seconds=no_improvement_limit_seconds,
             progress_observer=solver_progress_observer,
+        )
+
+    def _precheck_cp_sat_inputs(
+        self,
+        *,
+        schedule: Schedule,
+        subject_contexts: list[Any],
+        fix_existing_assignments: bool,
+    ) -> str | None:
+        feasible, message = schedule.check_feasibility()
+        if not feasible:
+            return str(message)
+
+        if not schedule.exams:
+            return None
+
+        required_slots = 2 if schedule.mode == "double" else 1
+        teacher_index_by_name = {
+            teacher.name: index for index, teacher in enumerate(schedule.teachers)
+        }
+        fixed_slots, _ = _collect_existing_slot_assignments(
+            schedule,
+            teacher_index_by_name=teacher_index_by_name,
+            required_slots=required_slots,
+            fix_existing_assignments=fix_existing_assignments,
+        )
+        if not fixed_slots:
+            return None
+
+        return _diagnose_locked_assignment_conflicts(
+            schedule,
+            fixed_slots=fixed_slots,
+            subject_contexts=subject_contexts,
         )
 
     def _build_cp_sat_progress_observer(

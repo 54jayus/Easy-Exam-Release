@@ -19,7 +19,6 @@ type ProctoringConfig = {
   internalMix: boolean
   roomRepeatPreference?: string
   avoidConsecutiveSessions?: boolean
-  consecutiveGapMinutes?: number
 }
 
 export function useProctoringBootstrap(options: {
@@ -60,7 +59,6 @@ export function useProctoringBootstrap(options: {
           config.roomRepeatPreference = ''
         }
         config.avoidConsecutiveSessions = Boolean(config.avoidConsecutiveSessions)
-        config.consecutiveGapMinutes = Number(config.consecutiveGapMinutes ?? 0) || 0
 
         if (res.schedule && Array.isArray(res.schedule)) {
           hasPreset.value = res.schedule.some((subj: any) =>

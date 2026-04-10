@@ -27,6 +27,39 @@ from .objectives import _build_objective_stages
 from .progress import _StageProgressTracker
 
 
+def _add_double_slot_symmetry_breaking(
+    model,
+    *,
+    subject_contexts: Sequence[SubjectContext],
+    rooms_by_subject: dict[int, list[int]],
+    slot_vars: dict[tuple[int, tuple[int, int, int]], Any],
+    candidate_teachers: dict[tuple[int, int, int], list[int]],
+    fixed_slots: dict[tuple[int, int, int], int],
+) -> None:
+    for context in subject_contexts:
+        for room in rooms_by_subject[context.subject_id]:
+            left_slot = (context.subject_id, room, 0)
+            right_slot = (context.subject_id, room, 1)
+            if left_slot in fixed_slots or right_slot in fixed_slots:
+                continue
+
+            left_terms = [
+                (teacher_index + 1) * slot_vars[(teacher_index, left_slot)]
+                for teacher_index in candidate_teachers.get(left_slot, [])
+                if (teacher_index, left_slot) in slot_vars
+            ]
+            right_terms = [
+                (teacher_index + 1) * slot_vars[(teacher_index, right_slot)]
+                for teacher_index in candidate_teachers.get(right_slot, [])
+                if (teacher_index, right_slot) in slot_vars
+            ]
+            if not left_terms or not right_terms:
+                continue
+
+            # When the two monitor slots are interchangeable, canonicalize teacher order.
+            model.Add(sum(left_terms) <= sum(right_terms))
+
+
 def solve_schedule_with_cp_sat(
     schedule,
     subject_contexts: Sequence[SubjectContext],
@@ -37,7 +70,6 @@ def solve_schedule_with_cp_sat(
     num_workers: int = 8,
     room_repeat_preference: str | None = None,
     avoid_consecutive_sessions: bool = False,
-    consecutive_gap_minutes: int = 0,
     log_search_progress: bool = False,
     progress_interval_seconds: float = 5.0,
     no_improvement_limit_seconds: float | None = None,
@@ -140,6 +172,16 @@ def solve_schedule_with_cp_sat(
                 model.Add(sum(slot_exprs) == 1)
                 if fixed_teacher is not None:
                     model.Add(slot_vars[(fixed_teacher, slot_key)] == 1)
+
+    if required_slots == 2 and not schedule.get_constraint("internal_mix", False):
+        _add_double_slot_symmetry_breaking(
+            model,
+            subject_contexts=subject_contexts,
+            rooms_by_subject=rooms_by_subject,
+            slot_vars=slot_vars,
+            candidate_teachers=candidate_teachers,
+            fixed_slots=fixed_slots,
+        )
 
     subject_load_vars: dict[tuple[int, int], Any] = {}
     count_vars: list[Any] = []
@@ -246,10 +288,7 @@ def solve_schedule_with_cp_sat(
 
     consecutive_total = None
     if avoid_consecutive_sessions:
-        consecutive_pairs = _build_consecutive_pairs(
-            subject_contexts,
-            gap_minutes=max(0, consecutive_gap_minutes),
-        )
+        consecutive_pairs = _build_consecutive_pairs(subject_contexts)
         if consecutive_pairs:
             pair_vars = []
             for teacher_index in range(teacher_count):

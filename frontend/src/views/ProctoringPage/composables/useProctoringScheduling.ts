@@ -15,7 +15,6 @@ type ProctoringConfig = {
   internalMix: boolean
   roomRepeatPreference?: string
   avoidConsecutiveSessions?: boolean
-  consecutiveGapMinutes?: number
   cpSatNoImprovementSeconds?: number
   cpSatProgressIntervalSeconds?: number
 }
@@ -45,14 +44,16 @@ const humanizeStageName = (stageName: string) => {
     case 'minimize_max_overall_duration':
     case 'maximize_min_overall_duration':
     case 'minimize_overall_duration_deviation':
-      return '正在平衡老师监考时长'
+      return '正在均衡老师的监考时长'
     case 'minimize_count_range':
     case 'minimize_max_count':
+    case 'maximize_min_count':
     case 'minimize_count_deviation':
-      return '正在平衡老师监考场次'
+      return '正在均衡老师的监考场次'
     case 'minimize_distinct_rooms':
+      return '正在尽量固定老师考场安排'
     case 'maximize_distinct_rooms':
-      return '正在调整老师的考场安排'
+      return '正在尽量轮换老师考场安排'
     case 'minimize_consecutive_sessions':
       return '正在尽量减少连续监考'
     default:
@@ -144,9 +145,6 @@ export function useProctoringScheduling(options: {
     ...config,
     roomRepeatPreference: config.roomRepeatPreference ?? '',
     avoidConsecutiveSessions: Boolean(config.avoidConsecutiveSessions),
-    consecutiveGapMinutes: config.avoidConsecutiveSessions
-      ? Number(config.consecutiveGapMinutes ?? 0)
-      : 0,
     cpSatNoImprovementSeconds: config.cpSatNoImprovementSeconds ?? DEFAULT_NO_IMPROVEMENT_SECONDS,
     cpSatProgressIntervalSeconds: config.cpSatProgressIntervalSeconds ?? DEFAULT_PROGRESS_INTERVAL_SECONDS,
   })
@@ -154,19 +152,11 @@ export function useProctoringScheduling(options: {
   const buildProgressText = (job: any, actionName: string) => {
     const progress = job?.progress || {}
     const stageText = humanizeStageName(String(progress?.currentStageName || ''))
-    const previewStageIndex = Number(progress?.previewStageIndex ?? 0)
 
     if (job?.status === 'queued') return `${actionName}：正在排队，准备开始`
     if (job?.status === 'completed') return `${actionName}：已完成`
     if (job?.status === 'failed') return `${actionName}：未完成`
-    if (job?.status === 'running' && progress?.previewResult?.schedule) {
-      const previewLabel = previewStageIndex > 0
-        ? `已显示第 ${previewStageIndex} 阶段结果`
-        : '已显示阶段结果'
-      return `${actionName}：${previewLabel}，${stageText}`
-    }
-
-    return `${actionName}：${stageText}`
+    return `${actionName}：${stageText || '正在处理'}`
   }
 
   const buildProgressLogKey = (job: any) => {
@@ -250,7 +240,6 @@ export function useProctoringScheduling(options: {
       ) {
         lastPreviewStageIndex = previewStageIndex
         applyPreviewResult(job.progress.previewResult)
-        logInfo(`已显示第 ${previewStageIndex} 阶段结果，系统仍在继续优化`)
       }
 
       if (job?.status === 'completed') {

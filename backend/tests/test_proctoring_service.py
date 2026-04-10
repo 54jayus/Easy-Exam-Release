@@ -290,6 +290,106 @@ def test_continue_schedule_cp_sat_preserves_locked_assignments(recording_repo) -
     assert rooms[1]["teachers"][0]["name"] == "Teacher B"
 
 
+def test_generate_schedule_short_circuits_capacity_infeasibility_before_solver(
+    recording_repo, monkeypatch
+) -> None:
+    state = AppState()
+    state.subjects = [
+        {
+            "name": "Subject A",
+            "exam_date": "2026-06-01",
+            "exam_time": "09:00-10:00",
+            "duration_minutes": 60,
+        },
+        {
+            "name": "Subject B",
+            "exam_date": "2026-06-01",
+            "exam_time": "14:00-15:00",
+            "duration_minutes": 60,
+        },
+    ]
+    service = ProctoringService(state, recording_repo)
+
+    def should_not_run_solver(*args, **kwargs):
+        raise AssertionError("solver should not run when fast feasibility precheck fails")
+
+    monkeypatch.setattr(proctoring_service_module, "solve_schedule_with_cp_sat", should_not_run_solver)
+
+    result = service.generate_schedule(
+        {
+            "teachers": [
+                {"name": "Teacher A", "gender": "M", "isInternal": True, "maxSessions": 1},
+            ],
+            "subjects": [{"id": "1", "name": "Subject A"}, {"id": "2", "name": "Subject B"}],
+            "config": {"roomCount": 1, "mode": "single", "balanceMode": "duration"},
+        }
+    )
+
+    assert "error" in result
+    assert "不足" in result["error"]
+
+
+def test_continue_schedule_short_circuits_locked_conflict_before_solver(
+    recording_repo, monkeypatch
+) -> None:
+    state = AppState()
+    state.subjects = [
+        {
+            "name": "Subject A",
+            "exam_date": "2026-06-01",
+            "exam_time": "09:00-11:00",
+            "duration_minutes": 120,
+        },
+        {
+            "name": "Subject B",
+            "exam_date": "2026-06-01",
+            "exam_time": "10:00-12:00",
+            "duration_minutes": 120,
+        },
+    ]
+    service = ProctoringService(state, recording_repo)
+
+    def should_not_run_solver(*args, **kwargs):
+        raise AssertionError("solver should not run when locked assignments already conflict")
+
+    monkeypatch.setattr(proctoring_service_module, "solve_schedule_with_cp_sat", should_not_run_solver)
+
+    result = service.continue_schedule(
+        {
+            "teachers": [
+                {"name": "Teacher A", "gender": "M", "isInternal": True, "maxSessions": 2},
+                {"name": "Teacher B", "gender": "F", "isInternal": False, "maxSessions": 2},
+            ],
+            "subjects": [{"id": "1", "name": "Subject A"}, {"id": "2", "name": "Subject B"}],
+            "schedule": [
+                {
+                    "subjectId": "1",
+                    "subjectName": "Subject A",
+                    "rooms": [
+                        {"id": 1, "roomNum": 1, "teachers": [{"name": "Teacher A", "isLocked": True}]},
+                    ],
+                },
+                {
+                    "subjectId": "2",
+                    "subjectName": "Subject B",
+                    "rooms": [
+                        {"id": 1, "roomNum": 1, "teachers": [{"name": "Teacher A", "isLocked": True}]},
+                    ],
+                },
+            ],
+            "config": {
+                "roomCount": 1,
+                "mode": "single",
+                "balanceMode": "duration",
+                "lockImported": True,
+            },
+        }
+    )
+
+    assert "error" in result
+    assert "Teacher A" in result["error"]
+
+
 def test_generate_schedule_cp_sat_reports_stage_progress(recording_repo) -> None:
     state = AppState()
     state.subjects = [

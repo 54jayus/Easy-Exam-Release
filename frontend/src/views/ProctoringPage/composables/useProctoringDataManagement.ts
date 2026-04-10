@@ -21,7 +21,6 @@ type ProctoringConfig = {
   internalMix: boolean
   roomRepeatPreference?: string
   avoidConsecutiveSessions?: boolean
-  consecutiveGapMinutes?: number
 }
 
 type UseProctoringDataManagementOptions = {
@@ -242,7 +241,6 @@ export function useProctoringDataManagement({
     config.internalMix = false
     config.roomRepeatPreference = ''
     config.avoidConsecutiveSessions = false
-    config.consecutiveGapMinutes = 0
 
     sidebarCollapsed.value = false
     advancedSettingsVisible.value = false

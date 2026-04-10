@@ -156,10 +156,7 @@ def _build_overlap_pairs(subject_contexts: Sequence[SubjectContext]) -> list[tup
 
 def _build_consecutive_pairs(
     subject_contexts: Sequence[SubjectContext],
-    *,
-    gap_minutes: int,
 ) -> list[tuple[int, int]]:
-    del gap_minutes
     pairs: list[tuple[int, int]] = []
     contexts_by_day: dict[str, list[SubjectContext]] = {}
     for context in subject_contexts:
