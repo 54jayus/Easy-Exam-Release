@@ -1,12 +1,11 @@
 # 开发与调试手册
 
-## 1. 开发环境建议
+## 1. 开发环境
 
-当前项目主要面向 Windows 桌面环境开发，建议使用：
+当前项目主要面向 Windows 桌面环境开发，建议准备：
 
-- Windows 10 或 Windows 11
-- Node.js
-- npm
+- Windows 10 / Windows 11
+- Node.js 与 npm
 - Python 3
 - 可选：Conda
 
@@ -26,21 +25,32 @@ Set-Location ..
 python -m pip install -r backend/requirements.txt
 ```
 
+`backend/requirements.txt` 当前包含：
+
+- `pandas`
+- `openpyxl`
+- `xlsxwriter`
+- `reportlab`
+- `ortools`
+- `pyinstaller`
+- `xlrd`
+- `pytest`
+
 ## 3. 本地 Python 配置
 
-开发环境通常通过 `frontend/.env.development` 指定 Python 路径：
+开发态通常通过 `frontend/.env.development` 指定 Python 路径：
 
 ```env
 VITE_PYTHON_PATH=D:/Anaconda3/envs/exam_scheduler/python.exe
 ```
 
-如果系统中已经可以直接调用 `python`，也可以写为：
+如果系统中已能直接调用 `python`，也可以写为：
 
 ```env
 VITE_PYTHON_PATH=python
 ```
 
-打包脚本 `package.py` 会优先按以下顺序解析 Python：
+打包脚本 [package.py](/d:/coding%20make%20work%20easy/Easy-Exam/package.py) 当前按以下顺序解析 Python：
 
 1. `EXAM_PYTHON_PATH`
 2. `VITE_PYTHON_PATH`
@@ -49,18 +59,18 @@ VITE_PYTHON_PATH=python
 
 ## 4. 常用命令
 
-### 4.1 启动前端开发环境
+### 4.1 启动开发环境
 
 ```powershell
 Set-Location frontend
 npm.cmd run dev
 ```
 
-说明：
+当前行为：
 
-- Vite 开发服务器固定端口为 `5173`
-- Electron 主进程与 preload 由 `vite-plugin-electron` 一并处理
-- 开发时 Python 后端通常以 `python -m backend` 方式启动
+- Vite 开发服务固定跑在 `5173`
+- Electron 主进程通过 `vite-plugin-electron` 一并启动
+- 开发态 Python 后端以 `python -m backend` 方式运行
 
 ### 4.2 前端测试与构建
 
@@ -78,20 +88,20 @@ $env:PYTHONPATH='.'
 pytest
 ```
 
-常用定向测试示例：
+定向执行示例：
 
 ```powershell
 $env:PYTHONPATH='.'
 pytest backend/tests/test_subjects_service.py backend/tests/test_subjects_excel.py
 
 $env:PYTHONPATH='.'
-pytest backend/tests/test_proctoring_service.py backend/tests/test_proctoring_scheduler.py backend/tests/test_proctoring_optimizer.py
+pytest backend/tests/test_proctoring_service.py backend/tests/test_proctoring_jobs.py backend/tests/test_proctoring_validators.py backend/tests/test_cp_sat_solver.py
 
 $env:PYTHONPATH='.'
-pytest backend/tests/test_rooms_service.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_exam_arrangement_gaokao_exports.py
+pytest backend/tests/test_rooms_service.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py
 
 $env:PYTHONPATH='.'
-pytest backend/tests/test_printing_service.py backend/tests/test_printing_excel_generators.py backend/tests/test_printing_examroom_adapter.py
+pytest backend/tests/test_printing_service.py backend/tests/test_printing_excel_generators.py backend/tests/test_printing_examroom_adapter.py backend/tests/test_data_loader_and_desk_validator.py
 ```
 
 ### 4.4 后端自检
@@ -102,7 +112,7 @@ $env:PYTHONPATH='.'
 python -m backend.selfcheck
 ```
 
-这个自检会检查关键模块导入是否正常，并执行一次最小打印生成流程。
+该脚本会检查关键模块导入，并执行一次最小打印生成流程。
 
 ### 4.5 一键打包
 
@@ -113,134 +123,130 @@ python package.py
 
 ## 5. 关键环境变量
 
-运行和调试时常见的环境变量包括：
-
 - `VITE_PYTHON_PATH`
-  开发态指定 Python 解释器
+  开发态 Electron 主进程拉起后端时优先使用的 Python
 - `EXAM_PYTHON_PATH`
-  打包脚本优先使用的 Python 解释器
+  `package.py` 打包时优先使用的 Python
 - `EXAMFLOW_DATA_DIR` / `EXAMDESK_DATA_DIR`
-  指定状态数据落盘目录
+  指定状态数据根目录，最终写入 `<dir>/data/state.json`
 - `EXAMFLOW_APP_DIR` / `EXAMDESK_APP_DIR`
   指定应用基础目录
 - `EXAMFLOW_CERT_DIR` / `EXAMDESK_CERT_DIR`
   指定 `license.cert` 保存目录
 
-Electron 主进程在桌面模式下会自动向后端注入应用目录和数据目录相关变量，因此大多数情况下不需要手动设置后几类变量。
+多数桌面运行场景下，这些后几类变量由 Electron 主进程自动注入，不需要手动设置。
 
-## 6. 调试入口
+## 6. 运行产物与日志
 
-### 6.1 前端
+开发态常见产物：
 
-前端调试重点通常在以下位置：
+- `data/state.json`
+- `data/backups/`
+- `debug.log`
+- `debug.log.1` ~ `debug.log.3`
+- 临时导出的 `xlsx` / `pdf`
 
-- 浏览器 DevTools / Electron DevTools
-- `frontend/src/lib/pythonBackend.ts`
-- `frontend/src/lib/logger.ts`
-- 页面级 composables
-- 页面内部日志抽屉或状态提示
+当前日志路径规则：
 
-如果问题出现在页面层，优先顺着以下路径排查：
+- 开发态：仓库根目录 `debug.log`
+- 打包态：应用 exe 同目录 `debug.log`
 
-1. 页面 `.vue` 文件
+## 7. 调试入口
+
+### 7.1 前端
+
+优先从这些位置排查：
+
+1. 页面 `.vue` 入口
 2. 同名目录下的 composables
-3. `pythonBackend.request(...)` 发起点
-4. 对应 RPC 名称
-5. 对应后端 service 和核心模块
+3. [frontend/src/lib/pythonBackend.ts](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/src/lib/pythonBackend.ts)
+4. `frontend/src/lib/logger.ts`
+5. `OperationLogsDrawer` 与页面日志
 
-### 6.2 Electron
+### 7.2 Electron
 
 Electron 相关问题优先查看：
 
-- `frontend/electron/main.ts`
-- `frontend/electron/preload.ts`
+- [frontend/electron/main.ts](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/electron/main.ts)
+- [frontend/electron/preload.ts](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/electron/preload.ts)
 
 典型问题包括：
 
-- Python 子进程没有启动
-- IPC 白名单缺少频道
-- 文件对话框无法返回路径
-- `debug.log` 中出现主进程异常
+- Python 子进程未启动
+- IPC 白名单缺失
+- 文件对话框返回异常
+- `debug.log` 中主进程报错
 
-### 6.3 后端
+### 7.3 后端
 
-后端调试重点通常在以下位置：
+后端调试优先查看：
 
-- `backend/rpc_server.py`
+- [backend/rpc_server.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/rpc_server.py)
 - `backend/application/*_service.py`
 - 具体业务模块
-- `backend/repository/state_repository.py`
-- `backend/licensing/cert_store.py`
+- [backend/repository/state_repository.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/repository/state_repository.py)
+- [backend/licensing/cert_store.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/licensing/cert_store.py)
 
-## 7. 常见问题排查路径
+## 8. 常见排查路径
 
-### 7.1 科目问题
+### 8.1 科目问题
 
-优先查看：
-
-1. `frontend/src/views/SubjectsPage.vue`
+1. [frontend/src/views/SubjectsPage.vue](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/src/views/SubjectsPage.vue)
 2. `frontend/src/views/SubjectsPage/composables/`
-3. `backend/application/subjects_service.py`
+3. [backend/application/subjects_service.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/application/subjects_service.py)
 4. `backend/subjects/`
 
-### 7.2 监考问题
+### 8.2 监考问题
 
-优先查看：
-
-1. `frontend/src/views/ProctoringPage.vue`
+1. [frontend/src/views/ProctoringPage.vue](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/src/views/ProctoringPage.vue)
 2. `frontend/src/views/ProctoringPage/composables/`
-3. `backend/application/proctoring_service.py`
-4. `backend/proctoring/core/`
-5. `backend/tests/test_proctoring_*`
+3. [backend/application/proctoring_service.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/application/proctoring_service.py)
+4. [backend/application/proctoring_jobs.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/application/proctoring_jobs.py)
+5. `backend/proctoring/core/`
+6. `backend/tests/test_proctoring_*`
+7. `backend/tests/test_cp_sat_solver.py`
 
-### 7.3 考场问题
+### 8.3 考场问题
 
-优先查看：
-
-1. `frontend/src/views/RoomsPage.vue`
-2. `frontend/src/views/RoomsPage/composables/`
-3. `backend/application/rooms_service.py`
+1. [frontend/src/views/RoomsPage.vue](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/src/views/RoomsPage.vue)
+2. `frontend/src/views/RoomsPage/`
+3. [backend/application/rooms_service.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/application/rooms_service.py)
 4. `backend/examroom/core/`
 5. `backend/tests/test_rooms_*`
 6. `backend/tests/test_exam_arrangement*`
 
-### 7.4 打印问题
+### 8.4 打印问题
 
-优先查看：
-
-1. `frontend/src/views/PrintingPage.vue`
+1. [frontend/src/views/PrintingPage.vue](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/src/views/PrintingPage.vue)
 2. `frontend/src/views/PrintingPage/composables/`
 3. `frontend/src/views/PrintingPage/components/`
-4. `backend/application/printing_service.py`
+4. [backend/application/printing_service.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/application/printing_service.py)
 5. `backend/printing/`
 6. `backend/tests/test_printing_*`
 
-### 7.5 授权问题
+### 8.5 授权问题
 
-优先查看：
-
-1. `frontend/src/stores/license.ts`
-2. `frontend/src/views/RegistrationPage.vue`
-3. `backend/application/licensing_service.py`
+1. [frontend/src/stores/license.ts](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/src/stores/license.ts)
+2. [frontend/src/views/RegistrationPage.vue](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/src/views/RegistrationPage.vue)
+3. [backend/application/licensing_service.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/application/licensing_service.py)
 4. `backend/licensing/`
-5. [授权证书文件路径说明.md](授权证书文件路径说明.md)
+5. [docs/授权证书文件路径说明.md](授权证书文件路径说明.md)
 
-## 8. 状态文件与产物管理
+### 8.6 帮助中心问题
 
-常见运行产物包括：
+1. [frontend/src/views/HelpPage.vue](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/src/views/HelpPage.vue)
+2. `frontend/src/views/HelpPage/composables/`
+3. [backend/application/system_service.py](/d:/coding%20make%20work%20easy/Easy-Exam/backend/application/system_service.py)
+4. `backend/manual/`
+5. `backend/resources/使用说明书.md`
 
-- `data/state.json`
-- `data/backups/`
-- `frontend/debug.log`
-- `frontend/debug.log.*`
-- 导出的 `xlsx/pdf`
+## 9. 打包链路的当前注意事项
 
-建议：
+当前打包链路是真实可运行的，但有两个显式约束：
 
-- 调试输出尽量收敛到固定目录
-- 不要把临时导出文件直接放进仓库受管目录
-- 新增运行产物时同步更新 `.gitignore`
+1. [frontend/engine.spec](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/engine.spec) 内存在本机 Anaconda DLL 的硬编码路径，换机器前需要手动核对
+2. `package.py` 会清理 `frontend/python-dist/`、`frontend/build-python/` 和 `frontend/release_v6/`，打包前要关闭正在运行的旧程序
 
-## 9. 修改文档的约定
+## 10. 文档维护约定
 
-文档应优先描述“当前实现”和“当前命令”，而不是某一轮治理计划。历史设计稿、重构方案和阶段性说明统一放入 `docs/archive/plans/`。
+开发文档应始终描述当前仓库真实存在的目录、测试、命令和接口。历史拆分方案、重构草案和阶段性治理计划，统一保留在 `docs/archive/plans/`。

@@ -1,10 +1,20 @@
 # Easy Exam
 
-Easy Exam 是一个面向学校考试组织场景的桌面端应用，用于管理考试科目、监考编排、考场编排、资料打印、软件授权和帮助中心内容。项目采用 `Electron + Vue 3 + TypeScript + Python` 架构，前端通过基于 `stdin/stdout` 的 RPC 与 Python 后端通信。
+Easy Exam 是一个面向学校考试组织场景的 Windows 桌面应用，用于管理考试科目、监考编排、考场编排、资料打印、软件授权和帮助中心内容。
+
+当前仓库采用 `Electron + Vue 3 + TypeScript + Python` 架构。前端通过 Electron IPC 管理 Python sidecar，再以基于 `stdin/stdout` 的轻量 RPC 协议与后端通信。
+
+## 当前能力
+
+- 科目管理：导入、编辑、校验、导出科目，支持为单个科目单独设置考场数量
+- 监考编排：导入教师、导入已有安排、导入/导出预设、手动交换，并通过 CP-SAT 后台任务执行智能编排或补全编排
+- 考场编排：支持顺序编排、随机编排、`3+1+2` 选科编排和高考模式，支持导入既有结果继续使用
+- 资料打印：支持台角纸、桌角标签、准考证、考生信息表、试卷袋，支持空白模板、文件导入和考场编排三种数据源
+- 系统支持：机器码注册、证书读写、帮助中心全文搜索、状态持久化与自动备份
 
 ## 文档导航
 
-开发者文档：
+开发文档：
 
 - [docs/README.md](docs/README.md)
 - [docs/architecture.md](docs/architecture.md)
@@ -14,7 +24,7 @@ Easy Exam 是一个面向学校考试组织场景的桌面端应用，用于管�
 - [docs/授权证书文件路径说明.md](docs/授权证书文件路径说明.md)
 - [docs/前端设计要求](docs/前端设计要求)
 
-前端专项文档：
+前端专项说明：
 
 - [frontend/README.md](frontend/README.md)
 
@@ -23,50 +33,34 @@ Easy Exam 是一个面向学校考试组织场景的桌面端应用，用于管�
 - [使用说明书.md](使用说明书.md)
 - [使用说明书.pdf](使用说明书.pdf)
 
-历史方案与重构记录：
+归档方案与历史设计：
 
 - [docs/archive/plans](docs/archive/plans)
-
-## 主要能力
-
-- 科目导入、编辑、校验与导出
-- 监考教师导入、自动排监考、优化、交换与导出
-- 常规模式与高考模式考场编排
-- 准考证、角标、座位贴、试卷袋等资料生成
-- 机器码读取、授权校验与注册
-- 内置帮助中心、全文检索与说明书加载
-
-## 技术栈
-
-- 桌面容器：Electron
-- 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、Element Plus、Tailwind CSS
-- 后端：Python
-- 数据处理与导出：pandas、openpyxl、xlsxwriter、reportlab
-- 通信方式：JSON-RPC 风格消息，经 `stdin/stdout` 在 Electron 与 Python 间传递
 
 ## 仓库结构
 
 ```text
 Easy-Exam/
-├─ backend/                Python 后端与业务逻辑
-├─ docs/                   开发、架构、测试与设计文档
-├─ frontend/               Electron + Vue 前端工程
-├─ tools/                  辅助脚本
-├─ package.py              一键打包脚本
-├─ pytest.ini              pytest 入口配置
-├─ 使用说明书.md            用户手册（Markdown）
-└─ 使用说明书.pdf           用户手册（PDF）
+├─ backend/                 Python 后端、业务模块、RPC 服务、测试
+├─ docs/                    开发文档
+├─ frontend/                Electron + Vue 前端工程
+├─ testdata/                示例数据与压力用例
+├─ tools/                   辅助脚本
+├─ package.py               一键打包脚本
+├─ pytest.ini               pytest 入口配置
+├─ 使用说明书.md             用户手册（与 backend/resources/使用说明书.md 同步）
+└─ 使用说明书.pdf            用户手册 PDF
 ```
 
-其中几个关键目录：
+几个关键目录：
 
-- `backend/application/`：前端可见的后端服务边界
-- `backend/proctoring/`：监考编排逻辑
-- `backend/examroom/`：考场编排逻辑
-- `backend/printing/`：打印与导出逻辑
-- `backend/licensing/`：授权相关逻辑
+- `backend/application/`：前端可见的服务边界
+- `backend/proctoring/`：监考编排导入、导出与核心算法
+- `backend/examroom/`：考场编排逻辑与高考模式导出
+- `backend/printing/`：打印适配、生成器与校验器
+- `backend/manual/`：说明书加载、Markdown 处理、搜索与 PDF 导出工具
 - `frontend/electron/`：Electron 主进程与 preload
-- `frontend/src/views/`：页面入口与页面局部模块
+- `frontend/src/views/`：页面入口、局部组件与 composables
 - `frontend/src/lib/pythonBackend.ts`：前端 RPC 客户端
 
 ## 快速开始
@@ -85,7 +79,7 @@ Set-Location ..
 python -m pip install -r backend/requirements.txt
 ```
 
-### 3. 配置本地 Python 路径
+### 3. 配置开发态 Python 路径
 
 开发环境通常通过 `frontend/.env.development` 指定 Python：
 
@@ -93,7 +87,7 @@ python -m pip install -r backend/requirements.txt
 VITE_PYTHON_PATH=D:/Anaconda3/envs/exam_scheduler/python.exe
 ```
 
-如果系统环境里已经能直接调用 `python`，也可以写成：
+如果系统环境已可直接调用 `python`，也可以写成：
 
 ```env
 VITE_PYTHON_PATH=python
@@ -106,7 +100,7 @@ Set-Location frontend
 npm.cmd run dev
 ```
 
-Vite 开发服务器固定端口为 `5173`，Electron 会通过 `vite-plugin-electron` 一起启动桌面端入口。
+开发态固定使用 Vite `5173` 端口，Electron 主进程会拉起或复用 Python 后端，并在仓库根目录写入 `debug.log`。
 
 ## 常用命令
 
@@ -143,44 +137,48 @@ Set-Location ..
 python package.py
 ```
 
-## 运行时架构摘要
-
-运行时主链路如下：
+## 当前运行链路
 
 ```text
 用户操作
   -> Vue 页面 / composables / store
   -> frontend/src/lib/pythonBackend.ts
-  -> Electron IPC
-  -> Electron 主进程启动或复用 Python 进程
+  -> preload 暴露的 IPC
+  -> Electron 主进程
+  -> Python sidecar (python -m backend / engine.exe)
   -> backend/rpc_server.py
   -> backend/application/*_service.py
-  -> proctoring / examroom / printing / licensing / manual 等模块
+  -> feature modules / repository / resources
   -> 结构化结果返回前端
 ```
 
-更完整的架构说明请看 [docs/architecture.md](docs/architecture.md)。
+监考编排是当前最重的后端链路。前端通过 `proctoring.startSolverJob` 发起后台任务，再轮询 `proctoring.getJobStatus` 获取阶段进度、预览结果和最终结果。
 
-## 测试与打包
+## 数据与状态
 
-测试入口：
+- 应用状态默认写入 `data/state.json`
+- 若设置 `EXAMFLOW_DATA_DIR` 或 `EXAMDESK_DATA_DIR`，则状态写入 `<dir>/data/state.json`
+- `backend/repository/state_repository.py` 会在 `data/backups/` 下自动保留最近 10 份备份
+- 授权证书默认使用 `license.cert`，可由 `EXAMFLOW_CERT_DIR` / `EXAMDESK_CERT_DIR` 覆盖
+- 帮助中心实际加载的源文件是 `backend/resources/使用说明书.md`
 
-- 前端单测：`frontend/tests/`
-- 后端测试：`backend/tests/`
+## 打包说明
 
-打包流程：
+当前正式打包入口是：
 
-1. 用 `frontend/engine.spec` 构建 Python sidecar
-2. 用 `electron-builder` 构建安装包
-3. 用仓库根目录的 `package.py` 串联整个流程
+```powershell
+python package.py
+```
 
-详情见 [docs/testing-and-release.md](docs/testing-and-release.md) 和 [docs/打包代码.txt](docs/打包代码.txt)。
+它会串联两步：
 
-## 授权与帮助中心
+1. 使用 `frontend/engine.spec` 通过 PyInstaller 构建 Python sidecar
+2. 在 `frontend/` 下执行 `npm.cmd run electron:build` 产出安装包
 
-- 授权证书路径规则见 [docs/授权证书文件路径说明.md](docs/授权证书文件路径说明.md)
-- 应用内帮助中心主要读取 `backend/resources/使用说明书.md`
-- 仓库根目录保留同名 Markdown 和 PDF 用户手册，方便离线查看
+当前实现还包含两个需要注意的真实约束：
+
+- `frontend/engine.spec` 内存在本机 Anaconda DLL 的硬编码路径，跨机器打包前需要先核对
+- Electron 产物目录固定为 `frontend/release_v6/`
 
 ## 建议阅读顺序
 
