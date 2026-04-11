@@ -33,20 +33,23 @@
           <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">模板下载</span>
         </div>
         <div class="grid grid-cols-2 gap-2">
-          <button
-            class="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md hover:shadow-blue-50 transition-all duration-200 group"
+          <SidebarActionButton
+            label="设置模板"
+            :icon="Download"
+            tone="blue"
             @click="$emit('generate-template', 'settings')"
-          >
-            <el-icon class="text-base text-slate-400 group-hover:text-blue-500 transition-colors"><Download /></el-icon>
-            <span class="text-xs font-medium text-slate-600 group-hover:text-blue-700 font-bold transition-colors">设置模板</span>
-          </button>
+          />
 
           <el-dropdown trigger="click" @command="(cmd: string) => $emit('generate-template', cmd)" class="w-full">
-            <button class="flex items-center justify-center gap-2 w-full p-2 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md hover:shadow-blue-50 transition-all duration-200 group">
-              <el-icon class="text-base text-slate-400 group-hover:text-blue-500 transition-colors"><Download /></el-icon>
-              <span class="text-xs font-medium text-slate-600 group-hover:text-blue-700 font-bold transition-colors">名册模板</span>
-              <el-icon class="text-[10px] text-slate-400 group-hover:text-blue-500 ml-0.5"><ArrowDown /></el-icon>
-            </button>
+            <SidebarActionButton
+              label="名册模板"
+              :icon="Download"
+              tone="blue"
+            >
+              <template #suffix>
+                <el-icon class="text-[10px] text-slate-400 transition-colors group-hover:text-blue-500"><ArrowDown /></el-icon>
+              </template>
+            </SidebarActionButton>
             <template #dropdown>
               <el-dropdown-menu class="w-[240px]">
                 <el-dropdown-item command="student_normal">
@@ -80,36 +83,24 @@
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
-          <button
-            class="flex items-center justify-center gap-2 p-2 pr-7 bg-white border border-slate-200 rounded-lg hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-50 transition-all duration-200 group relative"
-            :class="hasSettings ? '!border-emerald-500 bg-emerald-50/50' : ''"
+          <SidebarActionButton
+            label="导入设置"
+            :icon="Upload"
+            tone="emerald"
+            :active="hasSettings"
+            clearable
             @click="$emit('import-settings')"
-          >
-            <el-icon class="text-base transition-colors" :class="hasSettings ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'"><Upload /></el-icon>
-            <span class="text-xs font-medium transition-colors" :class="hasSettings ? 'text-emerald-700 font-bold' : 'text-slate-600 group-hover:text-emerald-700'">导入设置</span>
-            <span
-              v-if="hasSettings"
-              class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors duration-200"
-              @click.stop.prevent="$emit('clear-settings')"
-            >
-              <el-icon :size="12"><Close /></el-icon>
-            </span>
-          </button>
-          <button
-            class="flex items-center justify-center gap-2 p-2 pr-7 bg-white border border-slate-200 rounded-lg hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-50 transition-all duration-200 group relative"
-            :class="hasStudents ? '!border-emerald-500 bg-emerald-50/50' : ''"
+            @clear="$emit('clear-settings')"
+          />
+          <SidebarActionButton
+            label="导入名册"
+            :icon="Upload"
+            tone="emerald"
+            :active="hasStudents"
+            clearable
             @click="$emit('import-students')"
-          >
-            <el-icon class="text-base transition-colors" :class="hasStudents ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'"><Upload /></el-icon>
-            <span class="text-xs font-medium transition-colors" :class="hasStudents ? 'text-emerald-700 font-bold' : 'text-slate-600 group-hover:text-emerald-700'">导入名册</span>
-            <span
-              v-if="hasStudents"
-              class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors duration-200"
-              @click.stop.prevent="$emit('clear-students')"
-            >
-              <el-icon :size="12"><Close /></el-icon>
-            </span>
-          </button>
+            @clear="$emit('clear-students')"
+          />
         </div>
       </section>
 
@@ -228,7 +219,8 @@
 </template>
 
 <script setup lang="ts">
-import { Setting, ArrowDown, Upload, Download, Fold, Delete, Close } from '@element-plus/icons-vue'
+import { Setting, ArrowDown, Upload, Download, Fold, Delete } from '@element-plus/icons-vue'
+import SidebarActionButton from '@/components/SidebarActionButton.vue'
 import type { RoomsConfig } from './composables/useRoomsState'
 
 interface Props {

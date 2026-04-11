@@ -46,57 +46,39 @@
                 </div>
              </div>
              <div class="grid grid-cols-2 gap-2">
-                <button 
-                  class="flex min-h-10 items-center justify-center gap-1 px-2.5 py-2 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md hover:shadow-blue-50 transition-all duration-200 group"
+                <SidebarActionButton
+                  label="教师模板"
+                  :icon="Download"
+                  tone="blue"
                   @click="handleTemplate"
-                >
-                   <el-icon class="shrink-0 text-sm leading-none text-slate-400 group-hover:text-blue-500 transition-colors duration-200"><Download /></el-icon>
-                   <span class="whitespace-nowrap text-xs leading-none font-medium text-slate-600 group-hover:text-blue-700 transition-colors duration-200">教师模板</span>
-                </button>
-                <button 
-                   class="flex min-h-10 items-center justify-center px-2.5 py-2 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md hover:shadow-blue-50 transition-all duration-200 group"
-                   :class="teachers.length ? '!border-blue-500 bg-blue-50/50' : ''"
-                   @click="handleAddTeacher"
-                >
-                   <span class="inline-flex items-center justify-center gap-1">
-                      <el-icon class="shrink-0 text-sm leading-none transition-colors duration-200" :class="teachers.length ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-500'"><Upload /></el-icon>
-                      <span class="whitespace-nowrap text-xs leading-none font-medium transition-colors duration-200" :class="teachers.length ? 'text-blue-700 font-semibold' : 'text-slate-600 group-hover:text-blue-700'">导入教师</span>
-                      <span
-                         v-if="teachers.length"
-                         class="flex h-4 w-4 items-center justify-center rounded text-blue-600 hover:bg-blue-100 transition-colors duration-200"
-                         @click.stop.prevent="handleClearTeachers"
-                      >
-                         <el-icon :size="10"><Close /></el-icon>
-                      </span>
-                   </span>
-                </button>
+                />
+                <SidebarActionButton
+                  label="导入教师"
+                  :icon="Upload"
+                  tone="blue"
+                  :active="teachers.length > 0"
+                  clearable
+                  @click="handleAddTeacher"
+                  @clear="handleClearTeachers"
+                />
              </div>
              
              <div class="grid grid-cols-2 gap-2">
-                <button 
-                   class="flex min-h-10 items-center justify-center px-2.5 py-2 bg-white border border-slate-200 rounded-lg hover:border-indigo-400 hover:shadow-md hover:shadow-indigo-50 transition-all duration-200 group"
-                   :class="hasPreset ? '!border-indigo-500 bg-indigo-50/50' : ''"
-                   @click="handlePresetDialog"
-                >
-                   <span class="inline-flex items-center justify-center gap-1">
-                      <el-icon class="shrink-0 text-sm leading-none transition-colors duration-200" :class="hasPreset ? 'text-indigo-600' : 'text-slate-400 group-hover:text-indigo-500'"><List /></el-icon>
-                      <span class="whitespace-nowrap text-xs leading-none font-medium transition-colors duration-200" :class="hasPreset ? 'text-indigo-700 font-semibold' : 'text-slate-600 group-hover:text-indigo-700'">预设监考</span>
-                      <span
-                         v-if="hasPreset"
-                         class="flex h-4 w-4 items-center justify-center rounded text-indigo-600 hover:bg-indigo-100 transition-colors duration-200"
-                         @click.stop.prevent="handleClearPreset"
-                      >
-                         <el-icon :size="10"><Close /></el-icon>
-                      </span>
-                   </span>
-                </button>
-                <button 
-                   class="flex min-h-10 items-center justify-center gap-1 px-2.5 py-2 bg-white border border-slate-200 rounded-lg hover:border-indigo-400 hover:shadow-md hover:shadow-indigo-50 transition-all duration-200 group"
-                   @click="handleImportSchedule"
-                >
-                   <el-icon class="shrink-0 text-sm leading-none text-slate-400 group-hover:text-indigo-500 transition-colors duration-200"><Upload /></el-icon>
-                   <span class="whitespace-nowrap text-xs leading-none font-medium text-slate-600 group-hover:text-indigo-700 transition-colors duration-200">导入安排</span>
-                </button>
+                <SidebarActionButton
+                  label="预设监考"
+                  :icon="List"
+                  tone="indigo"
+                  :active="hasPreset"
+                  clearable
+                  @click="handlePresetDialog"
+                  @clear="handleClearPreset"
+                />
+                <SidebarActionButton
+                  label="导入安排"
+                  :icon="Upload"
+                  tone="indigo"
+                  @click="handleImportSchedule"
+                />
              </div>
           </section>
 
@@ -850,10 +832,11 @@
 
 <script setup lang="ts">
 import { computed, ref, reactive, watch, onMounted } from 'vue'
-import { Upload, Download, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, Fold, Expand, Setting, Close } from '@element-plus/icons-vue'
+import { Upload, Download, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, Fold, Expand, Setting } from '@element-plus/icons-vue'
 import { usePageSessionState } from '@/composables/usePageSessionState'
 import { useUiLogs } from '@/composables/useUiLogs'
 import OperationLogsDrawer from '@/components/OperationLogsDrawer.vue'
+import SidebarActionButton from '@/components/SidebarActionButton.vue'
 import {
   createUiFeedback,
   formatActionError,
