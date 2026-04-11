@@ -60,7 +60,7 @@
             <!-- Avatar Placeholder -->
             <div class="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-pink-500 p-0.5 shadow-sm group-hover:scale-105 transition-transform">
               <div class="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                <img src="/images/xhs_avater.jpg" alt="Avatar" class="w-full h-full object-cover" />
+                <img src="/images/xhs_avatar.jpg" alt="Avatar" class="w-full h-full object-cover" />
               </div>
             </div>
             
