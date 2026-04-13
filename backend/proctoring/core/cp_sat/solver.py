@@ -30,6 +30,7 @@ from .progress import _StageProgressTracker
 def _add_double_slot_symmetry_breaking(
     model,
     *,
+    schedule,
     subject_contexts: Sequence[SubjectContext],
     rooms_by_subject: dict[int, list[int]],
     slot_vars: dict[tuple[int, tuple[int, int, int]], Any],
@@ -38,6 +39,8 @@ def _add_double_slot_symmetry_breaking(
 ) -> None:
     for context in subject_contexts:
         for room in rooms_by_subject[context.subject_id]:
+            if not schedule.room_requires_pair_constraints(context.subject_id, room):
+                continue
             left_slot = (context.subject_id, room, 0)
             right_slot = (context.subject_id, room, 1)
             if left_slot in fixed_slots or right_slot in fixed_slots:
@@ -119,7 +122,13 @@ def solve_schedule_with_cp_sat(
 
     for context in subject_contexts:
         for room in rooms_by_subject[context.subject_id]:
-            for slot_index in range(required_slots):
+            active_slot_indexes = schedule.get_active_slot_indexes(context.subject_id, room)
+            enforce_double_slot_roles = (
+                schedule.mode == "double"
+                and schedule.get_constraint("internal_mix", False)
+                and len(active_slot_indexes) == 2
+            )
+            for slot_index in active_slot_indexes:
                 slot_key = (context.subject_id, room, slot_index)
                 slots_by_subject[context.subject_id].append(slot_key)
                 fixed_teacher = fixed_slots.get(slot_key)
@@ -134,6 +143,7 @@ def solve_schedule_with_cp_sat(
                         room=room,
                         slot_index=slot_index,
                         teacher_unavailable=teacher_unavailable,
+                        enforce_double_slot_roles=enforce_double_slot_roles,
                     ):
                         continue
                     allowed.append(teacher_index)
@@ -176,6 +186,7 @@ def solve_schedule_with_cp_sat(
     if required_slots == 2 and not schedule.get_constraint("internal_mix", False):
         _add_double_slot_symmetry_breaking(
             model,
+            schedule=schedule,
             subject_contexts=subject_contexts,
             rooms_by_subject=rooms_by_subject,
             slot_vars=slot_vars,
@@ -246,11 +257,13 @@ def solve_schedule_with_cp_sat(
     if schedule.mode == "double" and schedule.get_constraint("gender_mix", False):
         for context in subject_contexts:
             for room in rooms_by_subject[context.subject_id]:
+                if not schedule.room_requires_pair_constraints(context.subject_id, room):
+                    continue
                 male_vars = []
                 female_vars = []
-                for slot_index in range(required_slots):
+                for slot_index in schedule.get_active_slot_indexes(context.subject_id, room):
                     slot_key = (context.subject_id, room, slot_index)
-                    for teacher_index in candidate_teachers[slot_key]:
+                    for teacher_index in candidate_teachers.get(slot_key, []):
                         var = slot_vars[(teacher_index, slot_key)]
                         gender = str(getattr(schedule.teachers[teacher_index], "gender", "") or "").upper()
                         if gender == "M":
@@ -305,8 +318,10 @@ def solve_schedule_with_cp_sat(
             consecutive_total = model.NewIntVar(0, len(pair_vars), "consecutive_total")
             model.Add(consecutive_total == sum(pair_vars))
 
-    total_slots = (
-        sum(len(rooms_by_subject[context.subject_id]) for context in subject_contexts) * required_slots
+    total_slots = sum(
+        schedule.get_required_assignment_count(context.subject_id, room)
+        for context in subject_contexts
+        for room in rooms_by_subject[context.subject_id]
     )
     count_deviation_upper = max(1, teacher_count * max(total_slots, int(schedule.num_subjects)))
     count_deviations = []
@@ -321,12 +336,13 @@ def solve_schedule_with_cp_sat(
     )
     model.Add(total_count_deviation == sum(count_deviations))
 
-    total_current_sum = (
-        sum(
-            max(0, context.duration_minutes) * len(rooms_by_subject[context.subject_id])
-            for context in subject_contexts
+    total_current_sum = sum(
+        max(0, context.duration_minutes)
+        * sum(
+            schedule.get_required_assignment_count(context.subject_id, room)
+            for room in rooms_by_subject[context.subject_id]
         )
-        * required_slots
+        for context in subject_contexts
     )
     total_overall_sum = sum(
         _safe_int(getattr(teacher, "previous_supervision_duration", 0), default=0)

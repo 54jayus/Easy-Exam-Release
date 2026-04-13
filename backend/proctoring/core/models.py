@@ -22,6 +22,7 @@ class Schedule:
         self.exams = []
         self.constraints = {}
         self.imported_positions = set()
+        self.exempt_positions = set()
 
     def set_constraint(self, key, value):
         self.constraints[key] = value
@@ -34,6 +35,42 @@ class Schedule:
 
     def is_position_imported(self, subject_id, room, index):
         return (subject_id, room, index) in self.imported_positions
+
+    def mark_exempt_position(self, subject_id, room, index):
+        self.exempt_positions.add((subject_id, room, index))
+
+    def clear_exempt_position(self, subject_id, room, index):
+        self.exempt_positions.discard((subject_id, room, index))
+
+    def is_position_exempt(self, subject_id, room, index):
+        return (subject_id, room, index) in self.exempt_positions
+
+    def get_slot_count(self):
+        return 2 if self.mode == "double" else 1
+
+    def get_slot_indexes(self, subject_id, room):
+        del subject_id, room
+        return list(range(self.get_slot_count()))
+
+    def get_active_slot_indexes(self, subject_id, room):
+        return [
+            slot_index
+            for slot_index in self.get_slot_indexes(subject_id, room)
+            if not self.is_position_exempt(subject_id, room, slot_index)
+        ]
+
+    def get_exempt_slot_count(self, subject_id, room):
+        return sum(
+            1
+            for slot_index in self.get_slot_indexes(subject_id, room)
+            if self.is_position_exempt(subject_id, room, slot_index)
+        )
+
+    def get_required_assignment_count(self, subject_id, room):
+        return len(self.get_active_slot_indexes(subject_id, room))
+
+    def room_requires_pair_constraints(self, subject_id, room):
+        return self.mode == "double" and len(self.get_active_slot_indexes(subject_id, room)) == 2
 
     def _get_subject_duration(self, subject_id):
         subject_durations = self.get_constraint("subject_durations", [])

@@ -180,8 +180,9 @@ def _build_infeasibility_diagnostic_message(
 
     subject_teacher_map = _build_subject_teacher_map(candidate_teachers)
     total_required_slots = sum(
-        len(rooms_by_subject.get(context.subject_id, [])) * required_slots
+        schedule.get_required_assignment_count(context.subject_id, room)
         for context in subject_contexts
+        for room in rooms_by_subject.get(context.subject_id, [])
     )
     total_capacity = 0
     for teacher_index, teacher in enumerate(schedule.teachers):
@@ -214,8 +215,9 @@ def _build_infeasibility_diagnostic_message(
             }
         )
         required_positions = sum(
-            len(rooms_by_subject.get(subject_id, [])) * required_slots
+            schedule.get_required_assignment_count(subject_id, room)
             for subject_id in active_subject_ids
+            for room in rooms_by_subject.get(subject_id, [])
         )
         available_teacher_count = len(segment_teacher_indexes)
         if available_teacher_count < required_positions:
@@ -225,8 +227,15 @@ def _build_infeasibility_diagnostic_message(
                 "请增加该时段可用老师，或放宽禁监考科目、最大监考场次、预设考场等限制。"
             )
 
-        room_demand = sum(len(rooms_by_subject.get(subject_id, [])) for subject_id in active_subject_ids)
+        room_demand = sum(
+            1
+            for subject_id in active_subject_ids
+            for room in rooms_by_subject.get(subject_id, [])
+            if schedule.room_requires_pair_constraints(subject_id, room)
+        )
         if schedule.mode == "double" and schedule.get_constraint("gender_mix", False):
+            if room_demand <= 0:
+                continue
             male_count = sum(
                 1
                 for teacher_index in segment_teacher_indexes
@@ -245,6 +254,8 @@ def _build_infeasibility_diagnostic_message(
                 )
 
         if schedule.mode == "double" and schedule.get_constraint("internal_mix", False):
+            if room_demand <= 0:
+                continue
             internal_count = sum(
                 1
                 for teacher_index in segment_teacher_indexes

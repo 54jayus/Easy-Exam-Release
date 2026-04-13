@@ -4,6 +4,7 @@ from typing import List, Sequence
 
 import pandas as pd
 
+from .core.entities import is_exempt_slot_value
 from .core.models import Exam, Schedule, Teacher
 
 
@@ -52,7 +53,7 @@ def parse_schedule_from_excel(
         teacher.assigned_sessions = []
         teacher.supervision_duration = 0
 
-    required_slots = 2 if schedule.mode == "double" else 1
+    required_slots = schedule.get_slot_count()
 
     for subject_id in range(1, schedule.num_subjects + 1):
         subject_name = (
@@ -74,7 +75,7 @@ def parse_schedule_from_excel(
             col1_name = f"{subject_name}-监考员1\n{exam_time}"
             col2_name = f"{subject_name}-监考员2\n{exam_time}"
             if col1_name not in df.columns or col2_name not in df.columns:
-                errors.append(f"科目{subject_name}缺少监考员信息")
+                errors.append(f"科目 {subject_name} 缺少监考员信息")
                 continue
         else:
             col_name = f"{subject_name}\n{exam_time}"
@@ -88,7 +89,7 @@ def parse_schedule_from_excel(
         for room in expected_rooms:
             row_index = room_row_index.get(room)
             if row_index is None or row_index >= len(df):
-                errors.append(f"缺少考场{room}对应的行，无法导入科目 {subject_name}")
+                errors.append(f"缺少考场 {room} 对应的行，无法导入科目 {subject_name}")
                 continue
 
             if schedule.mode == "double":
@@ -102,18 +103,28 @@ def parse_schedule_from_excel(
                 ]
 
             teachers_list: list[Teacher | None] = [None] * required_slots
+            exempt_slot_indexes: set[int] = set()
             for slot_index, teacher_name in enumerate(teacher_names):
                 if not teacher_name:
                     continue
+                if is_exempt_slot_value(teacher_name):
+                    exempt_slot_indexes.add(slot_index)
+                    schedule.mark_exempt_position(subject_id, room, slot_index)
+                    continue
+
                 teacher = next((t for t in schedule.teachers if t.name == teacher_name), None)
                 if not teacher:
-                    errors.append(f"考场{room}科目{subject_name}中的教师 {teacher_name} 未在教师信息中找到")
+                    errors.append(
+                        f"考场 {room} 科目 {subject_name} 中的教师 {teacher_name} 未在教师信息中找到"
+                    )
                     continue
                 if not teacher.can_supervise(subject_id):
                     errors.append(f"教师 {teacher.name} 不能监考科目 {subject_name}")
                     continue
                 if len(teacher.assigned_sessions) >= teacher.max_sessions:
-                    errors.append(f"教师 {teacher.name} 的监考次数已达到最大限制 ({teacher.max_sessions})")
+                    errors.append(
+                        f"教师 {teacher.name} 的监考次数已达到最大限制 ({teacher.max_sessions})"
+                    )
                     return errors
                 teachers_list[slot_index] = teacher
                 teacher.assign((subject_id, room), schedule._get_subject_duration(subject_id))
@@ -122,14 +133,19 @@ def parse_schedule_from_excel(
             if schedule.mode == "double":
                 teacher1 = teachers_list[0]
                 teacher2 = teachers_list[1]
-                if teacher1 and teacher2 and not schedule.is_valid_pair(teacher1, teacher2):
-                    errors.append(f"考场{room}科目{subject_name}的教师搭配不满足约束条件")
+                if (
+                    teacher1
+                    and teacher2
+                    and schedule.room_requires_pair_constraints(subject_id, room)
+                    and not schedule.is_valid_pair(teacher1, teacher2)
+                ):
+                    errors.append(f"考场 {room} 科目 {subject_name} 的教师搭配不满足约束条件")
                     continue
-                if any(item is not None for item in teachers_list):
+                if any(item is not None for item in teachers_list) or exempt_slot_indexes:
                     exam.schedule[room] = teachers_list
             else:
                 teacher = teachers_list[0]
-                if teacher is not None:
+                if teacher is not None or exempt_slot_indexes:
                     exam.schedule[room] = [teacher]
 
     for teacher in schedule.teachers:

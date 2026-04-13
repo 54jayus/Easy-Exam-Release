@@ -17,10 +17,16 @@ def check_feasibility(schedule):
             cap = 0
         total_capacity += max(0, cap)
 
-    total_room_slots = sum(len(schedule._get_subject_rooms(subject_id)) for subject_id in range(1, schedule.num_subjects + 1))
-    required_total = total_room_slots * (2 if mode == "double" else 1)
+    required_total = sum(
+        schedule.get_required_assignment_count(subject_id, room)
+        for subject_id in range(1, schedule.num_subjects + 1)
+        for room in schedule._get_subject_rooms(subject_id)
+    )
     if total_capacity < required_total:
-        return False, f"全局监考名额不足：需要 {required_total} 人次，只有 {total_capacity} 人次。"
+        return (
+            False,
+            f"全局监考名额不足：需要 {required_total} 人次，只有 {total_capacity} 人次。",
+        )
 
     if mode == "single":
         return True, "可行"
@@ -29,6 +35,14 @@ def check_feasibility(schedule):
         return True, "可行"
 
     for subject_id in range(1, schedule.num_subjects + 1):
+        required_pairs = sum(
+            1
+            for room in schedule._get_subject_rooms(subject_id)
+            if schedule.room_requires_pair_constraints(subject_id, room)
+        )
+        if required_pairs <= 0:
+            continue
+
         candidates = []
         for teacher in schedule.teachers:
             try:
@@ -42,47 +56,62 @@ def check_feasibility(schedule):
             return False, f"科目{subject_id}没有任何可用教师。"
 
         if internal_mix and gender_mix:
-            internal_male = sum(1 for teacher in candidates if teacher.is_internal is True and teacher.gender == "M")
-            internal_female = sum(1 for teacher in candidates if teacher.is_internal is True and teacher.gender == "F")
-            external_male = sum(1 for teacher in candidates if teacher.is_internal is False and teacher.gender == "M")
-            external_female = sum(1 for teacher in candidates if teacher.is_internal is False and teacher.gender == "F")
+            internal_male = sum(
+                1 for teacher in candidates if teacher.is_internal is True and teacher.gender == "M"
+            )
+            internal_female = sum(
+                1 for teacher in candidates if teacher.is_internal is True and teacher.gender == "F"
+            )
+            external_male = sum(
+                1 for teacher in candidates if teacher.is_internal is False and teacher.gender == "M"
+            )
+            external_female = sum(
+                1 for teacher in candidates if teacher.is_internal is False and teacher.gender == "F"
+            )
             pair_cap = min(internal_male, external_female) + min(internal_female, external_male)
-            required_pairs = len(schedule._get_subject_rooms(subject_id))
             if pair_cap < required_pairs:
-                return False, (
-                    f"科目{subject_id}在‘性别+本外校’约束下，合法配对最多 {pair_cap} 对，"
-                    f"不足以覆盖 {required_pairs} 个考场。"
+                return (
+                    False,
+                    (
+                        f"科目{subject_id}在“性别+本外校”约束下，合法配对最多 {pair_cap} 对，"
+                        f"不足以覆盖 {required_pairs} 个考场。"
+                    ),
                 )
         elif internal_mix:
             internal_count = sum(1 for teacher in candidates if teacher.is_internal is True)
             external_count = sum(1 for teacher in candidates if teacher.is_internal is False)
             pair_cap = min(internal_count, external_count)
-            required_pairs = len(schedule._get_subject_rooms(subject_id))
             if pair_cap < required_pairs:
-                return False, (
-                    f"科目{subject_id}在‘本外校搭配’约束下，合法配对最多 {pair_cap} 对，"
-                    f"不足以覆盖 {required_pairs} 个考场。"
+                return (
+                    False,
+                    (
+                        f"科目{subject_id}在“本外校搭配”约束下，合法配对最多 {pair_cap} 对，"
+                        f"不足以覆盖 {required_pairs} 个考场。"
+                    ),
                 )
         elif gender_mix:
             male_count = sum(1 for teacher in candidates if teacher.gender == "M")
             female_count = sum(1 for teacher in candidates if teacher.gender == "F")
             pair_cap = min(male_count, female_count)
-            required_pairs = len(schedule._get_subject_rooms(subject_id))
             if pair_cap < required_pairs:
-                return False, (
-                    f"科目{subject_id}在‘性别搭配’约束下，合法配对最多 {pair_cap} 对，"
-                    f"不足以覆盖 {required_pairs} 个考场。"
+                return (
+                    False,
+                    (
+                        f"科目{subject_id}在“性别搭配”约束下，合法配对最多 {pair_cap} 对，"
+                        f"不足以覆盖 {required_pairs} 个考场。"
+                    ),
                 )
 
     return True, "可行"
 
 
 def is_schedule_complete(schedule):
-    """Check whether every room has enough assigned teachers for the current mode."""
-    required_count = 1 if schedule.mode == "single" else 2
+    """Check whether every room has enough assigned teachers or exempt slots."""
     for exam in schedule.exams:
         for room in exam.rooms:
             teachers = exam.schedule.get(room, [])
-            if len([teacher for teacher in teachers if teacher is not None]) < required_count:
+            assigned_count = len([teacher for teacher in teachers if teacher is not None])
+            exempt_count = schedule.get_exempt_slot_count(exam.subject_id, room)
+            if assigned_count + exempt_count < schedule.get_slot_count():
                 return False
     return True

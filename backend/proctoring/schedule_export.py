@@ -4,6 +4,7 @@ from typing import Any, Sequence
 
 import pandas as pd
 
+from .core.entities import EXEMPT_SLOT_MARKER
 from .core.models import Schedule
 
 
@@ -29,7 +30,11 @@ def _subject_header(subject_id: int, subject_names: Sequence[str], exam_times: S
     return f"{_subject_name(subject_id, subject_names)}\n{_exam_time(subject_id, exam_times)}"
 
 
-def _double_subject_headers(subject_id: int, subject_names: Sequence[str], exam_times: Sequence[str]) -> tuple[str, str]:
+def _double_subject_headers(
+    subject_id: int,
+    subject_names: Sequence[str],
+    exam_times: Sequence[str],
+) -> tuple[str, str]:
     base = _subject_header(subject_id, subject_names, exam_times)
     name, _, time_text = base.partition("\n")
     return f"{name}-监考员1\n{time_text}", f"{name}-监考员2\n{time_text}"
@@ -74,13 +79,21 @@ def _build_overview_dataframe(
             teachers = list((exam.schedule or {}).get(room, []))
             if schedule.mode == "double":
                 col1, col2 = _double_subject_headers(exam.subject_id, subject_names, exam_times)
-                if len(teachers) >= 1 and teachers[0] is not None:
+                if schedule.is_position_exempt(exam.subject_id, room, 0):
+                    rows[idx][col1] = EXEMPT_SLOT_MARKER
+                elif len(teachers) >= 1 and teachers[0] is not None:
                     rows[idx][col1] = teachers[0].name
-                if len(teachers) >= 2 and teachers[1] is not None:
+
+                if schedule.is_position_exempt(exam.subject_id, room, 1):
+                    rows[idx][col2] = EXEMPT_SLOT_MARKER
+                elif len(teachers) >= 2 and teachers[1] is not None:
                     rows[idx][col2] = teachers[1].name
             else:
                 col = _subject_header(exam.subject_id, subject_names, exam_times)
-                rows[idx][col] = ", ".join(t.name for t in teachers if t is not None)
+                if schedule.is_position_exempt(exam.subject_id, room, 0):
+                    rows[idx][col] = EXEMPT_SLOT_MARKER
+                else:
+                    rows[idx][col] = ", ".join(t.name for t in teachers if t is not None)
 
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
@@ -108,10 +121,22 @@ def _build_time_overview_dataframe(
                 "考场": room_locations.get(room) or f"考场{room}",
             }
             if schedule.mode == "double":
-                row["监考教师1"] = teachers[0].name if len(teachers) >= 1 and teachers[0] is not None else ""
-                row["监考教师2"] = teachers[1].name if len(teachers) >= 2 and teachers[1] is not None else ""
+                row["监考教师1"] = (
+                    EXEMPT_SLOT_MARKER
+                    if schedule.is_position_exempt(exam.subject_id, room, 0)
+                    else teachers[0].name if len(teachers) >= 1 and teachers[0] is not None else ""
+                )
+                row["监考教师2"] = (
+                    EXEMPT_SLOT_MARKER
+                    if schedule.is_position_exempt(exam.subject_id, room, 1)
+                    else teachers[1].name if len(teachers) >= 2 and teachers[1] is not None else ""
+                )
             else:
-                row["监考教师"] = ", ".join(t.name for t in teachers if t is not None)
+                row["监考教师"] = (
+                    EXEMPT_SLOT_MARKER
+                    if schedule.is_position_exempt(exam.subject_id, room, 0)
+                    else ", ".join(t.name for t in teachers if t is not None)
+                )
             rows.append(row)
 
     rows.sort(
@@ -147,7 +172,9 @@ def _build_stats_dataframe(
         }
 
         for subject_id in range(1, max_subject_id + 1):
-            stat_row[_subject_name(subject_id, subject_names)] = str(1 if teacher.is_assigned_to_subject(subject_id) else 0)
+            stat_row[_subject_name(subject_id, subject_names)] = str(
+                1 if teacher.is_assigned_to_subject(subject_id) else 0
+            )
 
         stat_row["监考次数"] = str(stat["count"])
         stat_row["监考时长(分钟)"] = str(teacher.supervision_duration)
@@ -185,19 +212,28 @@ def _build_subject_sheet_dataframes(*, schedule: Schedule) -> dict[str, pd.DataF
             row["考场编号"] = str(room)
             row["考场"] = str(room_locations.get(room) or f"考场{room}")
             if schedule.mode == "double":
-                if len(teachers) >= 1 and teachers[0] is not None:
+                if schedule.is_position_exempt(exam.subject_id, room, 0):
+                    row["监考教师1（姓名）"] = EXEMPT_SLOT_MARKER
+                elif len(teachers) >= 1 and teachers[0] is not None:
                     t1 = teachers[0]
                     row["监考教师1（姓名）"] = t1.name
                     row["监考教师1性别"] = "男" if t1.gender == "M" else ("女" if t1.gender == "F" else "")
                     row["监考教师1来源"] = "本校" if t1.is_internal is True else ("外校" if t1.is_internal is False else "")
-                if len(teachers) >= 2 and teachers[1] is not None:
+
+                if schedule.is_position_exempt(exam.subject_id, room, 1):
+                    row["监考教师2（姓名）"] = EXEMPT_SLOT_MARKER
+                elif len(teachers) >= 2 and teachers[1] is not None:
                     t2 = teachers[1]
                     row["监考教师2（姓名）"] = t2.name
                     row["监考教师2性别"] = "男" if t2.gender == "M" else ("女" if t2.gender == "F" else "")
                     row["监考教师2来源"] = "本校" if t2.is_internal is True else ("外校" if t2.is_internal is False else "")
             else:
-                row["监考教师（姓名）"] = ", ".join(t.name for t in teachers if t is not None)
-                if teachers and teachers[0] is not None:
+                row["监考教师（姓名）"] = (
+                    EXEMPT_SLOT_MARKER
+                    if schedule.is_position_exempt(exam.subject_id, room, 0)
+                    else ", ".join(t.name for t in teachers if t is not None)
+                )
+                if not schedule.is_position_exempt(exam.subject_id, room, 0) and teachers and teachers[0] is not None:
                     teacher = teachers[0]
                     row["性别"] = "男" if teacher.gender == "M" else ("女" if teacher.gender == "F" else "")
                     row["来源"] = "本校" if teacher.is_internal is True else ("外校" if teacher.is_internal is False else "")
@@ -231,6 +267,7 @@ def export_schedule_to_excel(
     exam_times: Sequence[str] | None = None,
     exam_dates: Sequence[str] | None = None,
 ) -> None:
+    del exam_dates
     df = _build_overview_dataframe(
         schedule=schedule,
         subject_names=list(subject_names or []),

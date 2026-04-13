@@ -76,6 +76,8 @@ def _collect_existing_slot_assignments(
             while len(teachers) < required_slots:
                 teachers.append(None)
             for slot_index in range(required_slots):
+                if schedule.is_position_exempt(int(exam.subject_id), int(room), int(slot_index)):
+                    continue
                 teacher = teachers[slot_index] if slot_index < len(teachers) else None
                 if teacher is None:
                     continue
@@ -97,6 +99,7 @@ def _teacher_can_take_slot(
     room: int,
     slot_index: int,
     teacher_unavailable: dict[int, set[int]],
+    enforce_double_slot_roles: bool,
 ) -> bool:
     if _safe_int(getattr(teacher, "max_sessions", 0), default=0) <= 0:
         return False
@@ -108,7 +111,11 @@ def _teacher_can_take_slot(
     if subject_context.subject_id in teacher_unavailable.get(teacher_index, set()):
         return False
 
-    if schedule.mode == "double" and schedule.get_constraint("internal_mix", False):
+    if (
+        schedule.mode == "double"
+        and enforce_double_slot_roles
+        and schedule.get_constraint("internal_mix", False)
+    ):
         is_internal = getattr(teacher, "is_internal", None)
         if slot_index == 0 and is_internal is not True:
             return False

@@ -15,6 +15,9 @@ if (process.platform === 'win32') {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const DEV_PYTHON_PATH =
+  (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
+    ?.VITE_PYTHON_PATH
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -271,7 +274,7 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
       options = { ...(options || {}), cwd: engineCwd }
     } else {
       // In development, map 'engine' to local python (configure via VITE_PYTHON_PATH in .env.development)
-      finalCommand = process.env.VITE_PYTHON_PATH || "python"
+      finalCommand = DEV_PYTHON_PATH || "python"
       finalArgs = ['-m', 'backend', ...finalArgs]
     }
   }

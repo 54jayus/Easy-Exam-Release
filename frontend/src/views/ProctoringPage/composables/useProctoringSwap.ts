@@ -69,6 +69,7 @@ export function useProctoringSwap(options: {
       const subjectId = parts[1]
       const idx = config.mode === 'double' ? (Number(parts[2] || '1') - 1) : 0
       const t = getTeacherObj(subjectId, Number(row.roomId), idx)
+      if (t?.isExempt) return { backgroundColor: '#fffbeb' }
       if (t?.isLocked) return { backgroundColor: '#fff1f2' }
       if (t?.presetRoom && Number(t.presetRoom) === Number(row.roomId)) return { backgroundColor: '#ecfdf5' }
     }
@@ -96,6 +97,7 @@ export function useProctoringSwap(options: {
     const subId = parts[1]
     const tIdx = config.mode === 'double' ? (parseInt(parts[2], 10) - 1) : 0
     const t = getTeacherObj(subId, cell.roomId, tIdx)
+    if (t?.isExempt) return `考场${cell.roomId}为无需编排位置`
     if (t?.isLocked) return `考场${cell.roomId}的${t.name}（已锁定）`
     if (t?.presetRoom && Number(t.presetRoom) === cell.roomId) return `考场${cell.roomId}的${t.name}（预设）`
     return null
@@ -164,6 +166,14 @@ export function useProctoringSwap(options: {
 
     const roomId = row.roomId
     const cellKey = column.property
+    const parts = cellKey.split('_')
+    const subjectId = parts[1]
+    const slotIndex = config.mode === 'double' ? (parseInt(parts[2], 10) - 1) : 0
+    const teacher = getTeacherObj(subjectId, roomId, slotIndex)
+    if (teacher?.isExempt) {
+      feedback.warning('“无需编排”位置不能参与手动交换', { log: false })
+      return
+    }
 
     const existingIdx = selectedCells.value.findIndex((c) => c.roomId === roomId && c.c === cellKey)
     if (existingIdx >= 0) {

@@ -7,11 +7,19 @@ from typing import Any
 import pandas as pd
 
 from backend.proctoring.core.cp_sat import SubjectContext
+from backend.proctoring.core.entities import (
+    EXEMPT_SLOT_ID,
+    build_exempt_slot_payload,
+)
 from backend.proctoring.core.models import Exam, Schedule, Teacher
 from backend.subjects.core import _parse_time_range
 
 # Keep the historical logger name so existing log routing stays stable.
 logger = logging.getLogger("backend.application.proctoring_service")
+
+
+def _is_exempt_teacher_payload(value: Any) -> bool:
+    return isinstance(value, dict) and bool(value.get("isExempt") or value.get("id") == EXEMPT_SLOT_ID)
 
 def _to_int(value: Any, default: int = 0) -> int:
     try:
@@ -457,7 +465,11 @@ def _format_schedule_result(schedule: Schedule, subjects_data: list) -> dict:
                 location = original_rooms[room_idx].get("location", location)
             assigned = exam.schedule.get(room_num, [])
             assigned_data = []
-            for idx, t in enumerate(assigned):
+            for idx in range(schedule.get_slot_count()):
+                if schedule.is_position_exempt(exam.subject_id, room_num, idx):
+                    assigned_data.append(build_exempt_slot_payload())
+                    continue
+                t = assigned[idx] if idx < len(assigned) else None
                 if t:
                     is_imported = schedule.is_position_imported(exam.subject_id, room_num, idx)
                     is_locked = is_imported and schedule.get_constraint("lock_imported")
@@ -542,13 +554,17 @@ def _reconstruct_schedule(params: dict, state_subjects: list) -> Schedule:
             room_num = _to_int(room_data.get("roomNum", room_data.get("id")), 0)
             r_id = room_num if room_num > 0 else room_data.get("id")
             assigned_teachers = []
-            for t_data in room_data.get("teachers", []):
+            for slot_index, t_data in enumerate(room_data.get("teachers", [])):
+                if _is_exempt_teacher_payload(t_data):
+                    assigned_teachers.append(None)
+                    schedule.mark_exempt_position(subject_id, r_id, slot_index)
+                    continue
                 if t_data and t_data.get("name") in teacher_map:
                     t = teacher_map[t_data["name"]]
                     assigned_teachers.append(t)
                     t.assign((subject_id, r_id), schedule._get_subject_duration(subject_id))
                     if isinstance(t_data, dict) and t_data.get("isLocked"):
-                        schedule.mark_imported_position(subject_id, r_id, len(assigned_teachers) - 1)
+                        schedule.mark_imported_position(subject_id, r_id, slot_index)
                 else:
                     assigned_teachers.append(None)
             if assigned_teachers:
@@ -596,7 +612,11 @@ def _build_export_workbook_payload(
                 continue
             exam.room_locations[room_id] = room_data.get("location") or f"\u7ed7?{room_id} \u9470\u51a8\u6e80"
             assigned_teachers = []
-            for teacher_data in room_data.get("teachers", []):
+            for slot_index, teacher_data in enumerate(room_data.get("teachers", [])):
+                if _is_exempt_teacher_payload(teacher_data):
+                    assigned_teachers.append(None)
+                    schedule.mark_exempt_position(subject_id, room_id, slot_index)
+                    continue
                 if teacher_data and teacher_data.get("name") in teacher_map:
                     teacher = teacher_map[teacher_data["name"]]
                     assigned_teachers.append(teacher)

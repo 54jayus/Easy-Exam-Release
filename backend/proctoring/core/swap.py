@@ -4,10 +4,7 @@
 
 
 def find_teacher_index(schedule, subject_id, room, teacher):
-    """
-    查找指定教师在某科目某考场的索引位置（单/双教师模式）
-    返回: 0/1 或 None
-    """
+    """Return the slot index of a teacher in a room, or ``None``."""
     exam = next((exam for exam in schedule.exams if exam.subject_id == subject_id), None)
     if not exam:
         return None
@@ -19,16 +16,7 @@ def find_teacher_index(schedule, subject_id, room, teacher):
 
 
 def swap_teachers(schedule, session1_info, session2_info):
-    """
-    交换两个监考教师
-
-    Args:
-        session1_info: (subject_id, room, teacher_index) 第一个场次信息
-        session2_info: (subject_id, room, teacher_index) 第二个场次信息
-
-    Returns:
-        (bool, str): (是否成功, 错误信息)
-    """
+    """Swap two teacher slots."""
     subject1, room1, teacher_index1 = session1_info
     subject2, room2, teacher_index2 = session2_info
 
@@ -46,6 +34,9 @@ def swap_teachers(schedule, session1_info, session2_info):
     if room1 not in exam1.schedule or room2 not in exam2.schedule:
         return False, "指定考场未安排监考教师"
 
+    if schedule.is_position_exempt(subject1, room1, teacher_index1) or schedule.is_position_exempt(subject2, room2, teacher_index2):
+        return False, "“无需编排”位置不能参与交换"
+
     teachers1 = exam1.schedule[room1]
     teachers2 = exam2.schedule[room2]
 
@@ -60,16 +51,16 @@ def swap_teachers(schedule, session1_info, session2_info):
     original_teacher1 = teachers1[teacher_index1]
     original_teacher2 = teachers2[teacher_index2]
 
-    respect_preset = bool(schedule.get_constraint('respect_preset_on_swap', True))
+    respect_preset = bool(schedule.get_constraint("respect_preset_on_swap", True))
     if respect_preset:
-        if original_teacher1 and getattr(original_teacher1, 'preset_room', None) is not None:
+        if original_teacher1 and getattr(original_teacher1, "preset_room", None) is not None:
             try:
                 preset_room1 = int(original_teacher1.preset_room)
             except Exception:
                 preset_room1 = None
             if preset_room1 is not None and int(room2) != preset_room1:
                 return False, f"教师 {original_teacher1.name} 预设房间为 {preset_room1}，不能交换到考场 {room2}"
-        if original_teacher2 and getattr(original_teacher2, 'preset_room', None) is not None:
+        if original_teacher2 and getattr(original_teacher2, "preset_room", None) is not None:
             try:
                 preset_room2 = int(original_teacher2.preset_room)
             except Exception:
@@ -82,12 +73,20 @@ def swap_teachers(schedule, session1_info, session2_info):
         other_idx2 = 1 - teacher_index2
         if original_teacher1 is not None:
             other_teacher_in_room2 = teachers2[other_idx2] if len(teachers2) > other_idx2 else None
-            if other_teacher_in_room2 is not None and other_teacher_in_room2 == original_teacher1 and (subject1 != subject2 or room1 != room2 or teacher_index1 != other_idx2):
-                return False, f"教师 {original_teacher1.name} 已在科目{subject2}考场{room2}担任另一位置，禁止同场重复担任监考员1和2"
+            if (
+                other_teacher_in_room2 is not None
+                and other_teacher_in_room2 == original_teacher1
+                and (subject1 != subject2 or room1 != room2 or teacher_index1 != other_idx2)
+            ):
+                return False, f"教师 {original_teacher1.name} 已在科目{subject2}考场{room2}担任另一位置，禁止同场重复担任监考员"
         if original_teacher2 is not None:
             other_teacher_in_room1 = teachers1[other_idx1] if len(teachers1) > other_idx1 else None
-            if other_teacher_in_room1 is not None and other_teacher_in_room1 == original_teacher2 and (subject1 != subject2 or room1 != room2 or teacher_index2 != other_idx1):
-                return False, f"教师 {original_teacher2.name} 已在科目{subject1}考场{room1}担任另一位置，禁止同场重复担任监考员1和2"
+            if (
+                other_teacher_in_room1 is not None
+                and other_teacher_in_room1 == original_teacher2
+                and (subject1 != subject2 or room1 != room2 or teacher_index2 != other_idx1)
+            ):
+                return False, f"教师 {original_teacher2.name} 已在科目{subject1}考场{room1}担任另一位置，禁止同场重复担任监考员"
 
     if subject1 != subject2:
         if original_teacher1 and not original_teacher1.can_supervise(subject2):
@@ -132,16 +131,40 @@ def swap_teachers(schedule, session1_info, session2_info):
         other_teacher1 = teachers1[1 - teacher_index1] if len(teachers1) > 1 else None
         other_teacher2 = teachers2[1 - teacher_index2] if len(teachers2) > 1 else None
 
-        if schedule.get_constraint('gender_mix'):
-            if other_teacher2 and original_teacher1 and other_teacher2.gender and original_teacher1.gender and other_teacher2.gender == original_teacher1.gender:
+        if schedule.get_constraint("gender_mix"):
+            if (
+                other_teacher2
+                and original_teacher1
+                and other_teacher2.gender
+                and original_teacher1.gender
+                and other_teacher2.gender == original_teacher1.gender
+            ):
                 return False, f"教师 {original_teacher1.name} 与考场{room2}的另一位教师性别不匹配"
-            if other_teacher1 and original_teacher2 and other_teacher1.gender and original_teacher2.gender and other_teacher1.gender == original_teacher2.gender:
+            if (
+                other_teacher1
+                and original_teacher2
+                and other_teacher1.gender
+                and original_teacher2.gender
+                and other_teacher1.gender == original_teacher2.gender
+            ):
                 return False, f"教师 {original_teacher2.name} 与考场{room1}的另一位教师性别不匹配"
 
-        if schedule.get_constraint('internal_mix'):
-            if other_teacher2 and original_teacher1 and other_teacher2.is_internal is not None and original_teacher1.is_internal is not None and other_teacher2.is_internal == original_teacher1.is_internal:
+        if schedule.get_constraint("internal_mix"):
+            if (
+                other_teacher2
+                and original_teacher1
+                and other_teacher2.is_internal is not None
+                and original_teacher1.is_internal is not None
+                and other_teacher2.is_internal == original_teacher1.is_internal
+            ):
                 return False, f"教师 {original_teacher1.name} 与考场{room2}的另一位教师本外校属性不匹配"
-            if other_teacher1 and original_teacher2 and other_teacher1.is_internal is not None and original_teacher2.is_internal is not None and other_teacher1.is_internal == original_teacher2.is_internal:
+            if (
+                other_teacher1
+                and original_teacher2
+                and other_teacher1.is_internal is not None
+                and original_teacher2.is_internal is not None
+                and other_teacher1.is_internal == original_teacher2.is_internal
+            ):
                 return False, f"教师 {original_teacher2.name} 与考场{room1}的另一位教师本外校属性不匹配"
             if teacher_index1 == 0 and original_teacher1 and original_teacher1.is_internal is False:
                 return False, f"教师 {original_teacher1.name} 是外校教师，不能作为监考员1"
@@ -153,11 +176,11 @@ def swap_teachers(schedule, session1_info, session2_info):
                 return False, f"教师 {original_teacher2.name} 是本校教师，不能作为监考员2"
 
     if original_teacher1:
-        subject_durations = schedule.get_constraint('subject_durations', [])
+        subject_durations = schedule.get_constraint("subject_durations", [])
         duration1 = subject_durations[subject1 - 1] if (subject1 - 1) < len(subject_durations) else 0
         original_teacher1.unassign((subject1, room1), duration1)
     if original_teacher2:
-        subject_durations = schedule.get_constraint('subject_durations', [])
+        subject_durations = schedule.get_constraint("subject_durations", [])
         duration2 = subject_durations[subject2 - 1] if (subject2 - 1) < len(subject_durations) else 0
         original_teacher2.unassign((subject2, room2), duration2)
 
@@ -165,11 +188,11 @@ def swap_teachers(schedule, session1_info, session2_info):
     exam2.schedule[room2][teacher_index2] = original_teacher1
 
     if original_teacher1:
-        subject_durations = schedule.get_constraint('subject_durations', [])
+        subject_durations = schedule.get_constraint("subject_durations", [])
         duration = subject_durations[subject2 - 1] if (subject2 - 1) < len(subject_durations) else 0
         original_teacher1.assign((subject2, room2), duration)
     if original_teacher2:
-        subject_durations = schedule.get_constraint('subject_durations', [])
+        subject_durations = schedule.get_constraint("subject_durations", [])
         duration = subject_durations[subject1 - 1] if (subject1 - 1) < len(subject_durations) else 0
         original_teacher2.assign((subject1, room1), duration)
 

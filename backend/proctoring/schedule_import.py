@@ -7,6 +7,8 @@ import pandas as pd
 from .core.models import Schedule, Teacher
 from .schedule_excel import parse_schedule_from_excel
 
+OVERVIEW_SHEET_NAME = "监考总览表"
+
 
 def import_schedule_from_excel(
     file_path: str,
@@ -33,13 +35,13 @@ def import_schedule_from_excel(
     schedule.set_constraint("subject_room_counts", list(subject_room_counts or [num_rooms] * num_subjects))
 
     try:
-        df = pd.read_excel(file_path, sheet_name="监考总览表")
-    except ValueError as e:
-        if "not found" in str(e):
+        df = pd.read_excel(file_path, sheet_name=OVERVIEW_SHEET_NAME)
+    except ValueError as exc:
+        if "not found" in str(exc):
             return schedule, ["Excel文件缺少“监考总览表”工作表。请使用正确的预设监考/监考安排模板。"]
-        return schedule, [f"读取Excel失败: {str(e)}"]
-    except Exception as e:
-        return schedule, [f"读取Excel失败: {str(e)}"]
+        return schedule, [f"读取Excel失败: {exc}"]
+    except Exception as exc:
+        return schedule, [f"读取Excel失败: {exc}"]
 
     errors = parse_schedule_from_excel(
         schedule=schedule,

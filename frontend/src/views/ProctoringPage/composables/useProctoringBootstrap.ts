@@ -63,7 +63,7 @@ export function useProctoringBootstrap(options: {
         if (res.schedule && Array.isArray(res.schedule)) {
           hasPreset.value = res.schedule.some((subj: any) =>
             subj.rooms?.some((room: any) =>
-              room.teachers?.some((t: any) => t?.isLocked)
+              room.teachers?.some((t: any) => t?.isLocked || t?.isExempt)
             )
           )
         }

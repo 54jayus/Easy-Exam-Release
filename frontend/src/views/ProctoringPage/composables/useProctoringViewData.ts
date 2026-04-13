@@ -65,8 +65,9 @@ export function useProctoringViewData(options: {
       for (const roomId of getExpectedRoomNumbers(sub.id)) {
         const room = session?.rooms?.find((r: any) => Number(r.roomNum ?? r.id) === roomId)
         const ts: any[] = room?.teachers || []
-        const filled = ts.filter((t) => t).length
-        if (filled < requiredSlots) missing += (requiredSlots - filled)
+        const filled = ts.filter((t) => t && !t.isExempt).length
+        const exempt = ts.filter((t) => t?.isExempt).length
+        if (filled + exempt < requiredSlots) missing += (requiredSlots - filled - exempt)
       }
     }
     return missing
@@ -89,6 +90,7 @@ export function useProctoringViewData(options: {
   const getTeacherText = (subjectId: string, roomNum: number, idx: number) => {
     const t = getTeacherObj(subjectId, roomNum, idx)
     if (!t) return ''
+    if (t.isExempt) return '无需编排'
     if (t.isLocked) return `${t.name}[锁]`
     if (t.presetRoom && Number(t.presetRoom) === roomNum) return `${t.name}[预]`
     return t.name
@@ -98,6 +100,7 @@ export function useProctoringViewData(options: {
     const t = getTeacherObj(subjectId, roomNum, idx)
     if (!t) return 'text-slate-300'
 
+    if (t.isExempt) return 'text-amber-600 font-semibold'
     if (t.isLocked) return 'text-rose-600 font-semibold'
     if (t.presetRoom && Number(t.presetRoom) === roomNum) return 'text-emerald-600 font-semibold'
     if (t.gender === 'M') return 'text-blue-600'
@@ -137,14 +140,14 @@ export function useProctoringViewData(options: {
       subjects.value.forEach((sub) => {
         const assigned = schedule.value.some((s) =>
           s.subjectId === sub.id &&
-          s.rooms.some((r: any) => r.teachers.some((tr: any) => tr && tr.id === t.id))
+          s.rooms.some((r: any) => r.teachers.some((tr: any) => tr && tr.id === t.id)),
         )
         status[sub.id] = assigned
       })
 
       return {
         ...t,
-        subjectStatus: status
+        subjectStatus: status,
       }
     })
   })
@@ -155,27 +158,31 @@ export function useProctoringViewData(options: {
         name: '',
         gender: '',
         source: '',
-        className: 'text-slate-300'
+        className: 'text-slate-300',
       }
     }
 
     return {
-      name: teacher.isLocked
-        ? `${teacher.name}[锁]`
-        : teacher.presetRoom && Number(teacher.presetRoom) === roomNum
-          ? `${teacher.name}[预]`
-          : teacher.name,
-      gender: teacher.gender === 'M' ? '男' : '女',
-      source: teacher.isInternal ? '本校' : '外校',
-      className: teacher.isLocked
-        ? 'text-rose-600 font-semibold'
-        : teacher.presetRoom && Number(teacher.presetRoom) === roomNum
-          ? 'text-emerald-600 font-semibold'
-          : teacher.gender === 'M'
-            ? 'text-blue-600'
-            : teacher.gender === 'F'
-              ? 'text-fuchsia-600'
-              : 'text-slate-700'
+      name: teacher.isExempt
+        ? '无需编排'
+        : teacher.isLocked
+          ? `${teacher.name}[锁]`
+          : teacher.presetRoom && Number(teacher.presetRoom) === roomNum
+            ? `${teacher.name}[预]`
+            : teacher.name,
+      gender: teacher.isExempt ? '' : teacher.gender === 'M' ? '男' : '女',
+      source: teacher.isExempt ? '' : teacher.isInternal ? '本校' : '外校',
+      className: teacher.isExempt
+        ? 'text-amber-600 font-semibold'
+        : teacher.isLocked
+          ? 'text-rose-600 font-semibold'
+          : teacher.presetRoom && Number(teacher.presetRoom) === roomNum
+            ? 'text-emerald-600 font-semibold'
+            : teacher.gender === 'M'
+              ? 'text-blue-600'
+              : teacher.gender === 'F'
+                ? 'text-fuchsia-600'
+                : 'text-slate-700',
     }
   }
 
