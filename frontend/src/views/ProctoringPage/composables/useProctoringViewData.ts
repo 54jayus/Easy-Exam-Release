@@ -170,8 +170,20 @@ export function useProctoringViewData(options: {
           : teacher.presetRoom && Number(teacher.presetRoom) === roomNum
             ? `${teacher.name}[预]`
             : teacher.name,
-      gender: teacher.isExempt ? '' : teacher.gender === 'M' ? '男' : '女',
-      source: teacher.isExempt ? '' : teacher.isInternal ? '本校' : '外校',
+      gender: teacher.isExempt
+        ? ''
+        : teacher.gender === 'M'
+          ? '男'
+          : teacher.gender === 'F'
+            ? '女'
+            : '',
+      source: teacher.isExempt
+        ? ''
+        : teacher.isInternal === true
+          ? '本校'
+          : teacher.isInternal === false
+            ? '外校'
+            : '',
       className: teacher.isExempt
         ? 'text-amber-600 font-semibold'
         : teacher.isLocked
