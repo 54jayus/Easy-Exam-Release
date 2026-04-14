@@ -217,8 +217,21 @@ def export_gaokao_timeslot_tables(arrangement, writer) -> None:
 def export_gaokao_stats_table(arrangement, writer) -> None:
     """导出高考模式考场人数统计。"""
     unified_df = arrangement.gaokao_results["unified"]
-    used_rooms = unified_df["考场号"].unique()
-    room_list = [room for room in arrangement._get_room_list() if room in used_rooms]
+    unified_room_keys = unified_df["考场号"].astype(str).str.strip()
+    used_room_keys = set(unified_room_keys.tolist())
+
+    electives = arrangement.gaokao_results.get("electives", {})
+    elective_room_keys: dict[str, pd.Series] = {}
+    for subject, elective_df in electives.items():
+        room_keys = elective_df["考场号"].astype(str).str.strip()
+        elective_room_keys[subject] = room_keys
+        used_room_keys.update(room_keys.tolist())
+
+    configured_rooms = [str(room).strip() for room in arrangement._get_room_list()]
+    room_list = [room for room in configured_rooms if room in used_room_keys]
+
+    extra_rooms = sorted(used_room_keys.difference(configured_rooms))
+    room_list.extend(extra_rooms)
 
     subjects = []
     for subject in arrangement._get_subject_order():
@@ -229,26 +242,27 @@ def export_gaokao_stats_table(arrangement, writer) -> None:
 
     stats_records = []
     for room_num in room_list:
+        room_key = str(room_num).strip()
         record = {"考场号": room_num, "考场": arrangement._get_room_name(room_num)}
         room_counts = []
 
         for subject in subjects:
             if subject in ["语文", "数学", "英语"]:
-                count = len(unified_df[unified_df["考场号"] == room_num])
+                count = int((unified_room_keys == room_key).sum())
                 record[subject] = count
                 room_counts.append(count)
                 continue
 
             if subject in ["物理", "历史"]:
                 prefix = "物" if subject == "物理" else "史"
-                room_students = unified_df[unified_df["考场号"] == room_num]
+                room_students = unified_df[unified_room_keys == room_key]
                 count = len(room_students[room_students[arrangement.subject_column].str.startswith(prefix)])
                 record[subject] = count
                 room_counts.append(count)
                 continue
 
-            elective_df = arrangement.gaokao_results["electives"][subject]
-            room_df = elective_df[elective_df["考场号"] == room_num]
+            elective_df = electives[subject]
+            room_df = elective_df[elective_room_keys[subject] == room_key]
             exam_count = len(room_df[room_df["科目类型"] == subject])
             self_study_count = len(room_df[room_df["科目类型"] == "自习"])
 

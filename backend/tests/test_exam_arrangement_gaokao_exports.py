@@ -114,3 +114,40 @@ def test_save_gaokao_results_exports_expected_workbook(tmp_path) -> None:
     stats_sheet = workbook["考场人数统计"]
     assert student_sheet.max_row >= 3
     assert stats_sheet.max_row >= 2
+
+
+def test_save_gaokao_results_stats_sheet_includes_rooms_only_used_in_electives(tmp_path) -> None:
+    arrangement = _build_gaokao_arrangement()
+    arrangement.room_setting_df = pd.DataFrame(
+        [
+            {"考场号": "001", "考场": "第一考场"},
+            {"考场号": "005", "考场": "第五考场"},
+            {"考场号": "006", "考场": "第六考场"},
+            {"考场号": "007", "考场": "第七考场"},
+            {"考场号": "008", "考场": "第八考场"},
+            {"考场号": "015", "考场": "第十五考场"},
+            {"考场号": "025", "考场": "第二十五考场"},
+            {"考场号": "035", "考场": "第三十五考场"},
+            {"考场号": "045", "考场": "第四十五考场"},
+        ]
+    )
+    output_path = tmp_path / "gaokao-stats-rooms.xlsx"
+
+    ok, _message = arrangement.save_gaokao_results(str(output_path))
+
+    assert ok is True
+
+    workbook = load_workbook(output_path, data_only=True, read_only=True)
+    stats_sheet = workbook["考场人数统计"]
+    rows = list(stats_sheet.iter_rows(values_only=True))
+
+    room_rows = rows[1:-1]
+    exported_room_numbers = [str(row[0]) for row in room_rows]
+    assert exported_room_numbers == ["001", "005", "006", "007", "008", "015", "025", "035", "045"]
+
+    total_row = rows[-1]
+    assert total_row[0] == "总计"
+    assert total_row[7] == 2
+    assert total_row[8] == 2
+    assert total_row[9] == 2
+    assert total_row[10] == 2
