@@ -35,6 +35,7 @@ from .proctoring_support import (
     _has_locked_positions,
     _log_cp_sat_run,
     _merge_subjects_with_state,
+    _randomize_teacher_order_for_solver,
     _reconstruct_schedule,
     _sort_subjects,
     _teacher_from_dict,
@@ -415,6 +416,7 @@ class ProctoringService:
             subject_room_counts=subject_room_counts,
             lock_imported=False,
         )
+        _randomize_teacher_order_for_solver(schedule)
 
         cp_sat_started = time.perf_counter()
         report = self._run_cp_sat(
@@ -478,6 +480,7 @@ class ProctoringService:
         schedule = _reconstruct_schedule(params, self._state.subjects)
         subjects_data = params.get("subjects", [])
         config = self._merge_config(params.get("config", {}))
+        _randomize_teacher_order_for_solver(schedule)
         cp_sat_started = time.perf_counter()
         report = self._run_cp_sat(
             schedule=schedule,

@@ -17,6 +17,29 @@ from backend.proctoring.core.entities import Exam
 from backend.proctoring.core.models import Schedule
 
 
+def _successful_cp_sat_report() -> dict:
+    return {
+        "status": "OPTIMAL",
+        "optimal": True,
+        "message": "ok",
+        "metrics": {
+            "count_min": 0,
+            "count_max": 1,
+            "count_range": 1,
+            "count_stddev": 0.5,
+            "current_duration_min": 0,
+            "current_duration_max": 60,
+            "current_duration_range": 60,
+            "current_duration_stddev": 30,
+            "overall_duration_min": 0,
+            "overall_duration_max": 60,
+            "overall_duration_range": 60,
+            "overall_duration_stddev": 30,
+        },
+        "stages": [],
+    }
+
+
 def test_teacher_from_dict_keeps_optional_fields() -> None:
     teacher = _teacher_from_dict(
         {
@@ -252,6 +275,52 @@ def test_generate_schedule_cp_sat_respects_real_time_overlap(recording_repo) -> 
     assert result["meta"]["solver"] == "cp_sat"
 
 
+def test_generate_schedule_randomizes_teacher_order_for_solver_but_preserves_output_order(
+    recording_repo, monkeypatch
+) -> None:
+    state = AppState()
+    state.subjects = [
+        {
+            "name": "Subject A",
+            "exam_date": "2026-06-01",
+            "exam_time": "09:00-10:00",
+            "duration_minutes": 60,
+        }
+    ]
+    service = ProctoringService(state, recording_repo)
+    solver_teacher_orders: list[list[str]] = []
+
+    def fake_randomize(schedule: Schedule) -> None:
+        schedule.teachers.reverse()
+
+    def fake_solver(schedule_arg, subject_contexts, **kwargs):
+        del subject_contexts, kwargs
+        solver_teacher_orders.append([teacher.name for teacher in schedule_arg.teachers])
+        return _successful_cp_sat_report()
+
+    monkeypatch.setattr(proctoring_service_module, "_randomize_teacher_order_for_solver", fake_randomize)
+    monkeypatch.setattr(proctoring_service_module, "solve_schedule_with_cp_sat", fake_solver)
+
+    result = service.generate_schedule(
+        {
+            "teachers": [
+                {"name": "Teacher A", "gender": "M", "isInternal": True, "maxSessions": 1},
+                {"name": "Teacher B", "gender": "F", "isInternal": False, "maxSessions": 1},
+                {"name": "Teacher C", "gender": "F", "isInternal": True, "maxSessions": 1},
+            ],
+            "subjects": [{"id": "1", "name": "Subject A"}],
+            "config": {"roomCount": 1, "mode": "single", "balanceMode": "duration"},
+        }
+    )
+
+    assert solver_teacher_orders == [["Teacher C", "Teacher B", "Teacher A"]]
+    assert [teacher["name"] for teacher in result["teachers"]] == [
+        "Teacher A",
+        "Teacher B",
+        "Teacher C",
+    ]
+
+
 def test_continue_schedule_cp_sat_preserves_locked_assignments(recording_repo) -> None:
     state = AppState()
     state.subjects = [
@@ -288,6 +357,46 @@ def test_continue_schedule_cp_sat_preserves_locked_assignments(recording_repo) -
     assert rooms[0]["teachers"][0]["name"] == "Teacher A"
     assert rooms[0]["teachers"][0]["isLocked"] is True
     assert rooms[1]["teachers"][0]["name"] == "Teacher B"
+
+
+def test_continue_schedule_randomizes_teacher_order_for_solver(recording_repo, monkeypatch) -> None:
+    state = AppState()
+    state.subjects = [
+        {
+            "name": "Subject A",
+            "exam_date": "2026-06-01",
+            "exam_time": "09:00-10:00",
+            "duration_minutes": 60,
+        }
+    ]
+    service = ProctoringService(state, recording_repo)
+    solver_teacher_orders: list[list[str]] = []
+
+    def fake_randomize(schedule: Schedule) -> None:
+        schedule.teachers.reverse()
+
+    def fake_solver(schedule_arg, subject_contexts, **kwargs):
+        del subject_contexts, kwargs
+        solver_teacher_orders.append([teacher.name for teacher in schedule_arg.teachers])
+        return _successful_cp_sat_report()
+
+    monkeypatch.setattr(proctoring_service_module, "_randomize_teacher_order_for_solver", fake_randomize)
+    monkeypatch.setattr(proctoring_service_module, "solve_schedule_with_cp_sat", fake_solver)
+
+    result = service.continue_schedule(
+        {
+            "teachers": [
+                {"name": "Teacher A", "gender": "M", "isInternal": True, "maxSessions": 2},
+                {"name": "Teacher B", "gender": "F", "isInternal": False, "maxSessions": 2},
+            ],
+            "subjects": [{"id": "1", "name": "Subject A"}],
+            "schedule": [],
+            "config": {"roomCount": 1, "mode": "single", "balanceMode": "duration"},
+        }
+    )
+
+    assert solver_teacher_orders == [["Teacher B", "Teacher A"]]
+    assert [teacher["name"] for teacher in result["teachers"]] == ["Teacher A", "Teacher B"]
 
 
 def test_generate_schedule_short_circuits_capacity_infeasibility_before_solver(

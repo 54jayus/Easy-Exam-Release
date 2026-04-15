@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 import logging
+import random
 from typing import Any
 
 import pandas as pd
@@ -56,6 +57,12 @@ def _teacher_from_dict(td: dict) -> Teacher:
 
 def _teachers_from_list(teachers_data: list) -> list[Teacher]:
     return [_teacher_from_dict(td) for td in (teachers_data or [])]
+
+
+def _randomize_teacher_order_for_solver(schedule: Schedule) -> None:
+    if len(schedule.teachers) <= 1:
+        return
+    random.SystemRandom().shuffle(schedule.teachers)
 
 
 def _sort_subjects(subjects_data: list[dict]) -> list[dict]:
