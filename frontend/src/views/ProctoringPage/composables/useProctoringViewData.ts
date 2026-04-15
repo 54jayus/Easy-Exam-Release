@@ -20,14 +20,65 @@ type Subject = {
   remark?: string
 }
 
+type TeacherViewGenderFilter = 'all' | 'M' | 'F' | 'unknown'
+type TeacherViewSourceFilter = 'all' | 'internal' | 'external' | 'unknown'
+type TeacherViewPresetFilter = 'all' | 'preset' | 'none'
+
+export type TeacherViewRow = {
+  name: string
+  gender: string
+  genderLabel: string
+  isInternal: boolean | null | undefined
+  sourceLabel: string
+  maxSessions: number
+  unavailableSubjects: Array<string | number>
+  unavailableSubjectsLabel: string
+  previousSupervisionDuration: number
+  presetRoom: number | null
+  sessions: number
+  supervisionDuration: number
+  totalDuration: number
+}
+
+const normalizeCount = (value: unknown) => {
+  const numeric = Number(value ?? 0)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+const normalizeGenderLabel = (gender: string) => {
+  if (gender === 'M') return '男'
+  if (gender === 'F') return '女'
+  return '未填写'
+}
+
+const normalizeSourceLabel = (isInternal: boolean | null | undefined) => {
+  if (isInternal === true) return '本校'
+  if (isInternal === false) return '外校'
+  return '未填写'
+}
+
 export function useProctoringViewData(options: {
   config: ProctoringConfig
   subjects: Ref<Subject[]>
   teachers: Ref<any[]>
   schedule: Ref<any[]>
   selectedSubjectId: Ref<string>
+  teacherViewKeyword: Ref<string>
+  teacherViewGenderFilter: Ref<TeacherViewGenderFilter>
+  teacherViewSourceFilter: Ref<TeacherViewSourceFilter>
+  teacherViewPresetFilter: Ref<TeacherViewPresetFilter>
 }) {
-  const { config, subjects, teachers, schedule, selectedSubjectId } = options
+  const {
+    config,
+    subjects,
+    teachers,
+    schedule,
+    selectedSubjectId,
+    teacherViewKeyword,
+    teacherViewGenderFilter,
+    teacherViewSourceFilter,
+    teacherViewPresetFilter,
+  } = options
 
   const subjectCount = computed(() => subjects.value.length)
   const hasSchedule = computed(() => schedule.value.length > 0)
@@ -111,15 +162,16 @@ export function useProctoringViewData(options: {
   const getUnavailableNames = (unavailable: any[]) => {
     if (!unavailable || !Array.isArray(unavailable) || unavailable.length === 0) return ''
     return unavailable.map((u) => {
-      const sub = subjects.value.find((s) => s.id === u || s.name === u)
-      return sub ? sub.name : u
-    }).join('、')
+      const text = String(u ?? '').trim()
+      const sub = subjects.value.find((s) => s.id === text || s.name === text || String(s.id) === text)
+      return sub ? sub.name : text
+    }).filter(Boolean).join('、')
   }
 
   const matrixData = computed(() => {
     if (!schedule.value.length) return []
     const rows = []
-    for (let i = 1; i <= maxVisibleRoomCount.value; i++) {
+    for (let i = 1; i <= maxVisibleRoomCount.value; i += 1) {
       const row: any = { roomId: i }
       subjects.value.forEach((sub) => {
         if (config.mode === 'double') {
@@ -136,7 +188,7 @@ export function useProctoringViewData(options: {
 
   const teacherStats = computed(() => {
     return teachers.value.map((t) => {
-      const status: any = {}
+      const status: Record<string, boolean> = {}
       subjects.value.forEach((sub) => {
         const assigned = schedule.value.some((s) =>
           s.subjectId === sub.id &&
@@ -149,6 +201,58 @@ export function useProctoringViewData(options: {
         ...t,
         subjectStatus: status,
       }
+    })
+  })
+
+  const teacherViewRows = computed<TeacherViewRow[]>(() => {
+    return teachers.value.map((teacher) => {
+      const gender = String(teacher?.gender || '').trim().toUpperCase()
+      const unavailableSubjects = Array.isArray(teacher?.unavailableSubjects)
+        ? teacher.unavailableSubjects
+        : []
+      const previousSupervisionDuration = normalizeCount(teacher?.previousSupervisionDuration)
+      const supervisionDuration = normalizeCount(teacher?.supervisionDuration)
+      const presetRoomValue = Number(teacher?.presetRoom ?? 0)
+      const presetRoom = Number.isFinite(presetRoomValue) && presetRoomValue > 0 ? presetRoomValue : null
+
+      return {
+        name: String(teacher?.name || ''),
+        gender,
+        genderLabel: normalizeGenderLabel(gender),
+        isInternal: teacher?.isInternal,
+        sourceLabel: normalizeSourceLabel(teacher?.isInternal),
+        maxSessions: normalizeCount(teacher?.maxSessions),
+        unavailableSubjects,
+        unavailableSubjectsLabel: getUnavailableNames(unavailableSubjects),
+        previousSupervisionDuration,
+        presetRoom,
+        sessions: normalizeCount(teacher?.sessions),
+        supervisionDuration,
+        totalDuration: previousSupervisionDuration + supervisionDuration,
+      }
+    })
+  })
+
+  const teacherViewTableData = computed(() => {
+    const keyword = teacherViewKeyword.value.trim().toLowerCase()
+
+    return teacherViewRows.value.filter((row) => {
+      if (keyword && !row.name.toLowerCase().includes(keyword)) return false
+
+      if (teacherViewGenderFilter.value === 'M' && row.gender !== 'M') return false
+      if (teacherViewGenderFilter.value === 'F' && row.gender !== 'F') return false
+      if (teacherViewGenderFilter.value === 'unknown' && row.gender) return false
+
+      if (teacherViewSourceFilter.value === 'internal' && row.isInternal !== true) return false
+      if (teacherViewSourceFilter.value === 'external' && row.isInternal !== false) return false
+      if (teacherViewSourceFilter.value === 'unknown' && row.isInternal !== null && row.isInternal !== undefined) {
+        return false
+      }
+
+      if (teacherViewPresetFilter.value === 'preset' && !row.presetRoom) return false
+      if (teacherViewPresetFilter.value === 'none' && row.presetRoom) return false
+
+      return true
     })
   })
 
@@ -237,6 +341,8 @@ export function useProctoringViewData(options: {
     getUnavailableNames,
     matrixData,
     teacherStats,
+    teacherViewRows,
+    teacherViewTableData,
     subjectTableData,
   }
 }

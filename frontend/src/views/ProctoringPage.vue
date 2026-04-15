@@ -251,6 +251,11 @@
                              :class="activeTab === 'overview' ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
                              @click="activeTab = 'overview'"
                           >监考总览</button>
+                          <button
+                             class="px-3 py-1 rounded-md transition-all"
+                             :class="activeTab === 'teacher' ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                             @click="activeTab = 'teacher'"
+                          >教师视图</button>
                           <button 
                              class="px-3 py-1 rounded-md transition-all"
                              :class="activeTab === 'stats' ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
@@ -352,6 +357,93 @@
                    </template>
                  </el-table>
                  </div>
+
+                  <!-- Teacher Tab -->
+                  <div v-show="activeTab === 'teacher'" class="h-full flex flex-col">
+                     <div class="p-3 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-3">
+                        <el-input
+                           v-model="teacherViewKeyword"
+                           placeholder="按教师姓名搜索"
+                           clearable
+                           size="small"
+                           class="w-[220px]"
+                        />
+                        <el-select v-model="teacherViewGenderFilter" size="small" class="w-[130px]">
+                           <el-option label="性别：全部" value="all" />
+                           <el-option label="性别：男" value="M" />
+                           <el-option label="性别：女" value="F" />
+                           <el-option label="性别：未填写" value="unknown" />
+                        </el-select>
+                        <el-select v-model="teacherViewSourceFilter" size="small" class="w-[140px]">
+                           <el-option label="来源：全部" value="all" />
+                           <el-option label="来源：本校" value="internal" />
+                           <el-option label="来源：外校" value="external" />
+                           <el-option label="来源：未填写" value="unknown" />
+                        </el-select>
+                        <el-select v-model="teacherViewPresetFilter" size="small" class="w-[150px]">
+                           <el-option label="预设考场：全部" value="all" />
+                           <el-option label="预设考场：有预设" value="preset" />
+                           <el-option label="预设考场：无预设" value="none" />
+                        </el-select>
+                        <div class="ml-auto text-[12px] text-slate-400">
+                           共 {{ teacherViewTableData.length }} / {{ teacherViewRows.length }} 位教师
+                        </div>
+                     </div>
+                     <div class="flex-1 overflow-auto">
+                        <el-table :data="teacherViewTableData" border stripe height="100%" style="width: 100%" size="small">
+                           <el-table-column prop="name" label="教师姓名" min-width="120" align="center" fixed />
+                           <el-table-column prop="genderLabel" label="性别" min-width="80" align="center">
+                              <template #default="{ row }">
+                                 <el-tag
+                                    size="small"
+                                    effect="plain"
+                                    class="!border-0"
+                                    :type="row.gender === 'M' ? '' : row.gender === 'F' ? 'danger' : 'info'"
+                                 >
+                                    {{ row.genderLabel }}
+                                 </el-tag>
+                              </template>
+                           </el-table-column>
+                           <el-table-column prop="sourceLabel" label="本校/外校" min-width="100" align="center">
+                              <template #default="{ row }">
+                                 <el-tag
+                                    size="small"
+                                    effect="plain"
+                                    class="!border-0"
+                                    :type="row.isInternal === true ? 'success' : row.isInternal === false ? 'warning' : 'info'"
+                                 >
+                                    {{ row.sourceLabel }}
+                                 </el-tag>
+                              </template>
+                           </el-table-column>
+                           <el-table-column prop="maxSessions" label="最大监考段数" min-width="120" align="center" />
+                           <el-table-column prop="unavailableSubjectsLabel" label="不监考科目" min-width="180" align="center">
+                              <template #default="{ row }">
+                                 <el-tooltip
+                                    v-if="row.unavailableSubjectsLabel"
+                                    :content="row.unavailableSubjectsLabel"
+                                    placement="top"
+                                 >
+                                    <span class="block truncate text-slate-500 cursor-help">
+                                       {{ row.unavailableSubjectsLabel }}
+                                    </span>
+                                 </el-tooltip>
+                                 <span v-else class="text-slate-300">-</span>
+                              </template>
+                           </el-table-column>
+                           <el-table-column prop="previousSupervisionDuration" label="历次监考时长(分钟)" min-width="150" align="center" />
+                           <el-table-column prop="presetRoom" label="预设考场" min-width="100" align="center">
+                              <template #default="{ row }">
+                                 <span v-if="row.presetRoom">考场{{ row.presetRoom }}</span>
+                                 <span v-else class="text-slate-300">-</span>
+                              </template>
+                           </el-table-column>
+                           <el-table-column prop="sessions" label="已排场次" min-width="90" align="center" />
+                           <el-table-column prop="supervisionDuration" label="本次监考时长(分钟)" min-width="150" align="center" />
+                           <el-table-column prop="totalDuration" label="总监考时长(分钟)" min-width="140" align="center" />
+                        </el-table>
+                     </div>
+                  </div>
  
                   <!-- Stats Tab -->
                   <div v-show="activeTab === 'stats'" class="h-full w-full">
@@ -874,6 +966,10 @@ const adjustMode = ref(false)
 const selectedCells = ref<{roomId: number, c: string}[]>([])
 const optDetailVisible = ref(false)
 const optDetail = ref<any>(null)
+const teacherViewKeyword = ref('')
+const teacherViewGenderFilter = ref<'all' | 'M' | 'F' | 'unknown'>('all')
+const teacherViewSourceFilter = ref<'all' | 'internal' | 'external' | 'unknown'>('all')
+const teacherViewPresetFilter = ref<'all' | 'preset' | 'none'>('all')
 
 const hasPreset = ref(false)
 const schedulingProgress = ref(0)
@@ -917,6 +1013,8 @@ const {
    getUnavailableNames,
    matrixData,
    teacherStats,
+   teacherViewRows,
+   teacherViewTableData,
    subjectTableData,
 } = useProctoringViewData({
    config,
@@ -924,6 +1022,10 @@ const {
    teachers,
    schedule,
    selectedSubjectId,
+   teacherViewKeyword,
+   teacherViewGenderFilter,
+   teacherViewSourceFilter,
+   teacherViewPresetFilter,
 })
 
 const getRoomRecord = (subjectId: string, roomNum: number) => {
@@ -1113,6 +1215,10 @@ const {
    schedulingStatus,
    schedulingStepText,
    isScheduling,
+   teacherViewKeyword,
+   teacherViewGenderFilter,
+   teacherViewSourceFilter,
+   teacherViewPresetFilter,
    logInfo,
    logSuccess,
    logWarning,

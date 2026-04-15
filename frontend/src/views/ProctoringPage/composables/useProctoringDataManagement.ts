@@ -37,6 +37,10 @@ type UseProctoringDataManagementOptions = {
   selectedSubjectId: Ref<string>
   optDetailVisible: Ref<boolean>
   optDetail: Ref<any>
+  teacherViewKeyword: Ref<string>
+  teacherViewGenderFilter: Ref<'all' | 'M' | 'F' | 'unknown'>
+  teacherViewSourceFilter: Ref<'all' | 'internal' | 'external' | 'unknown'>
+  teacherViewPresetFilter: Ref<'all' | 'preset' | 'none'>
   sidebarCollapsed: Ref<boolean>
   advancedSettingsVisible: Ref<boolean>
   activeTab: Ref<string>
@@ -65,6 +69,10 @@ export function useProctoringDataManagement({
   selectedSubjectId,
   optDetailVisible,
   optDetail,
+  teacherViewKeyword,
+  teacherViewGenderFilter,
+  teacherViewSourceFilter,
+  teacherViewPresetFilter,
   sidebarCollapsed,
   advancedSettingsVisible,
   activeTab,
@@ -79,6 +87,13 @@ export function useProctoringDataManagement({
   logFromText
 }: UseProctoringDataManagementOptions) {
   const feedback = createUiFeedback({ logInfo, logSuccess, logWarning, logError })
+
+  const resetTeacherViewFilters = () => {
+    teacherViewKeyword.value = ''
+    teacherViewGenderFilter.value = 'all'
+    teacherViewSourceFilter.value = 'all'
+    teacherViewPresetFilter.value = 'all'
+  }
 
   const resetScheduleState = () => {
     schedule.value = []
@@ -165,6 +180,7 @@ export function useProctoringDataManagement({
     teachers.value = []
     schedule.value = []
     hasPreset.value = false
+    resetTeacherViewFilters()
     resetScheduleState()
     logSuccess(formatActionSuccess('清除教师数据'))
   }
@@ -230,6 +246,7 @@ export function useProctoringDataManagement({
     teachers.value = []
     logs.value = []
     showLogs.value = false
+    resetTeacherViewFilters()
 
     resetScheduleState()
     selectedSubjectId.value = subjects.value[0]?.id || ''
