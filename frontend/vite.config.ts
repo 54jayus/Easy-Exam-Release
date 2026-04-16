@@ -30,11 +30,15 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router') || id.includes('@vueuse')) {
-              return 'vue-vendor'
-            }
-            if (id.includes('element-plus') || id.includes('@element-plus')) {
-              return 'element-plus'
+            if (
+              id.includes('vue') ||
+              id.includes('pinia') ||
+              id.includes('vue-router') ||
+              id.includes('@vueuse') ||
+              id.includes('element-plus') ||
+              id.includes('@element-plus')
+            ) {
+              return 'framework'
             }
             if (id.includes('html2pdf.js') || id.includes('marked') || id.includes('lucide-vue-next')) {
               return 'feature-vendor'

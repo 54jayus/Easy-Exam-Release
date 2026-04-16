@@ -140,6 +140,13 @@ let win: BrowserWindow | null
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
+  log('info', 'window', '开始创建主窗口', {
+    isPackaged: app.isPackaged,
+    dist: process.env.DIST,
+    vitePublic: process.env.VITE_PUBLIC,
+    devServerUrl: VITE_DEV_SERVER_URL || null,
+  })
+
   win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -153,16 +160,59 @@ function createWindow() {
 
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
+    log('info', 'window', '主窗口页面加载完成')
     win?.webContents.send('main-process-message', (new Date).toLocaleString())
   })
 
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    log('error', 'window', '页面加载失败', {
+      errorCode,
+      errorDescription,
+      validatedURL,
+      isMainFrame,
+    })
+  })
+
+  win.webContents.on('did-fail-provisional-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    log('error', 'window', '页面预加载失败', {
+      errorCode,
+      errorDescription,
+      validatedURL,
+      isMainFrame,
+    })
+  })
+
+  win.webContents.on('render-process-gone', (_event, details) => {
+    log('error', 'window', '渲染进程退出', details)
+  })
+
+  win.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    const mappedLevel: LogLevel = level >= 3 ? 'error' : level === 2 ? 'warn' : 'info'
+    log(mappedLevel, 'renderer-console', message, { line, sourceId })
+  })
+
+  win.once('ready-to-show', () => {
+    log('info', 'window', '主窗口 ready-to-show')
+  })
+
   if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL)
+    log('info', 'window', '加载开发服务器页面', { url: VITE_DEV_SERVER_URL })
+    win.loadURL(VITE_DEV_SERVER_URL).catch((error) => {
+      log('error', 'window', 'loadURL 失败', { message: error instanceof Error ? error.message : String(error) })
+    })
   } else {
-    win.loadFile(path.join(process.env.DIST, 'index.html'))
+    const indexPath = path.join(process.env.DIST, 'index.html')
+    log('info', 'window', '加载本地页面', { indexPath })
+    win.loadFile(indexPath).catch((error) => {
+      log('error', 'window', 'loadFile 失败', {
+        indexPath,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    })
   }
 
   win.on('closed', () => {
+    log('info', 'window', '主窗口已关闭')
     win = null
   })
 
@@ -201,6 +251,11 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
+  log('info', 'main', 'Electron 已 ready', {
+    isPackaged: app.isPackaged,
+    exePath: app.getPath('exe'),
+    userData: app.getPath('userData'),
+  })
   Menu.setApplicationMenu(null)
   createWindow()
 
