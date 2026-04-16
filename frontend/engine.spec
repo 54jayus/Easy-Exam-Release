@@ -33,8 +33,8 @@ a = Analysis(
     + ortools_binaries,
     datas=[
         (os.path.join(project_root, "backend", "resources"), "backend/resources"),
-        (os.path.join(project_root, "浣跨敤璇存槑涔?pdf"), "."),
-        (os.path.join(project_root, "浣跨敤璇存槑涔?md"), "."),
+        (os.path.join(project_root, "\u4f7f\u7528\u8bf4\u660e\u4e66.pdf"), "."),
+        (os.path.join(project_root, "\u4f7f\u7528\u8bf4\u660e\u4e66.md"), "."),
     ]
     + ortools_datas,
     hiddenimports=[
