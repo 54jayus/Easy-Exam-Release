@@ -291,7 +291,7 @@ class DataImporter:
                 # 去重并覆盖解析结果
                 t.unavailable_subjects = sorted(set(parsed_ids))
         
-        # 4) 历次监考时长：只能为>=0整数或留空
+        # 4) 历次监考时长：允许任意整数（可为负数）或留空
         if df is not None:
             for t in teachers:
                 raw_prev = None
@@ -303,10 +303,7 @@ class DataImporter:
                     continue
                 try:
                     val = int(float(str(raw_prev).strip()))
-                    if val < 0:
-                        errors.append(f"教师 {t.name} 的历次监考时长不能为负数：{val}")
-                    else:
-                        t.previous_supervision_duration = val
+                    t.previous_supervision_duration = val
                 except Exception:
                     errors.append(f"教师 {t.name} 的历次监考时长不是有效整数：{raw_prev}")
         

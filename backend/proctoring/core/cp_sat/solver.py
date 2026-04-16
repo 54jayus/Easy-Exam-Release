@@ -344,16 +344,17 @@ def solve_schedule_with_cp_sat(
         )
         for context in subject_contexts
     )
-    total_overall_sum = sum(
+    previous_durations = [
         _safe_int(getattr(teacher, "previous_supervision_duration", 0), default=0)
         for teacher in schedule.teachers
-    ) + total_current_sum
-
-    overall_upper_bound = sum(
-        _safe_int(getattr(teacher, "previous_supervision_duration", 0), default=0)
-        for teacher in schedule.teachers
-    ) + total_current_sum
-    overall_deviation_upper = max(1, teacher_count * max(overall_upper_bound, total_overall_sum))
+    ]
+    total_overall_sum = sum(previous_durations) + total_current_sum
+    overall_min_bound = min(previous_durations, default=0)
+    overall_max_bound = max(
+        (previous_duration + duration_upper_bound) for previous_duration in previous_durations
+    ) if previous_durations else duration_upper_bound
+    overall_abs_bound = max(abs(overall_min_bound), abs(overall_max_bound), abs(total_overall_sum))
+    overall_deviation_upper = max(1, teacher_count * overall_abs_bound)
     overall_deviations = []
     for teacher_index, overall_var in enumerate(overall_duration_vars):
         dev_var = model.NewIntVar(0, overall_deviation_upper, f"overall_dev_t{teacher_index}")
@@ -373,8 +374,16 @@ def solve_schedule_with_cp_sat(
     count_range = model.NewIntVar(0, max(0, int(schedule.num_subjects)), "count_range")
     model.Add(count_range == max_count - min_count)
 
-    max_overall_duration = model.NewIntVar(0, max(0, overall_upper_bound), "max_overall_duration")
-    min_overall_duration = model.NewIntVar(0, max(0, overall_upper_bound), "min_overall_duration")
+    max_overall_duration = model.NewIntVar(
+        overall_min_bound,
+        overall_max_bound,
+        "max_overall_duration",
+    )
+    min_overall_duration = model.NewIntVar(
+        overall_min_bound,
+        overall_max_bound,
+        "min_overall_duration",
+    )
     model.AddMaxEquality(max_overall_duration, overall_duration_vars)
     model.AddMinEquality(min_overall_duration, overall_duration_vars)
 

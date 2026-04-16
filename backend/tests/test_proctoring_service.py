@@ -15,6 +15,7 @@ from backend.application.proctoring_service import (
 from backend.domain.state import AppState
 from backend.proctoring.core.entities import Exam
 from backend.proctoring.core.models import Schedule
+from backend.proctoring.teacher_import import import_teachers_with_validation
 
 
 def _successful_cp_sat_report() -> dict:
@@ -217,6 +218,34 @@ def test_import_preset_auto_detects_double_mode_from_excel(recording_repo, tmp_p
     assert len(rooms) == 1
     assert [teacher["name"] for teacher in rooms[0]["teachers"]] == ["张老师", "李老师"]
     assert service.get_state({})["config"]["mode"] == "double"
+
+
+def test_import_teachers_allows_negative_previous_supervision_duration(tmp_path) -> None:
+    workbook = tmp_path / "teachers.xlsx"
+    pd.DataFrame(
+        {
+            "姓名": ["张老师", "李老师"],
+            "性别": ["男", "女"],
+            "是否本校": ["是", "是"],
+            "最大监考段数": [1, 1],
+            "不监考科目": ["", ""],
+            "历次监考时长": [-120, 30],
+        }
+    ).to_excel(workbook, index=False)
+
+    teachers, errors, warnings = import_teachers_with_validation(
+        str(workbook),
+        mode="single",
+        gender_mix=False,
+        internal_mix=False,
+        subject_count=1,
+        subject_names=["语文"],
+        num_rooms=1,
+    )
+
+    assert errors == []
+    assert warnings == []
+    assert [teacher.previous_supervision_duration for teacher in teachers] == [-120, 30]
 
 
 def test_continue_schedule_rebuilds_rooms_from_config_when_schedule_is_empty(recording_repo) -> None:

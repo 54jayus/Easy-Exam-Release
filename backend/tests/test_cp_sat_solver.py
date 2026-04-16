@@ -246,3 +246,25 @@ def test_solve_schedule_with_cp_sat_keeps_fixed_double_slot_order_when_symmetry_
     assigned = schedule.exams[0].schedule[1]
     assert assigned[0].name == "Teacher B"
     assert assigned[1].name == "Teacher A"
+
+
+def test_solve_schedule_with_cp_sat_supports_negative_previous_durations() -> None:
+    teachers = [
+        Teacher("Teacher A", max_sessions=1, previous_supervision_duration=-120),
+        Teacher("Teacher B", max_sessions=1, previous_supervision_duration=0),
+    ]
+    schedule = Schedule(teachers, num_subjects=1, num_rooms=1, mode="single")
+    schedule.set_constraint("subject_durations", [60])
+    schedule.set_constraint("subject_room_counts", [1])
+
+    report = cp_sat.solve_schedule_with_cp_sat(
+        schedule,
+        [_make_context(1, "Subject A", "2026-06-01", 9, 10)],
+        time_limit_seconds=5,
+        num_workers=1,
+    )
+
+    assert report["status"] in {"OPTIMAL", "FEASIBLE"}
+    assert report["metrics"]["overall_duration_min"] == -60
+    assert report["metrics"]["overall_duration_max"] == 0
+    assert schedule.exams[0].schedule[1][0].name == "Teacher A"
