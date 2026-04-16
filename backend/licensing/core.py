@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import urllib.request
+from pathlib import Path
 
-from .cert_store import LicenseCert, get_default_cert_path
+from .cert_store import LicenseCert, find_existing_cert_path, get_default_cert_path
 
 
 @dataclass
@@ -50,6 +51,7 @@ class LicenseManager:
         self.timeout_seconds = 3
         self._cached_network_time: dt.datetime | None = None
         self._cache_expire_at: float = 0.0
+        self._uses_default_cert_path = cert_path is None
         self.cert_path = str(cert_path) if cert_path is not None else str(get_default_cert_path())
 
     def get_machine_code(self) -> str:
@@ -201,7 +203,26 @@ class LicenseManager:
         return LicenseStatus(valid=True, expire_date=expire_date, days_left=days_left, message="OK")
 
     def load_cert(self) -> LicenseCert:
-        return LicenseCert.load(self.cert_path)
+        cert = LicenseCert.load(self.cert_path)
+        if cert.license_code or not self._uses_default_cert_path:
+            return cert
+
+        found_path = find_existing_cert_path(None, include_fallbacks=True)
+        if found_path is None:
+            return cert
+
+        resolved_target = Path(self.cert_path).resolve()
+        resolved_found = found_path.resolve()
+        if resolved_found == resolved_target:
+            return cert
+
+        migrated_cert = LicenseCert.load(found_path)
+        if migrated_cert.license_code:
+            try:
+                migrated_cert.save(self.cert_path)
+            except Exception:
+                pass
+        return migrated_cert
 
     def save_cert(self, cert: LicenseCert) -> None:
         cert.save(self.cert_path)

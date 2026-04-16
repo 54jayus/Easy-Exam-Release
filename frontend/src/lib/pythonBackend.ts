@@ -94,8 +94,6 @@ export class PythonBackendClient {
           if (exeDir && exeDir.trim()) {
              env.EXAMFLOW_APP_DIR = exeDir
              env.EXAMDESK_APP_DIR = exeDir
-             env.EXAMFLOW_CERT_DIR = exeDir
-             env.EXAMDESK_CERT_DIR = exeDir
           }
           
           // Determine python command

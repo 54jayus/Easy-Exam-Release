@@ -68,3 +68,22 @@ def test_license_manager_verify_cert_uses_saved_license(monkeypatch, tmp_path) -
 
     assert status.valid is True
     assert status.message == "SAVED-CODE"
+
+
+def test_license_manager_load_cert_migrates_from_legacy_app_dir(monkeypatch, tmp_path) -> None:
+    user_data_dir = tmp_path / "user-data"
+    legacy_app_dir = tmp_path / "legacy-app"
+    monkeypatch.setenv("EXAMFLOW_DATA_DIR", str(user_data_dir))
+    monkeypatch.setenv("EXAMFLOW_APP_DIR", str(legacy_app_dir))
+    monkeypatch.delenv("EXAMFLOW_CERT_DIR", raising=False)
+    monkeypatch.delenv("EXAMDESK_CERT_DIR", raising=False)
+
+    legacy_path = legacy_app_dir / "license.cert"
+    LicenseCert(license_code="OLD-CODE", api_key="OLD-KEY").save(legacy_path)
+
+    manager = LicenseManager(app_secret="secret", salt="salt")
+
+    cert = manager.load_cert()
+
+    assert cert == LicenseCert(license_code="OLD-CODE", api_key="OLD-KEY")
+    assert (user_data_dir / "license.cert").read_text(encoding="utf-8").startswith("OLD-CODE")
