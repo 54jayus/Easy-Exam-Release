@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import date
 from types import SimpleNamespace
 
 import pandas as pd
@@ -86,6 +87,8 @@ def test_load_examroom_data_for_corner_formats_regular_arrangement() -> None:
 
 def test_load_examroom_data_for_ticket_returns_gaokao_subject_schedule() -> None:
     arrangement = _build_gaokao_arrangement()
+    today = date.today()
+    expected_time = f"{today.month}月{today.day}日 09:00-11:30"
 
     result = load_examroom_data_for_ticket(arrangement)
 
@@ -99,7 +102,7 @@ def test_load_examroom_data_for_ticket_returns_gaokao_subject_schedule() -> None
         "考场": "第一考场",
         "考场号": "001",
         "座位号": "01",
-        "时间": "6月7日 09:00-11:30",
+        "时间": expected_time,
     }
     assert first_student["科目数据"][2]["科目"] == "物理"
     assert first_student["科目数据"][4]["科目"] == "化学"

@@ -104,7 +104,7 @@ import RoomsSidebar from './RoomsPage/RoomsSidebar.vue'
 import RoomsDataTabs from './RoomsPage/RoomsDataTabs.vue'
 import SubjectPriorityDialog from './RoomsPage/SubjectPriorityDialog.vue'
 import GaokaoTimeSettingsDialog from './RoomsPage/GaokaoTimeSettingsDialog.vue'
-import { GAOKAO_TIME_DEFAULTS } from '@/types/gaokao'
+import { buildGaokaoTimeDefaults, normalizeGaokaoTimeSettings } from '@/types/gaokao'
 import type { GaokaoTimeSettings } from '@/types/gaokao'
 import {
   useRoomsState,
@@ -142,7 +142,7 @@ const {
 
 // Gaokao Time Settings State
 const showGaokaoTimeDialog = ref(false)
-const gaokaoTimeSettings = ref<GaokaoTimeSettings>(JSON.parse(JSON.stringify(GAOKAO_TIME_DEFAULTS)))
+const gaokaoTimeSettings = ref<GaokaoTimeSettings>(buildGaokaoTimeDefaults())
 
 const {
   initializeFromStorage,
@@ -316,7 +316,7 @@ onMounted(async () => {
   try {
     const timeRes = await pythonBackend.request('rooms.getGaokaoTimeSettings', {})
     if (timeRes?.settings) {
-      gaokaoTimeSettings.value = timeRes.settings
+      gaokaoTimeSettings.value = normalizeGaokaoTimeSettings(timeRes.settings)
     }
   } catch (e) {
     console.error('Failed to load gaokao time settings:', e)

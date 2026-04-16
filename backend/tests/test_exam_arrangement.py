@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pandas as pd
 from openpyxl import load_workbook
 
@@ -58,9 +60,11 @@ def test_parse_subject_combination_accepts_compact_and_delimited_forms() -> None
 
 def test_format_subject_time_uses_default_settings_and_handles_invalid_values() -> None:
     arrangement = ExamArrangement("students.xlsx", arrangement_mode="gaokao_mode")
+    today = date.today()
+    expected_prefix = f"{today.month}月{today.day}日"
 
-    assert arrangement._format_subject_time("语文") == "6月7日09:00-11:30"
-    assert arrangement._format_subject_time("化学", is_self_study=True) == "6月9日08:30-09:45"
+    assert arrangement._format_subject_time("语文") == f"{expected_prefix}09:00-11:30"
+    assert arrangement._format_subject_time("化学", is_self_study=True) == f"{expected_prefix}08:30-09:45"
 
     arrangement.gaokao_time_settings = {
         "examTimes": {"语文": {"date": "", "startTime": "09:00", "endTime": "11:30"}},

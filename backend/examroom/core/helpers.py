@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
-from .gaokao_defaults import GAOKAO_SUBJECT_ORDER, GAOKAO_TIME_DEFAULTS
+from .gaokao_defaults import GAOKAO_SUBJECT_ORDER, build_gaokao_time_defaults, normalize_gaokao_time_settings
 
 
 def get_room_capacity(arrangement, room_num):
@@ -162,8 +162,8 @@ def parse_subject_combination(subject_str):
 def get_gaokao_time_settings(arrangement):
     """获取高考时间设置，如果没有则返回默认值"""
     if arrangement.gaokao_time_settings:
-        return arrangement.gaokao_time_settings
-    return GAOKAO_TIME_DEFAULTS
+        return normalize_gaokao_time_settings(arrangement.gaokao_time_settings)
+    return build_gaokao_time_defaults()
 
 
 def format_subject_time(arrangement, subject: str, is_self_study: bool = False) -> str:

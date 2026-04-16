@@ -7,7 +7,11 @@ import pandas as pd
 from backend.domain.state import AppState
 from backend.repository.interfaces import IStateRepository
 from backend.examroom.core.arrangement import ExamArrangement
-from backend.examroom.core.gaokao_defaults import GAOKAO_TIME_DEFAULTS
+from backend.examroom.core.gaokao_defaults import (
+    GAOKAO_SUBJECT_ORDER,
+    build_gaokao_time_defaults,
+    normalize_gaokao_time_settings,
+)
 from backend.application.rooms_result_importers import (
     import_gaokao_results,
     import_normal_results,
@@ -61,13 +65,54 @@ def _build_exam_arrangement(settings: list, config: dict, student_path: str) -> 
         pass
     # 设置高考时间配置
     try:
-        gaokao_settings = config.get("gaokaoTimeSettings", GAOKAO_TIME_DEFAULTS)
+        gaokao_settings = normalize_gaokao_time_settings(config.get("gaokaoTimeSettings"))
         setattr(ea, "gaokao_time_settings", gaokao_settings)
     except Exception:
         pass
     if room_setting_df is not None:
         ea.room_setting_df = room_setting_df
     return ea
+
+
+def _validate_gaokao_time_settings(settings: dict) -> str | None:
+    exam_times = settings.get("examTimes", {})
+    self_study_times = settings.get("selfStudyTimes", {})
+
+    subject_names: list[str] = []
+    for subject in GAOKAO_SUBJECT_ORDER:
+        time_config = exam_times.get(subject)
+        if not isinstance(time_config, dict):
+            return f"{subject}的考试时间配置无效"
+
+        subject_name = str(time_config.get("subjectName") or "").strip()
+        if not subject_name:
+            return f"{subject}的科目名称不能为空"
+        subject_names.append(subject_name)
+
+        if not str(time_config.get("date") or "").strip():
+            return f"{subject}的考试日期不能为空"
+        if not str(time_config.get("startTime") or "").strip():
+            return f"{subject}的开始时间不能为空"
+        if not str(time_config.get("endTime") or "").strip():
+            return f"{subject}的结束时间不能为空"
+
+    duplicate_names = sorted({name for name in subject_names if subject_names.count(name) > 1})
+    if duplicate_names:
+        return f"科目名称不能重复：{'、'.join(duplicate_names)}"
+
+    for subject in ["化学", "地理", "政治", "生物"]:
+        time_config = self_study_times.get(subject)
+        if not isinstance(time_config, dict):
+            return f"{subject}的自习时间配置无效"
+
+        if not str(time_config.get("date") or "").strip():
+            return f"{subject}的自习日期不能为空"
+        if not str(time_config.get("startTime") or "").strip():
+            return f"{subject}的自习开始时间不能为空"
+        if not str(time_config.get("endTime") or "").strip():
+            return f"{subject}的自习结束时间不能为空"
+
+    return None
 
 
 class RoomsService:
@@ -118,9 +163,7 @@ class RoomsService:
 
     def get_gaokao_time_settings(self, _params: dict) -> Any:
         """获取高考模式时间设置"""
-        settings = (self._state.rooms.config or {}).get("gaokaoTimeSettings")
-        if not settings:
-            settings = GAOKAO_TIME_DEFAULTS
+        settings = normalize_gaokao_time_settings((self._state.rooms.config or {}).get("gaokaoTimeSettings"))
         return {"settings": settings}
 
     def set_gaokao_time_settings(self, params: dict) -> Any:
@@ -136,16 +179,21 @@ class RoomsService:
         if "examTimes" not in settings or "selfStudyTimes" not in settings:
             return {"error": "settings 缺少必要字段"}
 
+        normalized_settings = normalize_gaokao_time_settings(settings)
+        validation_error = _validate_gaokao_time_settings(normalized_settings)
+        if validation_error:
+            return {"error": validation_error}
+
         # 保存到 config
         merged = dict(self._state.rooms.config or {})
-        merged["gaokaoTimeSettings"] = settings
+        merged["gaokaoTimeSettings"] = normalized_settings
         self._state.rooms.config = merged
 
         # 如果 exam_arrangement 存在，更新其时间设置
         ea = self._state.exam_arrangement
         if ea is not None:
             try:
-                setattr(ea, "gaokao_time_settings", settings)
+                setattr(ea, "gaokao_time_settings", normalized_settings)
             except Exception:
                 pass
 
@@ -206,6 +254,7 @@ class RoomsService:
                 config["seatsPerRoom"] = settings[0].get("capacity", 30)
 
         config["subjectPriorityOrder"] = _normalize_subject_priority_order(config.get("subjectPriorityOrder"))
+        config["gaokaoTimeSettings"] = normalize_gaokao_time_settings(config.get("gaokaoTimeSettings"))
         return {"settings": settings, "students": students, "results": results, "config": config, "studentPath": path}
 
     def generate_template(self, params: dict) -> Any:
@@ -224,8 +273,7 @@ class RoomsService:
         if isinstance(config, dict):
             config["subjectPriorityOrder"] = _normalize_subject_priority_order(config.get("subjectPriorityOrder"))
             # 确保高考时间设置存在
-            if "gaokaoTimeSettings" not in config:
-                config["gaokaoTimeSettings"] = GAOKAO_TIME_DEFAULTS
+            config["gaokaoTimeSettings"] = normalize_gaokao_time_settings(config.get("gaokaoTimeSettings"))
 
         self._state.rooms.config = config
         self._state.rooms.settings_data = settings
@@ -269,9 +317,9 @@ class RoomsService:
         # 确保高考时间设置被传递
         try:
             gaokao_settings = (self._state.rooms.config or {}).get(
-                "gaokaoTimeSettings", GAOKAO_TIME_DEFAULTS
+                "gaokaoTimeSettings", build_gaokao_time_defaults()
             )
-            setattr(ea, "gaokao_time_settings", gaokao_settings)
+            setattr(ea, "gaokao_time_settings", normalize_gaokao_time_settings(gaokao_settings))
         except Exception:
             pass
 

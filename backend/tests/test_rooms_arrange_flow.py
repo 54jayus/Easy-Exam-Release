@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 
 import pandas as pd
@@ -30,7 +31,7 @@ def test_arrange_returns_load_error_after_persisting_input_state(monkeypatch, re
 
     assert result == {"error": "文件不存在"}
     assert state.rooms.student_path == "students.xlsx"
-    assert state.rooms.config["gaokaoTimeSettings"]["examTimes"]["语文"]["date"] == "2024-06-07"
+    assert state.rooms.config["gaokaoTimeSettings"]["examTimes"]["语文"]["date"] == date.today().isoformat()
     assert recording_repo.save_calls == 1
 
 

@@ -268,17 +268,6 @@
                           >科目视图</button>
                       </div>
                   </div>
-                  
-                  <!-- Status Indicator -->
-                  <div class="flex items-center gap-2">
-                     <span v-if="!hasSchedule" class="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">状态: 等待编排</span>
-                     <span v-else-if="missingSlots > 0" class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <el-icon><Warning /></el-icon> 未完成 (缺 {{ missingSlots }} 人次)
-                     </span>
-                     <span v-else class="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <el-icon><CircleCheck /></el-icon> 已完成
-                     </span>
-                  </div>
               </div>
 
               <!-- Content Area (Manual Tab Switch) -->

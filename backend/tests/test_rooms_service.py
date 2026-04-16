@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import date
 from types import SimpleNamespace
 
 import pandas as pd
@@ -73,6 +74,39 @@ def test_set_gaokao_time_settings_validates_input_and_persists_state(recording_r
     assert state.rooms.config["gaokaoTimeSettings"] == settings
     assert state.exam_arrangement.gaokao_time_settings == settings
     assert recording_repo.save_calls == 1
+
+
+def test_set_gaokao_time_settings_rejects_duplicate_subject_names(recording_repo) -> None:
+    state = AppState()
+    service = RoomsService(state, recording_repo)
+
+    settings = deepcopy(GAOKAO_TIME_DEFAULTS)
+    settings["examTimes"]["语文"]["subjectName"] = "语文"
+    settings["examTimes"]["数学"]["subjectName"] = "语文"
+
+    result = service.set_gaokao_time_settings({"settings": settings})
+
+    assert result == {"error": "科目名称不能重复：语文"}
+    assert recording_repo.save_calls == 0
+
+
+def test_get_gaokao_time_settings_normalizes_legacy_config(recording_repo) -> None:
+    state = AppState()
+    state.rooms.config = {
+        "gaokaoTimeSettings": {
+            "examTimes": {
+                "语文": {"date": "2026-06-07", "startTime": "09:00", "endTime": "11:30"},
+            },
+            "selfStudyTimes": {},
+        }
+    }
+    service = RoomsService(state, recording_repo)
+
+    result = service.get_gaokao_time_settings({})
+
+    assert result["settings"]["examTimes"]["语文"]["subjectName"] == "语文"
+    assert result["settings"]["examTimes"]["语文"]["date"] == "2026-06-07"
+    assert result["settings"]["examTimes"]["数学"]["date"] == date.today().isoformat()
 
 
 def test_get_state_fills_missing_room_config_from_settings(recording_repo) -> None:

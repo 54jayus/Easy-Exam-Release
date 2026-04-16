@@ -1,6 +1,7 @@
 import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { createUiFeedback, formatActionError, formatActionSuccess } from '@/lib/uiFeedback'
+import { GAOKAO_SUBJECT_ORDER } from '@/types/gaokao'
 
 export type SubjectRow = {
   name: string
@@ -17,8 +18,6 @@ type UsePrintingSubjectsOptions = {
   sourceType: Ref<string>
   isGaokaoMode: ComputedRef<boolean>
 }
-
-const GAOKAO_PRINTING_SUBJECTS = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物'] as const
 
 function ensureSubjectRowsLength(rows: SubjectRow[], count: number): SubjectRow[] {
   const safeCount = Math.min(20, Math.max(1, Math.floor(count || 0)))
@@ -71,13 +70,16 @@ function mapRegularSubjectsToRows(list: any[]): SubjectRow[] {
 
 function mapGaokaoSettingsToRows(settings: any): SubjectRow[] {
   const examTimes = settings?.examTimes ?? {}
-  return GAOKAO_PRINTING_SUBJECTS.map((name) => {
-    const config = examTimes?.[name]
+  return GAOKAO_SUBJECT_ORDER.map((subjectKey) => {
+    const config = examTimes?.[subjectKey]
     const datePart = formatMonthDay(String(config?.date ?? ''))
     const start = String(config?.startTime ?? '').trim()
     const end = String(config?.endTime ?? '').trim()
     const range = start && end ? `${start}-${end}` : ''
-    return { name, time: `${datePart}${range}`.trim() }
+    return {
+      name: String(config?.subjectName ?? subjectKey).trim() || subjectKey,
+      time: `${datePart}${range}`.trim(),
+    }
   })
 }
 

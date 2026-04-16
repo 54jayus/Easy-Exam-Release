@@ -11,37 +11,47 @@
     class="gaokao-time-dialog"
   >
     <div class="dialog-content">
-      <!-- 说明文字 -->
       <div class="info-banner">
-        <i class="el-icon-info-filled"></i>
-        <span>设置各科目的考试时间，选考科目可单独设置自习时间。</span>
+        <div class="info-badge">说明</div>
+        <div class="info-text">
+          <div class="info-title">高考模式时间设置</div>
+          <div class="info-desc">可修改科目名称、考试日期和时间段；选考科目支持单独配置自习时间。</div>
+        </div>
       </div>
 
-      <!-- 考试时间设置 -->
       <section class="time-section">
-        <h3 class="section-title">考试时间设置</h3>
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">考试时间设置</h3>
+            <p class="section-desc">科目名称需唯一，日期默认使用系统当日。</p>
+          </div>
+          <div class="section-summary">{{ examSubjects.length }} 个考试时段</div>
+        </div>
 
-        <!-- 列标题 -->
         <div class="table-header">
           <div class="header-cell subject-col">科目</div>
           <div class="header-cell date-col">日期</div>
           <div class="header-cell time-col">时间段</div>
         </div>
 
-        <!-- 数据行 -->
         <div class="table-body">
           <div v-for="subject in examSubjects" :key="subject" class="subject-group">
-            <!-- 考试时间行 -->
             <div class="table-row exam-row">
               <div class="cell subject-col">
-                <span class="subject-name">{{ subject }}</span>
+                <el-input
+                  v-model="(localSettings.examTimes as any)[subject].subjectName"
+                  placeholder="请输入科目名称"
+                  maxlength="20"
+                  class="subject-name-input"
+                  size="small"
+                />
               </div>
               <div class="cell date-col">
                 <el-date-picker
                   v-model="(localSettings.examTimes as any)[subject].date"
                   type="date"
                   placeholder="选择日期"
-                  size="default"
+                  size="small"
                   format="YYYY-MM-DD"
                   value-format="YYYY-MM-DD"
                   class="w-full"
@@ -52,7 +62,7 @@
                   <el-time-picker
                     v-model="(localSettings.examTimes as any)[subject].startTime"
                     placeholder="开始"
-                    size="default"
+                    size="small"
                     format="HH:mm"
                     value-format="HH:mm"
                     class="time-input"
@@ -63,7 +73,7 @@
                   <el-time-picker
                     v-model="(localSettings.examTimes as any)[subject].endTime"
                     placeholder="结束"
-                    size="default"
+                    size="small"
                     format="HH:mm"
                     value-format="HH:mm"
                     class="time-input"
@@ -74,7 +84,6 @@
               </div>
             </div>
 
-            <!-- 自习时间行（仅选考科目） -->
             <div v-if="isElectiveSubject(subject)" class="self-study-row">
               <div class="self-study-toggle">
                 <el-checkbox
@@ -151,7 +160,15 @@ import { ref, watch, computed, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { formatActionError, formatActionSuccess } from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
-import { GAOKAO_TIME_DEFAULTS, type GaokaoTimeSettings } from '@/types/gaokao'
+import {
+  GAOKAO_ELECTIVE_SUBJECTS,
+  GAOKAO_SUBJECT_ORDER,
+  buildGaokaoTimeDefaults,
+  normalizeGaokaoTimeSettings,
+  type GaokaoElectiveSubjectKey,
+  type GaokaoSubjectKey,
+  type GaokaoTimeSettings,
+} from '@/types/gaokao'
 
 // Props & Emits
 interface Props {
@@ -168,9 +185,9 @@ const emit = defineEmits<{
 }>()
 
 // State
-const examSubjects = ['语文', '数学', '物理历史', '英语', '化学', '地理', '政治', '生物']
-const electiveSubjects = ['化学', '地理', '政治', '生物']
-const localSettings = ref<GaokaoTimeSettings>(JSON.parse(JSON.stringify(props.settings)))
+const examSubjects: GaokaoSubjectKey[] = [...GAOKAO_SUBJECT_ORDER]
+const electiveSubjects: GaokaoElectiveSubjectKey[] = [...GAOKAO_ELECTIVE_SUBJECTS]
+const localSettings = ref<GaokaoTimeSettings>(normalizeGaokaoTimeSettings(props.settings))
 const saving = ref(false)
 
 // 自定义自习时间的开关状态
@@ -192,7 +209,7 @@ const dialogWidth = computed(() => {
 
 // 判断是否为选考科目
 const isElectiveSubject = (subject: string) => {
-  return electiveSubjects.includes(subject)
+  return electiveSubjects.includes(subject as GaokaoElectiveSubjectKey)
 }
 
 // 检查自习时间是否与考试时间不同
@@ -212,7 +229,7 @@ const checkCustomSelfStudyTime = () => {
 // Watch for external changes
 watch(() => props.visible, (isVisible) => {
   if (isVisible) {
-    localSettings.value = JSON.parse(JSON.stringify(props.settings))
+    localSettings.value = normalizeGaokaoTimeSettings(props.settings)
     checkCustomSelfStudyTime()
   }
 })
@@ -231,7 +248,7 @@ const handleSelfStudyToggle = (subject: string) => {
 
 // Methods
 const resetToDefault = () => {
-  localSettings.value = JSON.parse(JSON.stringify(GAOKAO_TIME_DEFAULTS))
+  localSettings.value = buildGaokaoTimeDefaults()
   // 重置自定义开关
   for (const subject of electiveSubjects) {
     customSelfStudyTime[subject] = false
@@ -241,14 +258,30 @@ const resetToDefault = () => {
 }
 
 const validateSettings = (): string | null => {
+  const normalizedNames = examSubjects.map((subject) => {
+    return String(localSettings.value.examTimes[subject].subjectName ?? '').trim()
+  })
+
+  for (let index = 0; index < examSubjects.length; index += 1) {
+    if (!normalizedNames[index]) {
+      return `${examSubjects[index]}的科目名称不能为空`
+    }
+  }
+
+  const duplicateNames = [...new Set(normalizedNames.filter((name, index) => normalizedNames.indexOf(name) !== index))]
+  if (duplicateNames.length > 0) {
+    return `科目名称不能重复：${duplicateNames.join('、')}`
+  }
+
   // 验证所有考试时间
   for (const subject of examSubjects) {
     const time = localSettings.value.examTimes[subject as keyof typeof localSettings.value.examTimes]
+    const subjectName = String(time.subjectName ?? '').trim() || subject
     if (!time.date || !time.startTime || !time.endTime) {
-      return `${subject}的时间设置不完整`
+      return `${subjectName}的时间设置不完整`
     }
     if (time.startTime >= time.endTime) {
-      return `${subject}的开始时间必须早于结束时间`
+      return `${subjectName}的开始时间必须早于结束时间`
     }
   }
 
@@ -256,11 +289,12 @@ const validateSettings = (): string | null => {
   for (const subject of electiveSubjects) {
     if (customSelfStudyTime[subject]) {
       const time = localSettings.value.selfStudyTimes[subject as keyof typeof localSettings.value.selfStudyTimes]
+      const subjectName = String(localSettings.value.examTimes[subject].subjectName ?? '').trim() || subject
       if (!time.date || !time.startTime || !time.endTime) {
-        return `${subject}的自习时间设置不完整`
+        return `${subjectName}的自习时间设置不完整`
       }
       if (time.startTime >= time.endTime) {
-        return `${subject}的自习开始时间必须早于结束时间`
+        return `${subjectName}的自习开始时间必须早于结束时间`
       }
     }
   }
@@ -278,8 +312,13 @@ const handleSave = async () => {
 
   saving.value = true
   try {
+    const settingsToSave = normalizeGaokaoTimeSettings(localSettings.value)
+    for (const subject of examSubjects) {
+      settingsToSave.examTimes[subject].subjectName = String(settingsToSave.examTimes[subject].subjectName ?? '').trim()
+    }
+
     const res = await pythonBackend.request('rooms.setGaokaoTimeSettings', {
-      settings: localSettings.value
+      settings: settingsToSave
     }) as { error?: string }
 
     if (res?.error) {
@@ -288,7 +327,8 @@ const handleSave = async () => {
       return
     }
 
-    emit('update:settings', JSON.parse(JSON.stringify(localSettings.value)))
+    localSettings.value = settingsToSave
+    emit('update:settings', normalizeGaokaoTimeSettings(settingsToSave))
     ElMessage.success('时间设置已保存')
     emit('log-success', formatActionSuccess('保存高考模式时间设置'))
     emit('update:visible', false)
@@ -302,39 +342,57 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
-/* 确保对话框在整个视口中居中，并限制整体高度 */
 :deep(.gaokao-time-dialog.el-dialog) {
   margin: 0 auto !important;
-  height: 85vh !important;
-  max-height: 85vh !important;
+  width: min(920px, calc(100vw - 32px)) !important;
+  height: 88vh !important;
+  max-height: 88vh !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 24px 80px -36px rgba(15, 23, 42, 0.28) !important;
 }
 
-/* 头部固定，不参与滚动 */
 :deep(.gaokao-time-dialog .el-dialog__header) {
   flex-shrink: 0 !important;
+  margin-right: 0 !important;
+  padding: 18px 22px 14px !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.95)) !important;
 }
 
-/* 内容区自适应高度，超出时滚动 */
+:deep(.gaokao-time-dialog .el-dialog__title) {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  letter-spacing: -0.01em;
+}
+
+:deep(.gaokao-time-dialog .el-dialog__headerbtn) {
+  top: 18px !important;
+  right: 18px !important;
+}
+
 :deep(.gaokao-time-dialog .el-dialog__body) {
-  padding: 20px 24px !important;
+  padding: 18px 22px 20px !important;
   flex: 1 1 auto !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   min-height: 0 !important;
   max-height: none !important;
-  /* 关键：让 body 填满对话框剩余空间 */
   height: auto !important;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
 }
 
-/* 底部固定，不参与滚动 */
 :deep(.gaokao-time-dialog .el-dialog__footer) {
   flex-shrink: 0 !important;
+  padding: 14px 22px 18px !important;
+  border-top: 1px solid rgba(226, 232, 240, 0.9) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
 }
 
-/* 自定义滚动条样式 */
 :deep(.gaokao-time-dialog .el-dialog__body)::-webkit-scrollbar {
   width: 8px;
 }
@@ -356,56 +414,104 @@ const handleSave = async () => {
 .dialog-content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
-/* 信息横幅 */
 .info-banner {
   display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(248, 250, 252, 0.98));
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.info-badge {
+  flex-shrink: 0;
+  min-width: 42px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
-  border-left: 4px solid #2196f3;
-  border-radius: 8px;
+  justify-content: center;
+}
+
+.info-text {
+  min-width: 0;
+}
+
+.info-title {
+  color: #0f172a;
   font-size: 14px;
-  color: #424242;
+  font-weight: 700;
+}
+
+.info-desc {
+  margin-top: 2px;
+  color: #475569;
+  font-size: 13px;
   line-height: 1.6;
 }
 
-.info-banner i {
-  color: #2196f3;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-/* 时间设置区域 */
 .time-section {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 14px 32px -24px rgba(15, 23, 42, 0.22);
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
 }
 
 .section-title {
   font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-weight: 700;
+  color: #0f172a;
   margin: 0;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #e0e0e0;
 }
 
-/* 表格样式 */
+.section-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.section-summary {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .table-header {
   display: grid;
-  grid-template-columns: 90px 160px 1fr;
-  gap: 12px;
+  grid-template-columns: 136px 148px minmax(0, 1fr);
+  gap: 10px;
   padding: 10px 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: white;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
 }
 
 .header-cell {
@@ -417,31 +523,31 @@ const handleSave = async () => {
 .table-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
-/* 科目组 */
 .subject-group {
   display: flex;
   flex-direction: column;
-  border-radius: 8px;
+  gap: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   overflow: hidden;
+  box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.35);
 }
 
-/* 考试时间行 */
 .exam-row {
   display: grid;
-  grid-template-columns: 90px 160px 1fr;
-  gap: 12px;
-  padding: 10px 12px;
-  background: #fafafa;
-  transition: all 0.2s ease;
+  grid-template-columns: 136px 148px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  background: transparent;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .exam-row:hover {
-  background: #f0f0f0;
-  transform: translateX(2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: rgba(248, 250, 252, 0.85);
 }
 
 .cell {
@@ -450,20 +556,13 @@ const handleSave = async () => {
 }
 
 .subject-col {
-  justify-content: center;
+  justify-content: flex-start;
 }
 
-.subject-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #424242;
-  padding: 6px 12px;
-  background: white;
-  border-radius: 6px;
-  border: 1px solid #e0e0e0;
+.subject-name-input {
+  width: 100%;
 }
 
-/* 时间范围 */
 .time-range {
   display: flex;
   align-items: center;
@@ -481,41 +580,42 @@ const handleSave = async () => {
 }
 
 .time-separator {
-  color: #666;
-  font-weight: 500;
+  color: #64748b;
+  font-weight: 700;
   flex-shrink: 0;
-  padding: 0 4px;
+  width: 12px;
+  text-align: center;
 }
 
-/* 自习时间行 */
 .self-study-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 12px 12px 12px;
-  background: #f5f5f5;
-  border-top: 1px dashed #d0d0d0;
+  gap: 10px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.9));
+  border-top: 1px dashed rgba(203, 213, 225, 0.95);
 }
 
 .self-study-toggle {
   display: flex;
   align-items: center;
-  padding-left: 90px;
+  padding-left: 146px;
 }
 
 .self-study-toggle :deep(.el-checkbox) {
   font-size: 13px;
-  color: #666;
+  color: #475569;
+  font-weight: 500;
 }
 
 .self-study-settings {
   display: grid;
-  grid-template-columns: 160px 1fr;
-  gap: 12px;
-  padding-left: 102px;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 10px;
+  padding-left: 146px;
+  align-items: center;
 }
 
-/* 底部按钮 */
 .dialog-footer {
   display: flex;
   justify-content: space-between;
@@ -535,7 +635,56 @@ const handleSave = async () => {
   gap: 12px;
 }
 
-/* 响应式设计 */
+:deep(.gaokao-time-dialog .el-input__wrapper) {
+  min-height: 34px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+  border: 1px solid transparent;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+:deep(.gaokao-time-dialog .el-input__wrapper:hover) {
+  border-color: #bfdbfe;
+  box-shadow: 0 0 0 1px rgba(191, 219, 254, 0.55);
+}
+
+:deep(.gaokao-time-dialog .el-input__wrapper.is-focus) {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+:deep(.gaokao-time-dialog .el-date-editor),
+:deep(.gaokao-time-dialog .el-date-editor.el-input),
+:deep(.gaokao-time-dialog .el-input),
+:deep(.gaokao-time-dialog .el-time-editor.el-input) {
+  width: 100%;
+}
+
+:deep(.gaokao-time-dialog .el-button) {
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+:deep(.gaokao-time-dialog .el-button--primary) {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 10px 22px -16px rgba(37, 99, 235, 0.65);
+}
+
+:deep(.gaokao-time-dialog .el-button--primary:hover) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+:deep(.gaokao-time-dialog .el-checkbox__label) {
+  font-size: 13px;
+}
+
+:deep(.time-picker-popper) {
+  max-width: 280px !important;
+}
+
 @media (max-width: 768px) {
   :deep(.gaokao-time-dialog.el-dialog) {
     height: 90vh !important;
@@ -546,9 +695,14 @@ const handleSave = async () => {
     padding: 16px;
   }
 
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .table-header,
   .exam-row {
-    grid-template-columns: 80px 140px 1fr;
+    grid-template-columns: 112px 132px minmax(0, 1fr);
     gap: 8px;
     font-size: 12px;
   }
@@ -561,27 +715,17 @@ const handleSave = async () => {
     padding: 8px 10px;
   }
 
-  .subject-name {
-    font-size: 12px;
-    padding: 4px 8px;
-  }
-
-  .section-title {
-    font-size: 14px;
-  }
-
   .info-banner {
-    font-size: 13px;
     padding: 10px 12px;
   }
 
   .self-study-toggle {
-    padding-left: 80px;
+    padding-left: 120px;
   }
 
   .self-study-settings {
-    padding-left: 92px;
-    grid-template-columns: 140px 1fr;
+    padding-left: 120px;
+    grid-template-columns: 132px minmax(0, 1fr);
   }
 
   .dialog-footer {
@@ -599,21 +743,20 @@ const handleSave = async () => {
   :deep(.gaokao-time-dialog.el-dialog) {
     height: 95vh !important;
     max-height: 95vh !important;
+    width: calc(100vw - 16px) !important;
   }
 
   :deep(.gaokao-time-dialog .el-dialog__body) {
     padding: 12px;
   }
 
-  .table-header,
   .exam-row {
-    grid-template-columns: 70px 120px 1fr;
-    gap: 6px;
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
-  .subject-name {
-    font-size: 11px;
-    padding: 3px 6px;
+  .table-header {
+    display: none;
   }
 
   .time-range {
@@ -625,53 +768,30 @@ const handleSave = async () => {
   }
 
   .self-study-toggle {
-    padding-left: 70px;
+    padding-left: 0;
   }
 
   .self-study-settings {
-    padding-left: 82px;
-    gap: 8px;
-    grid-template-columns: 120px 1fr;
+    padding-left: 0;
+    gap: 10px;
+    grid-template-columns: 1fr;
   }
-}
 
-/* Element Plus 组件样式覆盖 */
-:deep(.gaokao-time-dialog .el-input__wrapper) {
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
+  .dialog-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
 
-:deep(.gaokao-time-dialog .el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #667eea inset;
-}
+  .reset-btn,
+  .action-buttons :deep(.el-button) {
+    width: 100%;
+    justify-content: center;
+  }
 
-:deep(.gaokao-time-dialog .el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #667eea inset;
-}
-
-:deep(.gaokao-time-dialog .el-button) {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-:deep(.gaokao-time-dialog .el-button--primary) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-}
-
-:deep(.gaokao-time-dialog .el-button--primary:hover) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-:deep(.gaokao-time-dialog .el-checkbox__label) {
-  font-size: 13px;
-}
-
-/* 时间选择器下拉面板样式 */
-:deep(.time-picker-popper) {
-  max-width: 280px !important;
+  .action-buttons {
+    width: 100%;
+  }
 }
 </style>
 
