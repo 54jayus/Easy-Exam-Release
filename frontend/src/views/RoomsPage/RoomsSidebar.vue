@@ -84,7 +84,7 @@
         </div>
         <div class="grid grid-cols-2 gap-2">
           <SidebarActionButton
-            label="导入设置"
+            label="考场导入"
             :icon="Upload"
             tone="emerald"
             :active="hasSettings"
@@ -93,7 +93,7 @@
             @clear="$emit('clear-settings')"
           />
           <SidebarActionButton
-            label="导入名册"
+            label="考生导入"
             :icon="Upload"
             tone="emerald"
             :active="hasStudents"
