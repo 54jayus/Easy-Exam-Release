@@ -245,22 +245,57 @@ export function usePrintingPreviewData({
     const titlePt = 22
     const headerPt = 20
     const summaryPt = isExamroom ? 16.5 : 16
-    const bodyMinPt = isExamroom ? 16.5 : 11
+    const bodyMinPt = isExamroom ? 10 : 11
+    const bodyMaxPt = isExamroom ? 16.5 : 16
 
     const titleMm = titlePt * 0.3527777778
     const headerMm = headerPt * 0.3527777778
     const summaryMm = summaryPt * 0.3527777778
     const bodyMinMm = bodyMinPt * 0.3527777778
+    const bodyMaxMm = bodyMaxPt * 0.3527777778
     const safetyGapMm = safetyGapPt * 0.3527777778
 
     const maxRowsLast = Math.max(5, Math.floor((contentHeightMm - titleMm - headerMm - summaryMm - safetyGapMm) / bodyMinMm))
     const maxRowsMid = Math.max(5, Math.floor((contentHeightMm - titleMm - headerMm - safetyGapMm) / bodyMinMm))
-    const fontSize = config.table.includeSubjectFields ? 8 : 9
+    let actualRows = isExamroom ? 42 : 50
+    if (sourceType.value !== 'empty') {
+      const data = Array.isArray(displayData.value) ? displayData.value : []
+      if (data.length > 0) {
+        const keyOf = (item: any) => String((isExamroom ? item?.[FIELD_ROOM_NO] : item?.[FIELD_CLASS]) ?? '').trim()
+        const groups = new Map<string, number>()
+        for (const item of data) {
+          const key = keyOf(item)
+          groups.set(key, (groups.get(key) || 0) + 1)
+        }
 
-    const bodyH =
-      sourceType.value === 'empty'
-        ? `${Math.max(1, (contentHeightMm - titleMm - headerMm - safetyGapMm) / (isExamroom ? 42 : 50)).toFixed(2)}mm`
-        : ptToMm(bodyMinPt)
+        const keys = Array.from(groups.keys())
+        keys.sort((a, b) => {
+          const ka = isExamroom ? studentInfoExamroomSortKey(a) : studentInfoClassSortKey(a)
+          const kb = isExamroom ? studentInfoExamroomSortKey(b) : studentInfoClassSortKey(b)
+          return compareStudentInfoSortKey(ka, kb)
+        })
+
+        actualRows = Math.max(1, groups.get(keys[0] ?? '') || 1)
+      }
+    }
+    const bodyFitMm = (contentHeightMm - titleMm - headerMm - summaryMm - safetyGapMm) / actualRows
+    const bodyMm = Math.min(bodyMaxMm, Math.max(bodyMinMm, bodyFitMm))
+
+    let fontSize = config.table.includeSubjectFields ? 8 : 9
+    const bodyPt = bodyMm / 0.3527777778
+    if (config.table.includeSubjectFields) {
+      if (bodyPt < 14) fontSize = 7
+      if (bodyPt < 12) fontSize = 6
+      if (bodyPt < 10.5) fontSize = 5
+    } else {
+      if (bodyPt < 14) fontSize = 8
+      if (bodyPt < 12) fontSize = 7
+      if (bodyPt < 10.5) fontSize = 6
+    }
+
+    const bodyH = sourceType.value === 'empty'
+      ? `${Math.max(1, (contentHeightMm - titleMm - headerMm - safetyGapMm) / (isExamroom ? 42 : 50)).toFixed(2)}mm`
+      : `${bodyMm.toFixed(2)}mm`
 
     return {
       titleH: ptToMm(titlePt),

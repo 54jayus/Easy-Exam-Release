@@ -46,7 +46,16 @@ class StudentInfoTablePDFGenerator:
             table_data = [self._title_row(title_value, len(headers), font_name), headers]
             table_data += [[""] * len(headers) for _ in range(blank_rows)]
             row_heights = [layout["title_h"], layout["header_h"]] + [layout["body_h"]] * blank_rows
-            story.append(self._build_table(table_data, col_widths, row_heights, font_name, layout["font_size"]))
+            story.append(
+                self._build_table(
+                    table_data,
+                    col_widths,
+                    row_heights,
+                    font_name,
+                    layout["font_size"],
+                    layout["body_padding"],
+                )
+            )
             doc.build(story)
             return out_path
 
@@ -65,7 +74,16 @@ class StudentInfoTablePDFGenerator:
                 row_heights = [layout["title_h"], layout["header_h"]] + [layout["body_h"]] * len(chunk["rows"])
                 if chunk["is_last_page_of_class"]:
                     row_heights.append(layout["summary_h"])
-                story.append(self._build_table(table_data, col_widths, row_heights, font_name, layout["font_size"]))
+                story.append(
+                    self._build_table(
+                        table_data,
+                        col_widths,
+                        row_heights,
+                        font_name,
+                        layout["font_size"],
+                        layout["body_padding"],
+                    )
+                )
                 if chunk_index != len(chunks) - 1:
                     story.append(PageBreak())
 
@@ -159,7 +177,7 @@ class StudentInfoTablePDFGenerator:
             title_h = 22
             header_h = 20
             summary_h = 16.5 if include_summary else 0
-            min_body_h = 16.5
+            min_body_h = 10
             max_body_h = 16.5
             safety_gap = 24
         else:
@@ -177,16 +195,24 @@ class StudentInfoTablePDFGenerator:
 
         if self.include_subject_fields:
             font_size = 8
-            if body_h < 13:
+            if body_h < 14:
                 font_size = 7
             if body_h < 12:
                 font_size = 6
+            if body_h < 10.5:
+                font_size = 5
         else:
             font_size = 9
-            if body_h < 13:
+            if body_h < 14:
                 font_size = 8
             if body_h < 12:
                 font_size = 7
+            if body_h < 10.5:
+                font_size = 6
+
+        body_padding = 2
+        if body_h < 12:
+            body_padding = 1
 
         max_rows_last = int((available_height - title_h - header_h - summary_h - safety_gap) // min_body_h)
         max_rows_last = max(5, max_rows_last)
@@ -203,6 +229,7 @@ class StudentInfoTablePDFGenerator:
             "summary_h": summary_h,
             "body_h": body_h,
             "font_size": font_size,
+            "body_padding": body_padding,
             "max_rows_mid": max_rows_mid,
             "max_rows_last": max_rows_last,
         }
@@ -224,7 +251,7 @@ class StudentInfoTablePDFGenerator:
             start = end
         return chunks
 
-    def _build_table(self, table_data, col_widths, row_heights, font_name, font_size):
+    def _build_table(self, table_data, col_widths, row_heights, font_name, font_size, body_padding=2):
         table = Table(table_data, colWidths=col_widths, rowHeights=row_heights, repeatRows=2)
 
         style = TableStyle(
@@ -240,8 +267,10 @@ class StudentInfoTablePDFGenerator:
                 ("SPAN", (0, 0), (-1, 0)),
                 ("LEFTPADDING", (0, 0), (-1, -1), 3),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-                ("TOPPADDING", (0, 0), (-1, -1), 2),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("TOPPADDING", (0, 0), (-1, 1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, 1), 2),
+                ("TOPPADDING", (0, 2), (-1, -1), body_padding),
+                ("BOTTOMPADDING", (0, 2), (-1, -1), body_padding),
             ]
         )
         table.setStyle(style)
