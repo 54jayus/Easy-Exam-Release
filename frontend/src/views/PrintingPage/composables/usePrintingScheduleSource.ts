@@ -29,7 +29,13 @@ export function usePrintingScheduleSource({
     const roomsState = await pythonBackend.request<any>('rooms.getState', {})
     if (roomsState && roomsState.config) {
       const mode = roomsState.config.mode || ''
-      scheduleArrangementMode.value = mode === 'gaokao' ? 'gaokao_mode' : ''
+      const modeMap: Record<string, string> = {
+        normal: 'normal_mode',
+        random: 'random_mode',
+        '3+1+2': 'subject_mode',
+        gaokao: 'gaokao_mode',
+      }
+      scheduleArrangementMode.value = modeMap[String(mode)] || ''
     }
   }
 

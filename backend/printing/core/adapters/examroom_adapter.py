@@ -47,6 +47,7 @@ _SUBJECT_ALIAS_MAP = {
 
 _FIRST_CHOICE_SUBJECTS = {"物理", "历史"}
 _ELECTIVE_SUBJECTS = {"化学", "生物", "政治", "地理"}
+_EXAM_BAG_FIXED_SUBJECT_ORDER = ["语文", "数学", "英语", "物理", "化学", "生物", "历史", "政治", "地理"]
 
 
 def _format_class_student(class_no, student_no):
@@ -212,6 +213,159 @@ def _count_students_for_subject(room_df, subject_name):
             return int(room_df["选科"].fillna("").astype(str).apply(lambda x: _matches_subject_combination(x, normalized_subject)).sum())
 
     return len(room_df.index)
+
+
+def _get_arrangement_mode(exam_arrangement):
+    return str(getattr(exam_arrangement, "arrangement_mode", "") or "").strip()
+
+
+def _get_exam_bag_room_entries(df, exam_arrangement):
+    room_order = []
+    if hasattr(exam_arrangement, "_get_room_list"):
+        try:
+            room_order.extend(str(room).strip() for room in exam_arrangement._get_room_list() if str(room).strip())
+        except Exception:
+            pass
+
+    room_keys_in_data = []
+    for _, row in df.iterrows():
+        room_key = _get_room_identifier(row)
+        if room_key and room_key not in room_keys_in_data:
+            room_keys_in_data.append(room_key)
+
+    for room_key in room_keys_in_data:
+        if room_key not in room_order:
+            room_order.append(room_key)
+
+    room_entries = []
+    for room_key in room_order:
+        room_df = df[df.apply(lambda row: _get_room_identifier(row) == room_key, axis=1)]
+        if room_df.empty:
+            continue
+
+        first_row = room_df.iloc[0]
+        room_name = str(first_row.get("考场", "")).strip()
+        if not room_name and hasattr(exam_arrangement, "_get_room_name"):
+            try:
+                room_name = str(exam_arrangement._get_room_name(room_key)).strip()
+            except Exception:
+                room_name = ""
+        if not room_name:
+            room_name = str(room_key)
+
+        room_entries.append((room_key, room_name, room_df))
+
+    return room_entries
+
+
+def _build_exam_bag_rows_from_arranged_students(exam_arrangement, subjects):
+    df = getattr(exam_arrangement, "arranged_students", None)
+    if df is None or df.empty:
+        return []
+
+    if "考场号" not in df.columns and "考场" not in df.columns:
+        return []
+
+    result = []
+    for _, room_name, room_df in _get_exam_bag_room_entries(df, exam_arrangement):
+        for subject_name in subjects:
+            count = _count_students_for_subject(room_df, subject_name)
+            if count > 0:
+                result.append({
+                    "room": room_name,
+                    "subject": subject_name,
+                    "count": int(count),
+                })
+    return result
+
+
+def _build_exam_bag_rows_grouped_by_subject(exam_arrangement, subjects):
+    df = getattr(exam_arrangement, "arranged_students", None)
+    if df is None or df.empty:
+        return []
+
+    if "考场号" not in df.columns and "考场" not in df.columns:
+        return []
+
+    room_entries = _get_exam_bag_room_entries(df, exam_arrangement)
+    result = []
+    for subject_name in subjects:
+        for _, room_name, room_df in room_entries:
+            count = _count_students_for_subject(room_df, subject_name)
+            if count > 0:
+                result.append({
+                    "room": room_name,
+                    "subject": subject_name,
+                    "count": int(count),
+                })
+    return result
+
+
+def _build_gaokao_exam_bag_rows(exam_arrangement):
+    gaokao_results = exam_arrangement.gaokao_results or {}
+    unified_df = gaokao_results.get("unified")
+    electives_dict = gaokao_results.get("electives") or {}
+
+    if unified_df is None or unified_df.empty:
+        return []
+
+    used_rooms = {
+        str(room).strip()
+        for room in unified_df["考场号"].dropna().astype(str).tolist()
+        if str(room).strip()
+    }
+    for subject in _ELECTIVE_SUBJECTS:
+        elective_df = electives_dict.get(subject)
+        if elective_df is None or elective_df.empty:
+            continue
+        exam_rows = elective_df[elective_df["科目类型"] == subject]
+        used_rooms.update(
+            str(room).strip()
+            for room in exam_rows["考场号"].dropna().astype(str).tolist()
+            if str(room).strip()
+        )
+
+    room_list = []
+    if hasattr(exam_arrangement, "_get_room_list"):
+        room_list = [str(room).strip() for room in exam_arrangement._get_room_list() if str(room).strip()]
+    room_list = [room for room in room_list if room in used_rooms]
+    extra_rooms = sorted((room for room in used_rooms if room not in room_list), key=safe_int_sort_key)
+    room_list.extend(extra_rooms)
+
+    subject_column = str(getattr(exam_arrangement, "subject_column", "选科") or "选科")
+    result = []
+
+    for subject in _EXAM_BAG_FIXED_SUBJECT_ORDER:
+        for room_num in room_list:
+            room_name = exam_arrangement._get_room_name(room_num) if hasattr(exam_arrangement, "_get_room_name") else str(room_num)
+            room_students = unified_df[unified_df["考场号"].astype(str) == str(room_num)]
+            count = 0
+
+            if subject in {"语文", "数学", "英语"}:
+                count = len(room_students.index)
+            elif subject in _FIRST_CHOICE_SUBJECTS:
+                prefix = "物" if subject == "物理" else "史"
+                count = int(
+                    room_students[subject_column]
+                    .fillna("")
+                    .astype(str)
+                    .str.startswith(prefix)
+                    .sum()
+                )
+            else:
+                elective_df = electives_dict.get(subject)
+                if elective_df is not None and not elective_df.empty:
+                    room_df = elective_df[elective_df["考场号"].astype(str) == str(room_num)]
+                    count = int((room_df["科目类型"].fillna("").astype(str) == subject).sum())
+
+            if count > 0:
+                result.append({
+                    "room": room_name,
+                    "subject": subject,
+                    "count": int(count),
+                })
+
+    return result
 
 
 def load_examroom_data_for_corner(df_or_exam_arrangement):
@@ -665,138 +819,25 @@ def load_examroom_data_for_exam_bag(exam_arrangement, subjects_data=None):
     返回:
         list[dict]: [{"room": "考场名", "subject": "科目名", "count": 人数}, ...]
     """
-    # 只支持高考模式
     if exam_arrangement is None:
         return []
 
-    if not is_gaokao_mode(exam_arrangement):
-        df = getattr(exam_arrangement, "arranged_students", None)
-        if df is None or df.empty:
-            return []
+    arrangement_mode = _get_arrangement_mode(exam_arrangement)
 
-        if "考场号" not in df.columns and "考场" not in df.columns:
-            return []
-
+    if arrangement_mode in {"normal_mode", "random_mode"}:
         subject_names = _extract_exam_bag_subject_names(subjects_data)
         if not subject_names:
             return []
+        return _build_exam_bag_rows_from_arranged_students(exam_arrangement, subject_names)
 
-        room_order = []
-        if hasattr(exam_arrangement, "_get_room_list"):
-            try:
-                room_order.extend(str(room).strip() for room in exam_arrangement._get_room_list() if str(room).strip())
-            except Exception:
-                pass
+    if arrangement_mode == "subject_mode":
+        return _build_exam_bag_rows_grouped_by_subject(exam_arrangement, _EXAM_BAG_FIXED_SUBJECT_ORDER)
 
-        room_keys_in_data = []
-        for _, row in df.iterrows():
-            room_key = _get_room_identifier(row)
-            if room_key and room_key not in room_keys_in_data:
-                room_keys_in_data.append(room_key)
+    if arrangement_mode == "gaokao_mode":
+        return _build_gaokao_exam_bag_rows(exam_arrangement)
 
-        for room_key in room_keys_in_data:
-            if room_key not in room_order:
-                room_order.append(room_key)
-
-        result = []
-        for room_key in room_order:
-            room_df = df[df.apply(lambda row: _get_room_identifier(row) == room_key, axis=1)]
-            if room_df.empty:
-                continue
-
-            first_row = room_df.iloc[0]
-            room_name = str(first_row.get("考场", "")).strip()
-            if not room_name and hasattr(exam_arrangement, "_get_room_name"):
-                try:
-                    room_name = str(exam_arrangement._get_room_name(room_key)).strip()
-                except Exception:
-                    room_name = ""
-            if not room_name:
-                room_name = str(room_key)
-
-            for subject_name in subject_names:
-                count = _count_students_for_subject(room_df, subject_name)
-                if count > 0:
-                    result.append({
-                        "room": room_name,
-                        "subject": subject_name,
-                        "count": int(count),
-                    })
-
-        return result
-
-    gaokao_results = exam_arrangement.gaokao_results
-    unified_df = gaokao_results.get('unified')
-    electives_dict = gaokao_results.get('electives')
-
-    if unified_df is None or unified_df.empty:
+    subject_names = _extract_exam_bag_subject_names(subjects_data)
+    if not subject_names:
         return []
-
-    # 获取科目列表（将"物理历史"拆分为"物理"和"历史"）
-    raw_subjects = exam_arrangement._get_subject_order()
-    subjects = []
-    for s in raw_subjects:
-        if s == '物理历史':
-            subjects.extend(['物理', '历史'])
-        else:
-            subjects.append(s)
-
-    filtered_subjects = _extract_exam_bag_subject_names(subjects_data, subjects)
-    if filtered_subjects:
-        subjects = [subject for subject in subjects if subject in filtered_subjects]
-    if not subjects:
-        return []
-
-    # 获取实际使用的考场列表
-    used_rooms = {str(room) for room in unified_df['考场号'].dropna().astype(str).tolist() if str(room).strip()}
-    if electives_dict:
-        for subject, elective_df in electives_dict.items():
-            if elective_df is None or elective_df.empty or subject not in subjects:
-                continue
-            exam_rows = elective_df[elective_df['科目类型'] == subject]
-            used_rooms.update(
-                str(room)
-                for room in exam_rows['考场号'].dropna().astype(str).tolist()
-                if str(room).strip()
-            )
-
-    all_room_list = [str(room) for room in exam_arrangement._get_room_list()]
-    room_list = [room for room in all_room_list if room in used_rooms]
-    extra_rooms = sorted((room for room in used_rooms if room not in room_list), key=safe_int_sort_key)
-    room_list.extend(extra_rooms)
-
-    # 构建结果列表
-    result = []
-
-    for room_num in room_list:
-        room_name = exam_arrangement._get_room_name(room_num)
-
-        # 统计每个科目的人数
-        for subject in subjects:
-            count = 0
-
-            if subject in ['语文', '数学', '英语']:
-                # 统考科目：从unified结果中统计
-                count = len(unified_df[unified_df['考场号'] == room_num])
-            elif subject in ['物理', '历史']:
-                # 物理/历史：从unified结果中按选科首字母区分
-                prefix = '物' if subject == '物理' else '史'
-                room_students = unified_df[unified_df['考场号'] == room_num]
-                count = len(room_students[room_students[exam_arrangement.subject_column].str.startswith(prefix)])
-            else:
-                # 选考科目：从electives结果中统计（只统计考试人数，不包括自习）
-                if electives_dict and subject in electives_dict:
-                    elective_df = electives_dict[subject]
-                    room_df = elective_df[elective_df['考场号'] == room_num]
-                    count = len(room_df[room_df['科目类型'] == subject])
-
-            # 只添加人数大于0的记录
-            if count > 0:
-                result.append({
-                    "room": room_name,
-                    "subject": subject,
-                    "count": count
-                })
-
-    return result
+    return _build_exam_bag_rows_from_arranged_students(exam_arrangement, subject_names)
 

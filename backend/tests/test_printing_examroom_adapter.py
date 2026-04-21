@@ -114,27 +114,42 @@ def test_load_examroom_data_for_exam_bag_counts_only_actual_exam_subjects() -> N
     arrangement = _build_gaokao_arrangement()
 
     result = load_examroom_data_for_exam_bag(arrangement)
+    subject_order = []
+    for item in result:
+        if item["subject"] not in subject_order:
+            subject_order.append(item["subject"])
 
+    assert subject_order == ["语文", "数学", "英语", "物理", "化学", "生物", "历史", "政治", "地理"]
+    assert result[:4] == [
+        {"room": "第一考场", "subject": "语文", "count": 2},
+        {"room": "第一考场", "subject": "数学", "count": 2},
+        {"room": "第一考场", "subject": "英语", "count": 2},
+        {"room": "第一考场", "subject": "物理", "count": 1},
+    ]
+    assert {"room": "第005考场", "subject": "化学", "count": 1} in result
+    assert {"room": "第007考场", "subject": "政治", "count": 1} in result
+    assert {"room": "第008考场", "subject": "生物", "count": 1} in result
+    assert {"room": "第006考场", "subject": "地理", "count": 1} in result
+    assert not any(item["room"] == "第015考场" for item in result)
+
+
+def test_load_examroom_data_for_exam_bag_ignores_dialog_selection_in_gaokao_mode() -> None:
+    arrangement = _build_gaokao_arrangement()
+
+    result = load_examroom_data_for_exam_bag(arrangement, [{"name": "语文"}, {"name": "物理历史"}])
+    subject_order = []
+    for item in result:
+        if item["subject"] not in subject_order:
+            subject_order.append(item["subject"])
+
+    assert subject_order == ["语文", "数学", "英语", "物理", "化学", "生物", "历史", "政治", "地理"]
     assert {"room": "第一考场", "subject": "语文", "count": 2} in result
+    assert {"room": "第一考场", "subject": "数学", "count": 2} in result
+    assert {"room": "第一考场", "subject": "英语", "count": 2} in result
     assert {"room": "第一考场", "subject": "物理", "count": 1} in result
     assert {"room": "第一考场", "subject": "历史", "count": 1} in result
     assert {"room": "第005考场", "subject": "化学", "count": 1} in result
     assert {"room": "第006考场", "subject": "地理", "count": 1} in result
-    assert {"room": "第007考场", "subject": "政治", "count": 1} in result
-    assert {"room": "第008考场", "subject": "生物", "count": 1} in result
-    assert not any(item["room"] == "第015考场" for item in result)
-
-
-def test_load_examroom_data_for_exam_bag_filters_gaokao_subjects_from_dialog_selection() -> None:
-    arrangement = _build_gaokao_arrangement()
-
-    result = load_examroom_data_for_exam_bag(arrangement, [{"name": "语文"}, {"name": "物理历史"}])
-
-    assert {"room": "第一考场", "subject": "语文", "count": 2} in result
-    assert {"room": "第一考场", "subject": "物理", "count": 1} in result
-    assert {"room": "第一考场", "subject": "历史", "count": 1} in result
-    assert not any(item["subject"] == "化学" for item in result)
-    assert not any(item["subject"] == "地理" for item in result)
 
 
 def test_load_examroom_data_for_exam_bag_supports_regular_arrangement() -> None:
@@ -182,8 +197,63 @@ def test_load_examroom_data_for_exam_bag_supports_subject_mode_counts() -> None:
 
     assert result == [
         {"room": "第一考场", "subject": "语文", "count": 3},
+        {"room": "第一考场", "subject": "数学", "count": 3},
+        {"room": "第一考场", "subject": "英语", "count": 3},
         {"room": "第一考场", "subject": "物理", "count": 2},
-        {"room": "第一考场", "subject": "历史", "count": 1},
         {"room": "第一考场", "subject": "化学", "count": 1},
+        {"room": "第一考场", "subject": "生物", "count": 1},
+        {"room": "第一考场", "subject": "历史", "count": 1},
         {"room": "第一考场", "subject": "政治", "count": 2},
+        {"room": "第一考场", "subject": "地理", "count": 2},
     ]
+
+
+def test_load_examroom_data_for_exam_bag_ignores_dialog_selection_in_subject_mode() -> None:
+    arrangement = SimpleNamespace(
+        arrangement_mode="subject_mode",
+        arranged_students=pd.DataFrame(
+            [
+                {"姓名": "张三", "考场号": "001", "考场": "第一考场", "首选": "物理", "选科1": "化学", "选科2": "生物"},
+                {"姓名": "李四", "考场号": "001", "考场": "第一考场", "首选": "历史", "选科1": "政治", "选科2": "地理"},
+            ]
+        ),
+        _get_room_list=lambda: ["001"],
+        _get_room_name=lambda room: "第一考场",
+    )
+
+    result = load_examroom_data_for_exam_bag(arrangement, [{"name": "语文"}])
+
+    assert result == [
+        {"room": "第一考场", "subject": "语文", "count": 2},
+        {"room": "第一考场", "subject": "数学", "count": 2},
+        {"room": "第一考场", "subject": "英语", "count": 2},
+        {"room": "第一考场", "subject": "物理", "count": 1},
+        {"room": "第一考场", "subject": "化学", "count": 1},
+        {"room": "第一考场", "subject": "生物", "count": 1},
+        {"room": "第一考场", "subject": "历史", "count": 1},
+        {"room": "第一考场", "subject": "政治", "count": 1},
+        {"room": "第一考场", "subject": "地理", "count": 1},
+    ]
+
+
+def test_load_examroom_data_for_exam_bag_keeps_fixed_subject_order_across_rooms() -> None:
+    arrangement = SimpleNamespace(
+        arrangement_mode="subject_mode",
+        arranged_students=pd.DataFrame(
+            [
+                {"姓名": "张三", "考场号": "001", "考场": "第一考场", "首选": "物理", "选科1": "政治", "选科2": "地理"},
+                {"姓名": "李四", "考场号": "001", "考场": "第一考场", "首选": "历史", "选科1": "政治", "选科2": "地理"},
+                {"姓名": "王五", "考场号": "002", "考场": "第二考场", "首选": "物理", "选科1": "化学", "选科2": "生物"},
+            ]
+        ),
+        _get_room_list=lambda: ["001", "002"],
+        _get_room_name=lambda room: {"001": "第一考场", "002": "第二考场"}[str(room)],
+    )
+
+    result = load_examroom_data_for_exam_bag(arrangement)
+    subject_order = []
+    for item in result:
+        if item["subject"] not in subject_order:
+            subject_order.append(item["subject"])
+
+    assert subject_order == ["语文", "数学", "英语", "物理", "化学", "生物", "历史", "政治", "地理"]

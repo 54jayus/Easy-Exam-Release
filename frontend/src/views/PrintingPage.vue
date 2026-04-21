@@ -201,27 +201,27 @@
                       <el-input v-model="config.examBag.schoolName" size="small" />
                    </div>
                    <div class="space-y-2">
-                      <div class="flex items-center justify-between">
-                         <label class="text-xs text-slate-500">科目与时间</label>
-                         <el-tooltip
-                            v-if="sourceType === 'schedule' && isGaokaoMode"
-                            content="高考模式下科目与时间由高级设置决定，无需手动设置"
+                       <div class="flex items-center justify-between">
+                          <label class="text-xs text-slate-500">科目与时间</label>
+                          <el-tooltip
+                            v-if="isExamBagScheduleSubjectsLocked"
+                            :content="examBagSubjectLockMessage"
                             placement="top"
                          >
                             <el-button size="small" type="info" link disabled>编辑科目</el-button>
                          </el-tooltip>
-                         <el-button v-else size="small" type="primary" link @click="openSubjectDialog">编辑科目</el-button>
-                      </div>
-                      <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] space-y-1">
-                         <div v-for="(row, idx) in subjectPreviewWithTime" :key="idx" class="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
+                          <el-button v-else size="small" type="primary" link @click="openSubjectDialog">编辑科目</el-button>
+                       </div>
+                       <div class="rounded-lg border border-slate-200 bg-white p-2 min-h-[40px] space-y-1">
+                         <div v-for="(row, idx) in examBagSubjectPreviewWithTime" :key="idx" class="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
                             <span class="text-xs text-slate-700 truncate flex-1 font-medium">{{ row.name }}</span>
                             <span class="text-[10px] text-slate-400 font-mono whitespace-nowrap">{{ row.time || '--' }}</span>
                          </div>
-                         <div v-if="subjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
-                            {{ sourceType === 'schedule' && isGaokaoMode ? '高考模式：科目与时间由高级设置决定' : '未设置科目' }}
+                         <div v-if="examBagSubjectPreviewWithTime.length === 0" class="text-xs text-slate-400 w-full text-center py-1">
+                            {{ isExamBagScheduleSubjectsLocked ? examBagSubjectLockEmptyText : '未设置科目' }}
                          </div>
-                      </div>
-                   </div>
+                       </div>
+                    </div>
                     <div class="text-[10px] text-slate-400 leading-relaxed">
                       {{ examBagConfigHint }}
                     </div>
@@ -740,7 +740,6 @@
     <PrintingSubjectsDialog
       v-model="showSubjectDialog"
       v-model:subject-draft-count="subjectDraftCount"
-      :remove-only="isExamBagScheduleRemoveOnly"
       :syncing-subjects="syncingSubjects"
       :subject-draft-rows="subjectDraftRows"
       :get-row-date="getRowDate"
@@ -798,9 +797,50 @@ const sourceType = ref('empty') // 'empty' | 'file' | 'schedule'
 const totalCount = ref(800)
 const loadingSchedule = ref(false)
 const scheduleArrangementMode = ref('') // 考场编排模式: 'gaokao_mode' | 'normal_mode' | 'subject_mode' | 'random_mode'
+const EXAM_BAG_FIXED_SUBJECT_ORDER = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '政治', '地理'] as const
 
 const dataPath = ref('')
 const isGaokaoMode = computed(() => scheduleArrangementMode.value === 'gaokao_mode')
+const isExamBagScheduleSubjectsLocked = computed(() =>
+   sourceType.value === 'schedule'
+   && activeTab.value === 'exam_bag_label'
+   && ['subject_mode', 'gaokao_mode'].includes(scheduleArrangementMode.value)
+)
+const examBagSubjectLockMessage = computed(() => {
+   if (scheduleArrangementMode.value === 'subject_mode') {
+      return '3+1+2选科编排下试卷袋科目按固定规则生成，不允许手动编辑'
+   }
+   if (scheduleArrangementMode.value === 'gaokao_mode') {
+      return '高考模式下试卷袋科目按固定规则生成，不允许手动编辑'
+   }
+   return ''
+})
+const examBagSubjectLockEmptyText = computed(() => {
+   if (scheduleArrangementMode.value === 'subject_mode') {
+      return '3+1+2选科编排：试卷袋科目按固定规则生成'
+   }
+   if (scheduleArrangementMode.value === 'gaokao_mode') {
+      return '高考模式：试卷袋科目按固定规则生成'
+   }
+   return '未设置科目'
+})
+const examBagSubjectPreviewWithTime = computed(() => {
+   if (!isExamBagScheduleSubjectsLocked.value) {
+      return subjectPreviewWithTime.value
+   }
+
+   const timeMap = new Map(
+      subjectRows.value
+         .map((row) => [String(row.name ?? '').trim(), String(row.time ?? '').trim()] as const)
+         .filter(([name]) => Boolean(name))
+   )
+   const mergedGaokaoTime = timeMap.get('物理历史') || ''
+
+   return EXAM_BAG_FIXED_SUBJECT_ORDER.map((subject) => ({
+      name: subject,
+      time: timeMap.get(subject) || ((subject === '物理' || subject === '历史') ? mergedGaokaoTime : '')
+   }))
+})
 const examBagConfigHint = computed(() => {
    if (sourceType.value === 'empty') {
       return '说明：当前为空白试卷袋样式预览。切换到“导入数据”或“考场编排”后，可根据实际数据生成试卷袋。'
@@ -808,8 +848,11 @@ const examBagConfigHint = computed(() => {
    if (sourceType.value === 'file') {
       return '说明：导入 Excel 数据时，第一列为“考场”，后续列为“科目”（单元格值为人数）。系统会按学科分组生成试卷袋。'
    }
+   if (scheduleArrangementMode.value === 'subject_mode') {
+      return '说明：3+1+2选科编排下，试卷袋会严格按“语文、数学、英语、物理、化学、生物、历史、政治、地理”的固定顺序生成，并按科目在各考场的实际考试人数统计。'
+   }
    if (isGaokaoMode.value) {
-      return '说明：使用考场编排作为数据源时，将按高考模式编排结果生成试卷袋，科目与时间自动读取“高考模式-高级设置”。'
+      return '说明：高考模式下，试卷袋会严格按“语文、数学、英语、物理、化学、生物、历史、政治、地理”的固定顺序生成，并按科目在各考场的实际考试人数统计。'
    }
    return '说明：使用考场编排作为数据源时，将按当前考场编排结果生成试卷袋，科目与时间默认读取“科目设置”，也可在此处手动调整。'
 })
@@ -976,8 +1019,6 @@ const {
    sourceType,
    isGaokaoMode,
 })
-
-const isExamBagScheduleRemoveOnly = computed(() => sourceType.value === 'schedule' && activeTab.value === 'exam_bag_label')
 
 watch(config, _scheduleSaveConfig, { deep: true })
 watch(commonConfig, _scheduleSaveConfig, { deep: true })
