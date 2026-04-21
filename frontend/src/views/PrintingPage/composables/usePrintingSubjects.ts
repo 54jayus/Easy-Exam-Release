@@ -186,6 +186,14 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     subjectDraftRows.value = ensureSubjectRowsLength(subjectDraftRows.value, value)
   })
 
+  function handleRemoveSubjectDraft(index: number) {
+    if (subjectDraftRows.value.length <= 1) return
+    if (index < 0 || index >= subjectDraftRows.value.length) return
+
+    subjectDraftRows.value.splice(index, 1)
+    subjectDraftCount.value = Math.max(1, subjectDraftRows.value.length)
+  }
+
   async function handleSyncSubjects() {
     syncingSubjects.value = true
     try {
@@ -229,6 +237,7 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     syncSubjectRowsForCurrentSource,
     openSubjectDialog,
     handleSyncSubjects,
+    handleRemoveSubjectDraft,
     handleSaveSubjects,
     getRowDate,
     setRowDate,

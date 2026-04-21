@@ -34,7 +34,7 @@
         </div>
         <div class="grid grid-cols-2 gap-2">
           <SidebarActionButton
-            label="设置模板"
+            label="考场模板"
             :icon="Download"
             tone="blue"
             @click="$emit('generate-template', 'settings')"
@@ -42,7 +42,7 @@
 
           <el-dropdown trigger="click" @command="(cmd: string) => $emit('generate-template', cmd)" class="w-full">
             <SidebarActionButton
-              label="名册模板"
+              label="考生模板"
               :icon="Download"
               tone="blue"
             >

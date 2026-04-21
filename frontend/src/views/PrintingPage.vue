@@ -747,6 +747,7 @@
       :get-row-time-range="getRowTimeRange"
       :set-row-time-range="setRowTimeRange"
       @sync-subjects="handleSyncSubjects"
+      @remove-subject="handleRemoveSubjectDraft"
       @save-subjects="handleSaveSubjects"
     />
 
@@ -962,6 +963,7 @@ const {
    syncSubjectRowsForCurrentSource,
    openSubjectDialog,
    handleSyncSubjects,
+   handleRemoveSubjectDraft,
    handleSaveSubjects,
    getRowDate,
    setRowDate,
