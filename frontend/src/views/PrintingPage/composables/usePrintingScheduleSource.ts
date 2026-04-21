@@ -9,6 +9,8 @@ type UsePrintingScheduleSourceOptions = {
   previewData: Ref<any[]>
   previewTotal: Ref<number>
   syncSubjectRowsForCurrentSource: () => Promise<void>
+  shouldSyncSubjectRows?: () => boolean
+  getScheduleParams?: () => Record<string, any>
 }
 
 export function usePrintingScheduleSource({
@@ -17,7 +19,9 @@ export function usePrintingScheduleSource({
   scheduleArrangementMode,
   previewData,
   previewTotal,
-  syncSubjectRowsForCurrentSource
+  syncSubjectRowsForCurrentSource,
+  shouldSyncSubjectRows,
+  getScheduleParams
 }: UsePrintingScheduleSourceOptions) {
   const feedback = createUiFeedback()
 
@@ -35,7 +39,10 @@ export function usePrintingScheduleSource({
   }
 
   const loadSchedulePreview = async () => {
-    const response = await pythonBackend.request<any>('printing.loadFromSchedule', { type: activeTab.value })
+    const response = await pythonBackend.request<any>('printing.loadFromSchedule', {
+      type: activeTab.value,
+      ...(getScheduleParams ? getScheduleParams() : {})
+    })
     if (response.data) {
       previewData.value = response.data
       previewTotal.value = response.total
@@ -48,7 +55,9 @@ export function usePrintingScheduleSource({
 
   const refreshSchedulePreviewSilently = async () => {
     await applyScheduleModeFromRoomsState()
-    await syncSubjectRowsForCurrentSource()
+    if (!shouldSyncSubjectRows || shouldSyncSubjectRows()) {
+      await syncSubjectRowsForCurrentSource()
+    }
     await loadSchedulePreview()
   }
 
@@ -68,7 +77,9 @@ export function usePrintingScheduleSource({
 
     try {
       await applyScheduleModeFromRoomsState()
-      await syncSubjectRowsForCurrentSource()
+      if (!shouldSyncSubjectRows || shouldSyncSubjectRows()) {
+        await syncSubjectRowsForCurrentSource()
+      }
 
       const response = await loadSchedulePreview()
       if (response?.data) {

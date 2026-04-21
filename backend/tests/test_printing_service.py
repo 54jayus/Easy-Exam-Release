@@ -68,6 +68,26 @@ def test_load_from_schedule_routes_corner_ticket_and_exam_bag(monkeypatch, recor
     assert service.load_from_schedule({"type": "exam_bag_label"}) == {"data": [{"kind": "exam_bag", "subjects": 1}], "total": 1}
 
 
+def test_load_from_schedule_passes_subject_filter_to_exam_bag(monkeypatch, recording_repo) -> None:
+    state = AppState()
+    state.subjects = [{"name": "语文"}, {"name": "数学"}]
+    state.exam_arrangement = SimpleNamespace(arranged_students=pd.DataFrame([{"姓名": "张三"}]))
+    service = PrintingService(state, recording_repo)
+
+    def fake_loader(ea, subjects):
+        assert [item["name"] for item in subjects] == ["语文"]
+        return [{"kind": "exam_bag", "subjects": len(subjects)}]
+
+    monkeypatch.setattr(
+        "backend.application.printing_service.load_examroom_data_for_exam_bag",
+        fake_loader,
+    )
+
+    result = service.load_from_schedule({"type": "exam_bag_label", "subjects": [{"name": "语文"}]})
+
+    assert result == {"data": [{"kind": "exam_bag", "subjects": 1}], "total": 1}
+
+
 def test_preview_data_stores_state_and_truncates_non_table_results(monkeypatch, recording_repo) -> None:
     state = AppState()
     state.subjects = [{"name": "语文"}]
@@ -273,3 +293,41 @@ def test_generate_writes_requested_formats(monkeypatch, tmp_path, recording_repo
 
     assert sorted(Path(path).suffix for path in result["paths"]) == [".pdf", ".xlsx"]
     assert len(generated_paths) == 2
+
+
+def test_generate_exam_bag_uses_filtered_schedule_subjects(monkeypatch, tmp_path, recording_repo) -> None:
+    state = AppState()
+    state.subjects = [{"name": "语文"}, {"name": "数学"}]
+    state.exam_arrangement = SimpleNamespace(arranged_students=pd.DataFrame([{"姓名": "张三"}]))
+    service = PrintingService(state, recording_repo)
+
+    captured = {}
+
+    def fake_loader(ea, subjects):
+        captured["subjects"] = subjects
+        return [{"room": "第一考场", "subject": "语文", "count": 1}]
+
+    class FakeGenerator:
+        def __init__(self, cfg):
+            self.cfg = cfg
+
+        def generate(self):
+            out = Path(self.cfg.output_path)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"PK\x03\x04xlsx")
+            return str(out)
+
+    monkeypatch.setattr("backend.application.printing_service.load_examroom_data_for_exam_bag", fake_loader)
+    monkeypatch.setattr("backend.application.printing_service.GeneratorFactory.create_generator", lambda cfg: FakeGenerator(cfg))
+
+    result = service.generate(
+        {
+            "type": "exam_bag_label",
+            "sourceType": "schedule",
+            "outputPath": str(tmp_path / "exam-bag.xlsx"),
+            "config": {"exportXlsx": True, "exportPdf": False, "schoolName": "学校", "subjects": [{"name": "语文"}]},
+        }
+    )
+
+    assert result["paths"] == [str(tmp_path / "exam-bag.xlsx")]
+    assert [item["name"] for item in captured["subjects"]] == ["语文"]

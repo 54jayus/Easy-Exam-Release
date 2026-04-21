@@ -740,6 +740,7 @@
     <PrintingSubjectsDialog
       v-model="showSubjectDialog"
       v-model:subject-draft-count="subjectDraftCount"
+      :remove-only="isExamBagScheduleRemoveOnly"
       :syncing-subjects="syncingSubjects"
       :subject-draft-rows="subjectDraftRows"
       :get-row-date="getRowDate"
@@ -955,6 +956,7 @@ const {
    subjectRows,
    subjectDraftRows,
    subjectDraftCount,
+   subjectRowsCustomized,
    showSubjectDialog,
    syncingSubjects,
    subjectPreviewWithTime,
@@ -975,6 +977,8 @@ const {
    isGaokaoMode,
 })
 
+const isExamBagScheduleRemoveOnly = computed(() => sourceType.value === 'schedule' && activeTab.value === 'exam_bag_label')
+
 watch(config, _scheduleSaveConfig, { deep: true })
 watch(commonConfig, _scheduleSaveConfig, { deep: true })
 watch(totalCount, _scheduleSaveConfig)
@@ -983,7 +987,9 @@ watch(sourceType, _scheduleSaveConfig)
 watch(printingSubjectDependencyEpoch, async () => {
    if (sourceType.value !== 'schedule') return
    try {
-      await syncSubjectRowsForCurrentSource()
+      if (!subjectRowsCustomized.value) {
+         await syncSubjectRowsForCurrentSource()
+      }
       await refreshSchedulePreviewSilently()
    } catch (error) {
       console.error('Failed to refresh printing after subject dependency reset:', error)
@@ -1247,6 +1253,10 @@ const {
    previewData,
    previewTotal,
    syncSubjectRowsForCurrentSource,
+   shouldSyncSubjectRows: () => !subjectRowsCustomized.value,
+   getScheduleParams: () => activeTab.value === 'exam_bag_label'
+      ? { subjects: subjectRows.value.map((row) => String(row.name ?? '').trim()).filter(Boolean) }
+      : {},
 })
 // Auto load schedule if mode selected
 watch(sourceType, (val, oldVal) => {
@@ -1269,6 +1279,9 @@ watch(sourceType, (val, oldVal) => {
 })
 
 watch(subjectRows, async () => {
+   if (sourceType.value === 'schedule' && activeTab.value === 'exam_bag_label' && subjectRowsCustomized.value) {
+      await refreshSchedulePreviewSilently()
+   }
    await nextTick()
    _measurePreviewBaseSize()
    _updatePreviewScale()

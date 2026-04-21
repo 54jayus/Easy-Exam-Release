@@ -19,6 +19,7 @@
             size="small"
             class="!w-32"
             controls-position="right"
+            :disabled="removeOnly"
             @update:model-value="handleDraftCountChange"
           />
         </div>
@@ -58,6 +59,7 @@
                   v-model="row.name"
                   placeholder="科目名称"
                   class="!w-full"
+                  :disabled="removeOnly"
                   :class="{ 'font-bold text-slate-700': row.name }"
                 >
                   <template #prefix>
@@ -70,6 +72,7 @@
                   :model-value="getRowDate(row)"
                   placeholder="如：6月8日"
                   class="!w-full"
+                  :disabled="removeOnly"
                   @update:model-value="(value: string) => setRowDate(row, value)"
                 >
                   <template #prefix>
@@ -88,6 +91,7 @@
                   end-placeholder="结束时间"
                   :prefix-icon="Timer"
                   class="!w-full"
+                  :disabled="removeOnly"
                   @update:model-value="(value: any) => setRowTimeRange(row, value)"
                 />
               </div>
@@ -119,7 +123,11 @@
 
       <div class="mt-2 flex items-center gap-2 text-[10px] text-slate-400 px-1">
         <el-icon><InfoFilled /></el-icon>
-        <span>提示：可直接编辑名称、日期和时间段，也可移除单条科目；点击“从科目设置同步”可拉取最新科目安排。</span>
+        <span>
+          {{ removeOnly
+            ? '提示：当前场景仅支持移除科目，不支持新增或编辑；点击“从科目设置同步”可恢复完整科目列表。'
+            : '提示：可直接编辑名称、日期和时间段，也可移除单条科目；点击“从科目设置同步”可拉取最新科目安排。' }}
+        </span>
       </div>
     </div>
     <template #footer>
@@ -143,6 +151,7 @@ type SubjectDraftRow = {
 defineProps<{
   modelValue: boolean
   subjectDraftCount: number
+  removeOnly?: boolean
   syncingSubjects: boolean
   subjectDraftRows: SubjectDraftRow[]
   getRowDate: (row: SubjectDraftRow) => string

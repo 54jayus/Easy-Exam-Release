@@ -123,6 +123,20 @@ def test_load_examroom_data_for_exam_bag_counts_only_actual_exam_subjects() -> N
     assert {"room": "第007考场", "subject": "政治", "count": 1} in result
     assert {"room": "第008考场", "subject": "生物", "count": 1} in result
     assert not any(item["room"] == "第015考场" for item in result)
+
+
+def test_load_examroom_data_for_exam_bag_filters_gaokao_subjects_from_dialog_selection() -> None:
+    arrangement = _build_gaokao_arrangement()
+
+    result = load_examroom_data_for_exam_bag(arrangement, [{"name": "语文"}, {"name": "物理历史"}])
+
+    assert {"room": "第一考场", "subject": "语文", "count": 2} in result
+    assert {"room": "第一考场", "subject": "物理", "count": 1} in result
+    assert {"room": "第一考场", "subject": "历史", "count": 1} in result
+    assert not any(item["subject"] == "化学" for item in result)
+    assert not any(item["subject"] == "地理" for item in result)
+
+
 def test_load_examroom_data_for_exam_bag_supports_regular_arrangement() -> None:
     arrangement = SimpleNamespace(
         arrangement_mode="normal_mode",

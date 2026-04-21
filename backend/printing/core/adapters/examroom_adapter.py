@@ -139,6 +139,37 @@ def _extract_subject_names(subjects_data):
     return subject_names
 
 
+def _expand_exam_bag_subject_name(value):
+    text = str(value or "").strip()
+    compact = text.replace("/", "").replace("、", "").replace(" ", "")
+    if compact in {"物理历史", "历史物理", "物史", "史物"}:
+        return ["物理", "历史"]
+
+    normalized = _normalize_subject_name(text)
+    if not normalized:
+        return []
+    return [normalized]
+
+
+def _extract_exam_bag_subject_names(subjects_data, default_subjects=None):
+    subject_names = []
+    seen = set()
+    source = subjects_data if subjects_data is not None else default_subjects
+
+    for item in source or []:
+        if isinstance(item, dict):
+            raw_value = item.get("name") or item.get("subjectName") or item.get("id")
+        else:
+            raw_value = item
+
+        for name in _expand_exam_bag_subject_name(raw_value):
+            if name and name not in seen:
+                subject_names.append(name)
+                seen.add(name)
+
+    return subject_names
+
+
 def _get_room_identifier(row):
     room_no = str(row.get("考场号", "")).strip()
     room_name = str(row.get("考场", "")).strip()
@@ -646,7 +677,7 @@ def load_examroom_data_for_exam_bag(exam_arrangement, subjects_data=None):
         if "考场号" not in df.columns and "考场" not in df.columns:
             return []
 
-        subject_names = _extract_subject_names(subjects_data)
+        subject_names = _extract_exam_bag_subject_names(subjects_data)
         if not subject_names:
             return []
 
@@ -709,6 +740,12 @@ def load_examroom_data_for_exam_bag(exam_arrangement, subjects_data=None):
             subjects.extend(['物理', '历史'])
         else:
             subjects.append(s)
+
+    filtered_subjects = _extract_exam_bag_subject_names(subjects_data, subjects)
+    if filtered_subjects:
+        subjects = [subject for subject in subjects if subject in filtered_subjects]
+    if not subjects:
+        return []
 
     # 获取实际使用的考场列表
     used_rooms = {str(room) for room in unified_df['考场号'].dropna().astype(str).tolist() if str(room).strip()}

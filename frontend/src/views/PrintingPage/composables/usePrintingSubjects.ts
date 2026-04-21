@@ -90,6 +90,7 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
   const subjectRows = ref<SubjectRow[]>([])
   const subjectDraftRows = ref<SubjectRow[]>([])
   const subjectDraftCount = ref(9)
+  const subjectRowsCustomized = ref(false)
 
   const subjectPreview = computed(() => {
     return subjectRows.value.map((row) => row.name).filter((value) => value.trim()).slice(0, 7)
@@ -119,6 +120,7 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     const nextRows = ensureSubjectRowsLength(rows, nextCount)
     subjectRows.value = nextRows
     persistSubjectRows(nextRows)
+    subjectRowsCustomized.value = false
   }
 
   async function syncSubjectRowsForCurrentSource() {
@@ -140,10 +142,12 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     const stored = loadStoredSubjectRows()
     if (stored && stored.length) {
       subjectRows.value = ensureSubjectRowsLength(stored, stored.length)
+      subjectRowsCustomized.value = true
       return
     }
 
     subjectRows.value = ensureSubjectRowsLength([], 9)
+    subjectRowsCustomized.value = false
   }
 
   function resetSubjectRows(count = 9) {
@@ -186,6 +190,12 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     subjectDraftRows.value = ensureSubjectRowsLength(subjectDraftRows.value, value)
   })
 
+  watch(sourceType, (value, oldValue) => {
+    if (value !== oldValue) {
+      subjectRowsCustomized.value = false
+    }
+  })
+
   function handleRemoveSubjectDraft(index: number) {
     if (subjectDraftRows.value.length <= 1) return
     if (index < 0 || index >= subjectDraftRows.value.length) return
@@ -221,6 +231,7 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     const rows = ensureSubjectRowsLength(subjectDraftRows.value, subjectDraftCount.value)
     subjectRows.value = rows
     persistSubjectRows(rows)
+    subjectRowsCustomized.value = true
     showSubjectDialog.value = false
   }
 
@@ -228,6 +239,7 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     subjectRows,
     subjectDraftRows,
     subjectDraftCount,
+    subjectRowsCustomized,
     showSubjectDialog,
     syncingSubjects,
     subjectPreview,

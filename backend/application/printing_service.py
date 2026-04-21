@@ -139,6 +139,7 @@ class PrintingService:
 
             # 获取打印类型，根据类型选择正确的数据加载函数
             type_ = params.get("type", "table")
+            subjects = params.get("subjects") or []
 
             if type_ == "corner":
                 # 台角纸：传递 ea 对象，适配器会自动检测高考模式
@@ -148,7 +149,7 @@ class PrintingService:
                 data = load_examroom_data_for_ticket(ea) or []
             elif type_ == "exam_bag_label":
                 # 试卷袋：传递 ea 对象，适配器会自动检测高考模式
-                data = load_examroom_data_for_exam_bag(ea, self._state.subjects) or []
+                data = load_examroom_data_for_exam_bag(ea, subjects or self._state.subjects) or []
             else:
                 # 考生信息表等其他类型：使用原有逻辑
                 df = ea.arranged_students.fillna("")
@@ -268,7 +269,7 @@ class PrintingService:
                 elif type_ == "desk":
                     data_list = load_examroom_data_for_corner(ea) or []
                 elif type_ == "exam_bag_label":
-                    data_list = load_examroom_data_for_exam_bag(ea, self._state.subjects) or []
+                    data_list = load_examroom_data_for_exam_bag(ea, config_data.get("subjects") or self._state.subjects) or []
                 else:
                     data_list = load_examroom_data_for_ticket(ea) or []
             elif source_type == "empty":

@@ -55,6 +55,10 @@ export function usePrintingGenerate({
   const generating = ref(false)
   const feedback = createUiFeedback()
 
+  function getEditableSubjectNames() {
+    return subjectRows.value.map((row) => String(row.name ?? '').trim()).filter(Boolean)
+  }
+
   function getSubjectNames() {
     return isGaokaoMode.value ? [...GAOKAO_SUBJECTS] : subjectRows.value.map((row) => row.name)
   }
@@ -88,7 +92,12 @@ export function usePrintingGenerate({
     }
 
     if (activeTab.value === 'table') return config.table
-    if (activeTab.value === 'exam_bag_label') return config.examBag
+    if (activeTab.value === 'exam_bag_label') {
+      return {
+        ...config.examBag,
+        subjects: getEditableSubjectNames(),
+      }
+    }
     return {}
   }
 
@@ -103,7 +112,7 @@ export function usePrintingGenerate({
     const defaultExt = bothFormats ? '' : (commonConfig.exportPdf ? 'pdf' : 'xlsx')
     return {
       bothFormats,
-      defaultFileName: defaultExt ? `${tabName}_批量生成.${defaultExt}` : `${tabName}_批量生成`,
+      defaultFileName: defaultExt ? `${tabName}.${defaultExt}` : tabName,
     }
   }
 
