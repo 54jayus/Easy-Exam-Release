@@ -6,6 +6,13 @@ import pandas as pd
 from openpyxl import load_workbook
 
 from backend.examroom.core.arrangement import ExamArrangement
+from backend.examroom.core.subject_strategy import (
+    assign_large_groups,
+    assign_remaining_students,
+    group_and_sort_subjects,
+    initialize_rooms,
+    reduce_mixed_rooms,
+)
 
 
 def test_get_room_capacity_supports_zero_padded_and_int_keys() -> None:
@@ -212,6 +219,57 @@ def test_arrange_subject_mode_keeps_subject_groups_and_generates_split_columns()
         "史地政",
     ]
     assert arrangement.arranged_students["首选"].tolist() == ["物理", "物理", "物理", "物理", "历史", "历史"]
+
+
+def test_reduce_mixed_rooms_allows_underfilled_room_to_reduce_mixed_room_count() -> None:
+    arrangement = ExamArrangement(
+        "students.xlsx",
+        arrangement_mode="subject_mode",
+        total_rooms=3,
+        room_capacities={"001": 5, "002": 5, "003": 5},
+    )
+    arrangement.room_setting_data = {"001": "第一考场", "002": "第二考场", "003": "第三考场"}
+
+    students = []
+    specs = [("物化生", 5), ("物生地", 4), ("物化地", 2), ("物政生", 2)]
+    student_index = 1
+    for subject, count in specs:
+        for _ in range(count):
+            students.append(
+                {
+                    "班级": "1",
+                    "学号": f"{student_index:02d}",
+                    "考号": f"2400{student_index:02d}",
+                    "姓名": f"学生{student_index}",
+                    "选科": subject,
+                }
+            )
+            student_index += 1
+
+    arrangement.students = pd.DataFrame(students)
+
+    rooms = initialize_rooms(arrangement)
+    physics_subjects, history_subjects = group_and_sort_subjects(arrangement)
+    current_room_index, remaining_students = assign_large_groups(arrangement, rooms, physics_subjects, history_subjects)
+    assign_remaining_students(arrangement, rooms, remaining_students, current_room_index)
+
+    mixed_before = sum(1 for room in rooms if len(room["subjects"]) > 1)
+    assert mixed_before == 2
+
+    reduce_mixed_rooms(arrangement, rooms)
+
+    mixed_after = sum(1 for room in rooms if len(room["subjects"]) > 1)
+    room_sizes = [len(room["students"]) for room in rooms if room["students"]]
+
+    assert mixed_after == 1
+    assert sorted(room_sizes) == [4, 4, 5]
+
+    ok, message = arrangement._generate_results(rooms)
+
+    assert ok is True
+    assert "考场编排完成" in message
+    assert len(arrangement.arranged_students) == len(students)
+    assert int((arrangement.arranged_students.groupby("考场号")["选科"].nunique() > 1).sum()) == 1
 
 
 def test_save_results_exports_student_sheet_and_stats_sheet(tmp_path) -> None:

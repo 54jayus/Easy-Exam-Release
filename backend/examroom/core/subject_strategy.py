@@ -5,6 +5,24 @@ import secrets
 import pandas as pd
 
 
+def _is_physics_subject(subject: str) -> bool:
+    text = str(subject or "").strip()
+    return text.startswith("物") or text.startswith("理")
+
+
+def _is_history_subject(subject: str) -> bool:
+    text = str(subject or "").strip()
+    return text.startswith("史")
+
+
+def _get_subject_category(subject: str) -> str:
+    if _is_physics_subject(subject):
+        return "physics"
+    if _is_history_subject(subject):
+        return "history"
+    return "history"
+
+
 def initialize_rooms(arrangement):
     """初始化选科编排使用的考场列表。"""
     if arrangement.room_setting_data:
@@ -25,12 +43,12 @@ def group_and_sort_subjects(arrangement):
     physics_subjects = {
         subject: count
         for subject, count in subject_counts.items()
-        if "物" in subject or "理" in subject
+        if _is_physics_subject(str(subject))
     }
     history_subjects = {
         subject: count
         for subject, count in subject_counts.items()
-        if "史" in subject
+        if _is_history_subject(str(subject))
     }
 
     physics_subjects = dict(sorted(physics_subjects.items(), key=lambda item: item[1], reverse=True))
@@ -97,8 +115,7 @@ def get_room_category(arrangement, room, physics_students, history_students):
     """确定房间应优先填充物理类还是历史类学生。"""
     if room["students"]:
         first_subject = room["students"][0].get(arrangement.subject_column, "")
-        subject = str(first_subject).strip()
-        return "physics" if subject.startswith("物") or subject.startswith("理") else "history"
+        return _get_subject_category(str(first_subject))
 
     return "physics" if len(physics_students) >= len(history_students) else "history"
 
@@ -109,10 +126,8 @@ def assign_remaining_students(arrangement, rooms, remaining_students, current_ro
         return
 
     remaining_df = pd.DataFrame(remaining_students)
-    physics_mask = remaining_df[arrangement.subject_column].str.contains("物", na=False) | remaining_df[
-        arrangement.subject_column
-    ].str.contains("理", na=False)
-    history_mask = remaining_df[arrangement.subject_column].str.contains("史", na=False)
+    physics_mask = remaining_df[arrangement.subject_column].fillna("").astype(str).map(_is_physics_subject)
+    history_mask = remaining_df[arrangement.subject_column].fillna("").astype(str).map(_is_history_subject)
 
     physics_students = remaining_df[physics_mask].to_dict("records")
     history_students = remaining_df[history_mask | ~(physics_mask | history_mask)].to_dict("records")
@@ -145,6 +160,126 @@ def assign_remaining_students(arrangement, rooms, remaining_students, current_ro
                 history_students = history_students[fill_count:]
 
         current_room_index += 1
+
+
+def _count_room_mixed(room) -> int:
+    return 1 if len(room["subjects"]) > 1 else 0
+
+
+def _get_room_available_seats(arrangement, room) -> int:
+    room_capacity = arrangement.get_room_capacity(room["room_num"])
+    return max(0, room_capacity - len(room["students"]))
+
+
+def _build_room_subject_groups(arrangement, room):
+    grouped = {}
+    for student in room["students"]:
+        subject = str(student.get(arrangement.subject_column, "")).strip()
+        grouped.setdefault(subject, []).append(student)
+    return grouped
+
+
+def _room_accepts_subject_without_new_mix(arrangement, room, subject: str) -> bool:
+    if not room["students"]:
+        return True
+    if subject in room["subjects"]:
+        return True
+    if len(room["subjects"]) > 1:
+        return _get_subject_category(subject) == _get_subject_category(room["students"][0].get(arrangement.subject_column, ""))
+    return False
+
+
+def _allocate_students_to_target_rooms(arrangement, rooms, source_room, subject: str, students_to_move):
+    remaining = list(students_to_move)
+    candidate_rooms = []
+
+    for room in rooms:
+        if room is source_room:
+            continue
+        available_seats = _get_room_available_seats(arrangement, room)
+        if available_seats <= 0:
+            continue
+        if not _room_accepts_subject_without_new_mix(arrangement, room, subject):
+            continue
+
+        if not room["students"]:
+            priority = 2
+        elif subject in room["subjects"]:
+            priority = 0
+        else:
+            priority = 1
+        candidate_rooms.append((priority, -available_seats, room))
+
+    candidate_rooms.sort(key=lambda item: (item[0], item[1]))
+    assignments = []
+
+    for _, _, room in candidate_rooms:
+        if not remaining:
+            break
+        move_count = min(_get_room_available_seats(arrangement, room), len(remaining))
+        if move_count <= 0:
+            continue
+        batch = remaining[:move_count]
+        remaining = remaining[move_count:]
+        assignments.append((room, batch))
+
+    if remaining:
+        return None
+    return assignments
+
+
+def reduce_mixed_rooms(arrangement, rooms):
+    changed = True
+
+    while changed:
+        changed = False
+        mixed_rooms = [room for room in rooms if len(room["subjects"]) > 1]
+
+        for source_room in mixed_rooms:
+            source_groups = _build_room_subject_groups(arrangement, source_room)
+            current_mixed_count = sum(_count_room_mixed(room) for room in rooms)
+
+            ordered_subjects = sorted(source_groups.items(), key=lambda item: len(item[1]))
+            for subject, students_to_move in ordered_subjects:
+                assignments = _allocate_students_to_target_rooms(arrangement, rooms, source_room, subject, students_to_move)
+                if not assignments:
+                    continue
+
+                for room, batch in assignments:
+                    room["students"].extend(batch)
+                    room["subjects"].update(str(student.get(arrangement.subject_column, "")).strip() for student in batch)
+
+                moved_ids = {id(student) for student in students_to_move}
+                source_room["students"] = [student for student in source_room["students"] if id(student) not in moved_ids]
+                source_room["subjects"] = {
+                    str(student.get(arrangement.subject_column, "")).strip()
+                    for student in source_room["students"]
+                    if str(student.get(arrangement.subject_column, "")).strip()
+                }
+
+                next_mixed_count = sum(_count_room_mixed(room) for room in rooms)
+                if next_mixed_count < current_mixed_count:
+                    changed = True
+                    break
+
+                for room, batch in assignments:
+                    moved_ids_batch = {id(student) for student in batch}
+                    room["students"] = [student for student in room["students"] if id(student) not in moved_ids_batch]
+                    room["subjects"] = {
+                        str(student.get(arrangement.subject_column, "")).strip()
+                        for student in room["students"]
+                        if str(student.get(arrangement.subject_column, "")).strip()
+                    }
+
+                source_room["students"].extend(students_to_move)
+                source_room["subjects"] = {
+                    str(student.get(arrangement.subject_column, "")).strip()
+                    for student in source_room["students"]
+                    if str(student.get(arrangement.subject_column, "")).strip()
+                }
+
+            if changed:
+                break
 
 
 def generate_results(arrangement, rooms):
@@ -188,4 +323,5 @@ def arrange_subject_mode(arrangement):
     physics_subjects, history_subjects = group_and_sort_subjects(arrangement)
     current_room_index, remaining_students = assign_large_groups(arrangement, rooms, physics_subjects, history_subjects)
     assign_remaining_students(arrangement, rooms, remaining_students, current_room_index)
+    reduce_mixed_rooms(arrangement, rooms)
     return generate_results(arrangement, rooms)
