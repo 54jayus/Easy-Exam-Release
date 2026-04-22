@@ -6,13 +6,6 @@ import pandas as pd
 from openpyxl import load_workbook
 
 from backend.examroom.core.arrangement import ExamArrangement
-from backend.examroom.core.subject_strategy import (
-    assign_large_groups,
-    assign_remaining_students,
-    group_and_sort_subjects,
-    initialize_rooms,
-    reduce_mixed_rooms,
-)
 
 
 def test_get_room_capacity_supports_zero_padded_and_int_keys() -> None:
@@ -213,12 +206,12 @@ def test_arrange_subject_mode_keeps_subject_groups_and_generates_split_columns()
     assert arrangement.arranged_students["考场选科组合"].tolist() == [
         "物化生",
         "物化生",
-        "物化生, 物生地",
-        "物化生, 物生地",
         "史地政",
         "史地政",
+        "物化生, 物生地",
+        "物化生, 物生地",
     ]
-    assert arrangement.arranged_students["首选"].tolist() == ["物理", "物理", "物理", "物理", "历史", "历史"]
+    assert arrangement.arranged_students["首选"].tolist() == ["物理", "物理", "历史", "历史", "物理", "物理"]
 
 
 def test_reduce_mixed_rooms_allows_underfilled_room_to_reduce_mixed_room_count() -> None:
@@ -248,28 +241,75 @@ def test_reduce_mixed_rooms_allows_underfilled_room_to_reduce_mixed_room_count()
 
     arrangement.students = pd.DataFrame(students)
 
-    rooms = initialize_rooms(arrangement)
-    physics_subjects, history_subjects = group_and_sort_subjects(arrangement)
-    current_room_index, remaining_students = assign_large_groups(arrangement, rooms, physics_subjects, history_subjects)
-    assign_remaining_students(arrangement, rooms, remaining_students, current_room_index)
+    ok, message = arrangement.arrange_subject_mode()
+    assert ok is True
+    assert "考场编排完成" in message
+    assert len(arrangement.arranged_students) == len(students)
 
-    mixed_before = sum(1 for room in rooms if len(room["subjects"]) > 1)
-    assert mixed_before == 2
+    room_subject_counts = arrangement.arranged_students.groupby("考场号")["选科"].nunique()
+    room_sizes = arrangement.arranged_students.groupby("考场号").size().tolist()
 
-    reduce_mixed_rooms(arrangement, rooms)
-
-    mixed_after = sum(1 for room in rooms if len(room["subjects"]) > 1)
-    room_sizes = [len(room["students"]) for room in rooms if room["students"]]
-
-    assert mixed_after == 1
+    assert int((room_subject_counts > 1).sum()) == 1
     assert sorted(room_sizes) == [4, 4, 5]
+    assert arrangement.arranged_students.groupby("考场号")["首选"].first().tolist() == ["物理", "物理", "物理"]
 
-    ok, message = arrangement._generate_results(rooms)
+
+def test_arrange_subject_mode_keeps_categories_contiguous_for_realistic_tail_counts() -> None:
+    arrangement = ExamArrangement(
+        "students.xlsx",
+        arrangement_mode="subject_mode",
+        total_rooms=20,
+        room_capacities={f"{index:03d}": 42 for index in range(1, 21)},
+    )
+    arrangement.room_setting_data = {f"{index:03d}": f"第{index}考场" for index in range(1, 21)}
+
+    specs = [
+        ("物化生", 460),
+        ("史政地", 181),
+        ("物化地", 100),
+        ("物化政", 54),
+        ("史政生", 7),
+        ("史地生", 4),
+        ("物生地", 3),
+        ("物生政", 1),
+        ("史化政", 1),
+    ]
+    students = []
+    student_index = 1
+    for subject, count in specs:
+        for _ in range(count):
+            students.append(
+                {
+                    "班级": "1",
+                    "学号": f"{student_index:03d}",
+                    "考号": f"24{student_index:06d}",
+                    "姓名": f"学生{student_index}",
+                    "选科": subject,
+                }
+            )
+            student_index += 1
+
+    arrangement.students = pd.DataFrame(students)
+
+    ok, message = arrangement.arrange_subject_mode()
 
     assert ok is True
     assert "考场编排完成" in message
     assert len(arrangement.arranged_students) == len(students)
-    assert int((arrangement.arranged_students.groupby("考场号")["选科"].nunique() > 1).sum()) == 1
+    room_subject_counts = arrangement.arranged_students.groupby("考场号")["选科"].nunique()
+    room_first_subject = arrangement.arranged_students.groupby("考场号")["首选"].first().tolist()
+    room_combos = arrangement.arranged_students.groupby("考场号")["考场选科组合"].first().tolist()
+
+    assert int((room_subject_counts > 1).sum()) == 2
+    assert room_subject_counts.tolist()[:18] == [1] * 18
+    assert room_subject_counts.tolist()[18:] == [4, 4]
+    assert room_combos[:11] == ["物化生"] * 11
+    assert room_combos[11:13] == ["物化地"] * 2
+    assert room_combos[13] == "物化政"
+    assert room_first_subject[:14] == ["物理"] * 14
+    assert room_combos[14:18] == ["史政地"] * 4
+    assert room_first_subject[14:18] == ["历史"] * 4
+    assert room_first_subject[18:] == ["物理", "历史"]
 
 
 def test_save_results_exports_student_sheet_and_stats_sheet(tmp_path) -> None:
