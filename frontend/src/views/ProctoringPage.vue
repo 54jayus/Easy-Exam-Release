@@ -436,7 +436,17 @@
  
                   <!-- Stats Tab -->
                   <div v-show="activeTab === 'stats'" class="h-full w-full">
-                     <el-table :data="teacherStats" border stripe height="100%" style="width: 100%" size="small">
+                     <el-table
+                        :data="teacherStats"
+                        border
+                        stripe
+                        height="100%"
+                        style="width: 100%"
+                        size="small"
+                        :row-class-name="getTeacherStatsRowClassName"
+                        :cell-class-name="getTeacherStatsCellClassName"
+                        @cell-click="handleTeacherStatsCellClick"
+                     >
                       <el-table-column prop="name" label="教师姓名" min-width="100" align="center" fixed />
                       <el-table-column prop="gender" label="性别" min-width="60" align="center">
                          <template #default="{ row }">
@@ -483,7 +493,11 @@
                       </el-table-column>
                       
                       <el-table-column prop="previousSupervisionDuration" label="历次监考时长(分钟)" min-width="150" align="center">
-                         <template #default="{ row }">{{ row.previousSupervisionDuration || 0 }}</template>
+                         <template #default="{ row }">
+                            <span :class="getTeacherStatsDurationTextClass(row)">
+                               {{ row.previousSupervisionDuration || 0 }}
+                            </span>
+                         </template>
                       </el-table-column>
 
                       <el-table-column prop="totalDuration" label="总监考时长(分钟)" min-width="150" align="center">
@@ -959,6 +973,8 @@ const teacherViewKeyword = ref('')
 const teacherViewGenderFilter = ref<'all' | 'M' | 'F' | 'unknown'>('all')
 const teacherViewSourceFilter = ref<'all' | 'internal' | 'external' | 'unknown'>('all')
 const teacherViewPresetFilter = ref<'all' | 'preset' | 'none'>('all')
+const selectedStatsTeacherKey = ref('')
+const selectedStatsPreviousDuration = ref<number | null>(null)
 
 const hasPreset = ref(false)
 const schedulingProgress = ref(0)
@@ -1017,6 +1033,21 @@ const {
    teacherViewPresetFilter,
 })
 
+watch(teacherStats, (rows) => {
+  if (selectedStatsPreviousDuration.value === null) return
+
+  const stillExists = rows.some((row) => {
+    return (
+      getTeacherStatsRowKey(row) === selectedStatsTeacherKey.value &&
+      normalizeStatsDuration(row?.previousSupervisionDuration) === selectedStatsPreviousDuration.value
+    )
+  })
+
+  if (!stillExists) {
+    clearTeacherStatsHighlight()
+  }
+})
+
 const getRoomRecord = (subjectId: string, roomNum: number) => {
    const session = schedule.value.find((s: any) => s.subjectId === subjectId)
    const rooms: any[] = session?.rooms || []
@@ -1051,6 +1082,91 @@ const formatMetric = (value: any) => {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return String(value)
   return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2)
+}
+
+const normalizeStatsDuration = (value: unknown) => {
+  const numeric = Number(value ?? 0)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+const getTeacherStatsRowKey = (row: any) => String(row?.id ?? row?.name ?? '')
+
+const isTeacherStatsDurationHighlightable = (row: any) => {
+  const numeric = Number(row?.previousSupervisionDuration ?? 0)
+  return Number.isFinite(numeric)
+}
+
+const clearTeacherStatsHighlight = () => {
+  selectedStatsTeacherKey.value = ''
+  selectedStatsPreviousDuration.value = null
+}
+
+const isTeacherStatsSelectedRow = (row: any) => {
+  if (selectedStatsPreviousDuration.value === null) return false
+  return (
+    getTeacherStatsRowKey(row) === selectedStatsTeacherKey.value &&
+    normalizeStatsDuration(row?.previousSupervisionDuration) === selectedStatsPreviousDuration.value
+  )
+}
+
+const isTeacherStatsRelatedRow = (row: any) => {
+  if (selectedStatsPreviousDuration.value === null) return false
+  if (isTeacherStatsSelectedRow(row)) return false
+  return normalizeStatsDuration(row?.previousSupervisionDuration) === selectedStatsPreviousDuration.value
+}
+
+const activateTeacherStatsHighlight = (row: any) => {
+  if (!isTeacherStatsDurationHighlightable(row)) return
+
+  const rowKey = getTeacherStatsRowKey(row)
+  const previousDuration = normalizeStatsDuration(row?.previousSupervisionDuration)
+
+  if (
+    selectedStatsTeacherKey.value === rowKey &&
+    selectedStatsPreviousDuration.value === previousDuration
+  ) {
+    clearTeacherStatsHighlight()
+    return
+  }
+
+  selectedStatsTeacherKey.value = rowKey
+  selectedStatsPreviousDuration.value = previousDuration
+}
+
+const handleTeacherStatsCellClick = (row: any, column: any) => {
+  if (column?.property !== 'previousSupervisionDuration') return
+  activateTeacherStatsHighlight(row)
+}
+
+const getTeacherStatsRowClassName = ({ row }: { row: any }) => {
+  if (isTeacherStatsSelectedRow(row)) return 'teacher-stats-row-selected'
+  if (isTeacherStatsRelatedRow(row)) return 'teacher-stats-row-related'
+  return ''
+}
+
+const getTeacherStatsCellClassName = ({ row, column }: { row: any; column: any }) => {
+  if (column?.property !== 'previousSupervisionDuration') return ''
+
+  const classes = ['teacher-stats-prev-duration-cell']
+  if (isTeacherStatsDurationHighlightable(row)) {
+    classes.push('teacher-stats-prev-duration-cell-clickable')
+  } else {
+    classes.push('teacher-stats-prev-duration-cell-disabled')
+  }
+  if (isTeacherStatsSelectedRow(row)) {
+    classes.push('teacher-stats-prev-duration-cell-selected')
+  } else if (isTeacherStatsRelatedRow(row)) {
+    classes.push('teacher-stats-prev-duration-cell-related')
+  }
+
+  return classes.join(' ')
+}
+
+const getTeacherStatsDurationTextClass = (row: any) => {
+  if (!isTeacherStatsDurationHighlightable(row)) return 'text-slate-400'
+  if (isTeacherStatsSelectedRow(row)) return 'font-semibold text-sky-700'
+  if (isTeacherStatsRelatedRow(row)) return 'font-medium text-amber-700'
+  return 'text-primary-600'
 }
 
 const formatSeconds = (value: any) => {
@@ -1326,5 +1442,40 @@ onMounted(async () => {
   background-color: #f8fafc;
   color: #475569;
   font-weight: 600;
+}
+
+:deep(.el-table .teacher-stats-row-selected > td.el-table__cell) {
+  background-color: #e0f2fe !important;
+}
+
+:deep(.el-table .teacher-stats-row-related > td.el-table__cell) {
+  background-color: #fef3c7 !important;
+}
+
+:deep(.el-table .teacher-stats-prev-duration-cell .cell) {
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+:deep(.el-table .teacher-stats-prev-duration-cell-clickable .cell) {
+  cursor: pointer;
+}
+
+:deep(.el-table .teacher-stats-prev-duration-cell-clickable .cell:hover) {
+  background-color: rgba(79, 70, 229, 0.08);
+  border-radius: 6px;
+}
+
+:deep(.el-table .teacher-stats-prev-duration-cell-disabled .cell) {
+  cursor: default;
+}
+
+:deep(.el-table .teacher-stats-prev-duration-cell-selected .cell) {
+  background-color: rgba(14, 165, 233, 0.12);
+  border-radius: 6px;
+}
+
+:deep(.el-table .teacher-stats-prev-duration-cell-related .cell) {
+  background-color: rgba(245, 158, 11, 0.14);
+  border-radius: 6px;
 }
 </style>
