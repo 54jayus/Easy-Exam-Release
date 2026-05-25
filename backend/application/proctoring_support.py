@@ -275,6 +275,8 @@ def _build_cp_sat_optimization_payload(
         "before": before_metrics,
         "after": report.get("metrics"),
         "earlyStopReason": None if report.get("optimal", False) else message,
+        "countBalanceHardLimitApplied": report.get("countBalanceHardLimitApplied"),
+        "countBalanceConstraintScope": report.get("countBalanceConstraintScope"),
     }
     details = {
         "swaps": [],
@@ -282,6 +284,10 @@ def _build_cp_sat_optimization_payload(
         "stages": stages,
         "progressSamples": progress_samples,
         "message": message,
+        "countBalanceHardLimitApplied": report.get("countBalanceHardLimitApplied"),
+        "countBalanceConstraintScope": report.get("countBalanceConstraintScope"),
+        "regularTeacherIndexes": report.get("regularTeacherIndexes", []),
+        "specialTeacherIndexes": report.get("specialTeacherIndexes", []),
     }
     return optimization, details
 

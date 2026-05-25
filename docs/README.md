@@ -14,9 +14,13 @@
    说明当前前后端测试入口、自检脚本和打包发布流程。
 5. [授权证书文件路径说明.md](授权证书文件路径说明.md)
    说明 `license.cert` 在开发态、打包态和直跑 Python 时的查找/保存规则。
-6. [前端设计要求](前端设计要求)
+6. [proctoring-cp-sat-structure.md](proctoring-cp-sat-structure.md)
+   说明监考编排 CP-SAT 求解器的变量、约束、目标函数和 Mermaid 结构图。
+7. [proctoring-cp-sat-final-strategy.md](proctoring-cp-sat-final-strategy.md)
+   说明监考编排 CP-SAT 当前定版策略，包括普通/特殊老师划分、`<=1/<=2/回退` 机制和时长均衡阶段顺序。
+8. [前端设计要求](前端设计要求)
    说明当前前端视觉风格与维护约束。
-7. [打包代码.txt](打包代码.txt)
+9. [打包代码.txt](打包代码.txt)
    保留当前打包命令速查。
 
 ## 其他入口

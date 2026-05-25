@@ -45,6 +45,35 @@ from .proctoring_support import (
 
 logger = logging.getLogger("backend.application.proctoring_service")
 
+
+def _classify_count_balance_teacher_indexes(teachers: list[Any]) -> tuple[list[int], list[int], int | None]:
+    if not teachers:
+        return [], [], None
+
+    max_sessions_values = [
+        _to_int(getattr(teacher, "max_sessions", 0), 0)
+        for teacher in teachers
+    ]
+    if not max_sessions_values:
+        return [], [], None
+
+    max_cap = max(max_sessions_values)
+    regular_indexes = [
+        index for index, value in enumerate(max_sessions_values)
+        if value == max_cap
+    ]
+    special_indexes = [
+        index for index, value in enumerate(max_sessions_values)
+        if value < max_cap
+    ]
+    return regular_indexes, special_indexes, max_cap
+
+
+def _build_count_balance_attempt_limits(regular_teacher_indexes: list[int]) -> list[int | None]:
+    if len(regular_teacher_indexes) < 2:
+        return [None]
+    return [1, 2, None]
+
 class ProctoringService:
     def __init__(self, state: AppState, repo: IStateRepository):
         self._state = state
@@ -105,21 +134,51 @@ class ProctoringService:
             no_improvement_limit_seconds = 0.0
         if no_improvement_limit_seconds <= 0:
             no_improvement_limit_seconds = None
-
-        return solve_schedule_with_cp_sat(
-            schedule,
-            subject_contexts,
-            fix_existing_assignments=fix_existing_assignments,
-            use_current_solution_as_hint=use_current_solution_as_hint,
-            time_limit_seconds=time_limit_seconds,
-            num_workers=max(1, _to_int(config.get("cpSatNumWorkers"), 8)),
-            room_repeat_preference=(config.get("roomRepeatPreference") or "").strip() or None,
-            avoid_consecutive_sessions=bool(config.get("avoidConsecutiveSessions", False)),
-            log_search_progress=bool(config.get("cpSatLogSearchProgress", False)),
-            progress_interval_seconds=progress_interval_seconds,
-            no_improvement_limit_seconds=no_improvement_limit_seconds,
-            progress_observer=solver_progress_observer,
+        regular_teacher_indexes, special_teacher_indexes, regular_teacher_max_sessions = (
+            _classify_count_balance_teacher_indexes(schedule.teachers)
         )
+        count_balance_attempt_limits = _build_count_balance_attempt_limits(regular_teacher_indexes)
+
+        last_report: dict[str, Any] | None = None
+        for attempt_index, count_balance_limit in enumerate(count_balance_attempt_limits, start=1):
+            report = solve_schedule_with_cp_sat(
+                schedule,
+                subject_contexts,
+                fix_existing_assignments=fix_existing_assignments,
+                use_current_solution_as_hint=use_current_solution_as_hint,
+                time_limit_seconds=time_limit_seconds,
+                num_workers=max(1, _to_int(config.get("cpSatNumWorkers"), 8)),
+                room_repeat_preference=(config.get("roomRepeatPreference") or "").strip() or None,
+                avoid_consecutive_sessions=bool(config.get("avoidConsecutiveSessions", False)),
+                log_search_progress=bool(config.get("cpSatLogSearchProgress", False)),
+                progress_interval_seconds=progress_interval_seconds,
+                no_improvement_limit_seconds=no_improvement_limit_seconds,
+                progress_observer=solver_progress_observer,
+                regular_teacher_indexes=regular_teacher_indexes,
+                count_balance_limit=count_balance_limit,
+            )
+            report["regularTeacherIndexes"] = list(regular_teacher_indexes)
+            report["specialTeacherIndexes"] = list(special_teacher_indexes)
+            report["regularTeacherCount"] = len(regular_teacher_indexes)
+            report["specialTeacherCount"] = len(special_teacher_indexes)
+            report["regularTeacherMaxSessions"] = regular_teacher_max_sessions
+            report["countBalanceAttemptLimits"] = list(count_balance_attempt_limits)
+            report["countBalanceAttemptIndex"] = attempt_index
+            report["countBalanceHardLimitApplied"] = count_balance_limit
+            report["countBalanceConstraintScope"] = (
+                "regular_teachers"
+                if len(regular_teacher_indexes) >= 2 and len(special_teacher_indexes) > 0
+                else "all_teachers"
+            )
+
+            last_report = report
+            if report.get("status") != "INFEASIBLE":
+                return report
+            if count_balance_limit is None:
+                return report
+
+        assert last_report is not None
+        return last_report
 
     def _precheck_cp_sat_inputs(
         self,
@@ -228,6 +287,10 @@ class ProctoringService:
             "solver": "cp_sat",
             "solverStatus": report.get("status"),
             "optimal": bool(report.get("optimal", False)),
+            "countBalanceHardLimitApplied": report.get("countBalanceHardLimitApplied"),
+            "countBalanceConstraintScope": report.get("countBalanceConstraintScope"),
+            "regularTeacherCount": report.get("regularTeacherCount"),
+            "specialTeacherCount": report.get("specialTeacherCount"),
             **meta,
         }
         result["optimization"] = optimization

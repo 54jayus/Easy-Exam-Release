@@ -63,6 +63,61 @@ def _add_double_slot_symmetry_breaking(
             model.Add(sum(left_terms) <= sum(right_terms))
 
 
+def _build_count_fairness_metrics(
+    model,
+    *,
+    count_vars: list[Any],
+    teacher_indexes: Sequence[int],
+    total_slots: int,
+    num_subjects: int,
+    prefix: str,
+) -> dict[str, Any] | None:
+    normalized_indexes = [
+        int(index)
+        for index in teacher_indexes
+        if 0 <= int(index) < len(count_vars)
+    ]
+    if not normalized_indexes:
+        return None
+
+    group_count_vars = [count_vars[index] for index in normalized_indexes]
+    group_teacher_count = len(group_count_vars)
+    max_count_upper = max(0, int(num_subjects))
+    count_deviation_upper = max(1, group_teacher_count * max(total_slots, max_count_upper))
+
+    total_group_count = model.NewIntVar(0, total_slots, f"{prefix}_total_count")
+    model.Add(total_group_count == sum(group_count_vars))
+
+    count_deviations = []
+    for group_index, count_var in enumerate(group_count_vars):
+        dev_var = model.NewIntVar(0, count_deviation_upper, f"{prefix}_count_dev_{group_index}")
+        model.AddAbsEquality(dev_var, group_teacher_count * count_var - total_group_count)
+        count_deviations.append(dev_var)
+
+    total_count_deviation = model.NewIntVar(
+        0,
+        count_deviation_upper * max(1, group_teacher_count),
+        f"{prefix}_total_count_deviation",
+    )
+    model.Add(total_count_deviation == sum(count_deviations))
+
+    max_count = model.NewIntVar(0, max_count_upper, f"{prefix}_max_count")
+    min_count = model.NewIntVar(0, max_count_upper, f"{prefix}_min_count")
+    model.AddMaxEquality(max_count, group_count_vars)
+    model.AddMinEquality(min_count, group_count_vars)
+    count_range = model.NewIntVar(0, max_count_upper, f"{prefix}_count_range")
+    model.Add(count_range == max_count - min_count)
+
+    return {
+        "teacher_indexes": list(normalized_indexes),
+        "teacher_count": group_teacher_count,
+        "max_count": max_count,
+        "min_count": min_count,
+        "count_range": count_range,
+        "total_count_deviation": total_count_deviation,
+    }
+
+
 def solve_schedule_with_cp_sat(
     schedule,
     subject_contexts: Sequence[SubjectContext],
@@ -77,6 +132,8 @@ def solve_schedule_with_cp_sat(
     progress_interval_seconds: float = 5.0,
     no_improvement_limit_seconds: float | None = None,
     progress_observer: Callable[[dict[str, Any]], None] | None = None,
+    regular_teacher_indexes: Sequence[int] | None = None,
+    count_balance_limit: int | None = None,
 ) -> dict[str, Any]:
     if cp_model is None:
         return {
@@ -323,18 +380,50 @@ def solve_schedule_with_cp_sat(
         for context in subject_contexts
         for room in rooms_by_subject[context.subject_id]
     )
-    count_deviation_upper = max(1, teacher_count * max(total_slots, int(schedule.num_subjects)))
-    count_deviations = []
-    for teacher_index, count_var in enumerate(count_vars):
-        dev_var = model.NewIntVar(0, count_deviation_upper, f"count_dev_t{teacher_index}")
-        model.AddAbsEquality(dev_var, teacher_count * count_var - total_slots)
-        count_deviations.append(dev_var)
-    total_count_deviation = model.NewIntVar(
-        0,
-        count_deviation_upper * max(1, teacher_count),
-        "total_count_deviation",
+    global_count_metrics = _build_count_fairness_metrics(
+        model,
+        count_vars=count_vars,
+        teacher_indexes=list(range(teacher_count)),
+        total_slots=total_slots,
+        num_subjects=int(schedule.num_subjects),
+        prefix="global",
     )
-    model.Add(total_count_deviation == sum(count_deviations))
+    assert global_count_metrics is not None
+
+    normalized_regular_teacher_indexes = sorted(
+        {
+            int(index)
+            for index in (regular_teacher_indexes or [])
+            if 0 <= int(index) < teacher_count
+        }
+    )
+    use_regular_teacher_count_scope = 2 <= len(normalized_regular_teacher_indexes) < teacher_count
+    regular_count_metrics = None
+    if use_regular_teacher_count_scope:
+        regular_count_metrics = _build_count_fairness_metrics(
+            model,
+            count_vars=count_vars,
+            teacher_indexes=normalized_regular_teacher_indexes,
+            total_slots=total_slots,
+            num_subjects=int(schedule.num_subjects),
+            prefix="regular",
+        )
+
+    primary_count_metrics = regular_count_metrics or global_count_metrics
+    primary_count_scope_name = "regular" if regular_count_metrics is not None else "count"
+    secondary_total_count_deviation = (
+        global_count_metrics["total_count_deviation"]
+        if regular_count_metrics is not None
+        else None
+    )
+
+    normalized_count_balance_limit = (
+        max(0, int(count_balance_limit))
+        if count_balance_limit is not None
+        else None
+    )
+    if normalized_count_balance_limit is not None:
+        model.Add(primary_count_metrics["count_range"] <= normalized_count_balance_limit)
 
     total_current_sum = sum(
         max(0, context.duration_minutes)
@@ -367,13 +456,6 @@ def solve_schedule_with_cp_sat(
     )
     model.Add(total_overall_deviation == sum(overall_deviations))
 
-    max_count = model.NewIntVar(0, max(0, int(schedule.num_subjects)), "max_count")
-    min_count = model.NewIntVar(0, max(0, int(schedule.num_subjects)), "min_count")
-    model.AddMaxEquality(max_count, count_vars)
-    model.AddMinEquality(min_count, count_vars)
-    count_range = model.NewIntVar(0, max(0, int(schedule.num_subjects)), "count_range")
-    model.Add(count_range == max_count - min_count)
-
     max_overall_duration = model.NewIntVar(
         overall_min_bound,
         overall_max_bound,
@@ -400,10 +482,12 @@ def solve_schedule_with_cp_sat(
 
     stages = _build_objective_stages(
         balance_mode=schedule.get_constraint("balance_mode", "duration"),
-        max_count=max_count,
-        min_count=min_count,
-        count_range=count_range,
-        total_count_deviation=total_count_deviation,
+        primary_count_scope_name=primary_count_scope_name,
+        max_count=primary_count_metrics["max_count"],
+        min_count=primary_count_metrics["min_count"],
+        count_range=primary_count_metrics["count_range"],
+        total_count_deviation=primary_count_metrics["total_count_deviation"],
+        secondary_total_count_deviation=secondary_total_count_deviation,
         max_overall_duration=max_overall_duration,
         min_overall_duration=min_overall_duration,
         total_overall_deviation=total_overall_deviation,

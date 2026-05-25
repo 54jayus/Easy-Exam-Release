@@ -7,6 +7,8 @@ import backend.application.proctoring_service as proctoring_service_module
 from backend.application.proctoring_service import (
     ProctoringService,
     _build_cp_sat_run_log,
+    _build_count_balance_attempt_limits,
+    _classify_count_balance_teacher_indexes,
     _extract_subject_durations,
     _has_locked_positions,
     _sort_subjects,
@@ -106,6 +108,25 @@ def test_extract_subject_durations_supports_multiple_field_names() -> None:
     )
 
     assert durations == [120, 90, 45, 0]
+
+
+def test_classify_count_balance_teacher_indexes_uses_max_sessions_as_boundary() -> None:
+    teachers = [
+        _teacher_from_dict({"name": "A", "maxSessions": 8}),
+        _teacher_from_dict({"name": "B", "maxSessions": 8}),
+        _teacher_from_dict({"name": "C", "maxSessions": 5}),
+    ]
+
+    regular_indexes, special_indexes, max_cap = _classify_count_balance_teacher_indexes(teachers)
+
+    assert regular_indexes == [0, 1]
+    assert special_indexes == [2]
+    assert max_cap == 8
+
+
+def test_build_count_balance_attempt_limits_uses_progressive_fallback() -> None:
+    assert _build_count_balance_attempt_limits([0, 1]) == [1, 2, None]
+    assert _build_count_balance_attempt_limits([0]) == [None]
 
 
 def test_build_cp_sat_run_log_includes_result_and_stage_details() -> None:
@@ -641,6 +662,61 @@ def test_run_cp_sat_formats_stage_preview_result(recording_repo, monkeypatch) ->
     assert preview_event["preview_result"]["schedule"][0]["rooms"][0]["teachers"][0]["name"] == "张老师"
 
 
+def test_run_cp_sat_retries_count_balance_limit_with_progressive_fallback(recording_repo, monkeypatch) -> None:
+    service = ProctoringService(AppState(), recording_repo)
+
+    schedule = Schedule(
+        [
+            _teacher_from_dict({"name": "A", "maxSessions": 2}),
+            _teacher_from_dict({"name": "B", "maxSessions": 2}),
+            _teacher_from_dict({"name": "C", "maxSessions": 1}),
+        ],
+        1,
+        1,
+        mode="single",
+    )
+    schedule.set_constraint("subject_durations", [60])
+    schedule.set_constraint("subject_room_counts", [1])
+
+    attempted_limits: list[int | None] = []
+
+    def fake_solver(schedule_arg, subject_contexts, **kwargs):
+        del schedule_arg, subject_contexts
+        attempted_limits.append(kwargs.get("count_balance_limit"))
+        if kwargs.get("count_balance_limit") == 1:
+            return {"status": "INFEASIBLE", "optimal": False, "message": "no", "stages": []}
+        return {
+            **_successful_cp_sat_report(),
+            "status": "FEASIBLE",
+            "optimal": False,
+            "message": "fallback ok",
+        }
+
+    monkeypatch.setattr(proctoring_service_module, "solve_schedule_with_cp_sat", fake_solver)
+
+    result = service._run_cp_sat(
+        schedule=schedule,
+        subjects_data=[
+            {
+                "id": "1",
+                "name": "语文",
+                "exam_time": "09:00-10:00",
+                "durationMinutes": 60,
+            }
+        ],
+        config={"roomCount": 1, "mode": "single", "balanceMode": "duration"},
+        fix_existing_assignments=False,
+        use_current_solution_as_hint=False,
+        default_time_limit_seconds=90.0,
+    )
+
+    assert attempted_limits == [1, 2]
+    assert result["countBalanceHardLimitApplied"] == 2
+    assert result["countBalanceConstraintScope"] == "regular_teachers"
+    assert result["regularTeacherIndexes"] == [0, 1]
+    assert result["specialTeacherIndexes"] == [2]
+
+
 def test_generate_schedule_cp_sat_uses_duration_first_objectives(recording_repo) -> None:
     state = AppState()
     state.subjects = [
@@ -678,9 +754,9 @@ def test_generate_schedule_cp_sat_uses_duration_first_objectives(recording_repo)
     stage_names = [stage["name"] for stage in result["optimizationDetails"]["stages"][:4]]
     assert stage_names == [
         "minimize_max_overall_duration",
-        "minimize_count_range",
         "maximize_min_overall_duration",
         "minimize_overall_duration_deviation",
+        "minimize_count_range",
     ]
 
 
@@ -724,6 +800,55 @@ def test_generate_schedule_cp_sat_uses_session_first_objectives(recording_repo) 
         "maximize_min_count",
         "minimize_count_deviation",
     ]
+
+
+def test_generate_schedule_cp_sat_uses_regular_teacher_count_objectives_when_special_teachers_exist(
+    recording_repo,
+) -> None:
+    state = AppState()
+    state.subjects = [
+        {
+            "name": "Subject A",
+            "exam_date": "2026-06-01",
+            "exam_time": "09:00-10:00",
+            "duration_minutes": 60,
+        },
+        {
+            "name": "Subject B",
+            "exam_date": "2026-06-02",
+            "exam_time": "09:00-11:00",
+            "duration_minutes": 120,
+        },
+    ]
+    service = ProctoringService(state, recording_repo)
+
+    result = service.generate_schedule(
+        {
+            "teachers": [
+                {"name": "Teacher A", "gender": "M", "isInternal": True, "maxSessions": 2},
+                {"name": "Teacher B", "gender": "F", "isInternal": False, "maxSessions": 2},
+                {"name": "Teacher C", "gender": "F", "isInternal": True, "maxSessions": 1},
+            ],
+            "subjects": [{"id": "1", "name": "Subject A"}, {"id": "2", "name": "Subject B"}],
+            "config": {
+                "roomCount": 1,
+                "mode": "single",
+                "balanceMode": "duration",
+                "cpSatProgressIntervalSeconds": 0.1,
+            },
+        }
+    )
+
+    stage_names = [stage["name"] for stage in result["optimizationDetails"]["stages"][:6]]
+    assert stage_names[:4] == [
+        "minimize_max_overall_duration",
+        "maximize_min_overall_duration",
+        "minimize_overall_duration_deviation",
+        "minimize_regular_count_range",
+    ]
+    assert "minimize_regular_count_deviation" in stage_names
+    assert result["meta"]["countBalanceHardLimitApplied"] == 1
+    assert result["meta"]["countBalanceConstraintScope"] == "regular_teachers"
 
 
 def test_start_solver_job_returns_pollable_status_and_result(recording_repo) -> None:
