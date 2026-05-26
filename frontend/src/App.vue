@@ -383,13 +383,14 @@
                   />
                   <div
                     v-if="index < updateHistory.length - 1"
-                    class="w-px flex-1 bg-slate-200 my-1"
+                    class="w-px flex-1 min-h-4 bg-slate-200 my-1"
                   />
                 </div>
                 <!-- 条目内容 -->
                 <div class="flex-1 pb-4">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-sm font-semibold text-slate-800">v{{ entry.version }}</span>
+                    <span v-if="entry.title && entry.title !== `Easy Exam.v${entry.version}`" class="text-xs text-slate-500">{{ entry.title }}</span>
                     <span
                       v-if="entry.version === currentVersion"
                       class="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold text-primary-600"
