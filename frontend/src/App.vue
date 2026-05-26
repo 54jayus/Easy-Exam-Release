@@ -14,7 +14,7 @@
           <div>
             <h1 class="text-white font-bold tracking-tight text-base">Easy Exam</h1>
             <div class="flex items-center gap-2">
-              <p class="text-primary-300 text-xs">v3.4.0422</p>
+              <p class="text-primary-300 text-xs">v{{ currentVersion }}</p>
               <span
                 v-if="developerMode"
                 class="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-100 text-[10px] border border-amber-300/40 tracking-wide"
@@ -92,9 +92,25 @@
             <p class="text-sm font-medium text-white truncate">{{ userProfile.name }}</p>
             <p class="text-xs text-primary-400 truncate">{{ userProfile.email }}</p>
           </div>
-          <el-button link class="!text-primary-400 hover:!text-white" @click="showSettings = true">
-            <el-icon><Setting /></el-icon>
-          </el-button>
+          <div class="flex items-center gap-1">
+            <el-tooltip :content="updateTooltip" placement="top" :show-after="200">
+              <button
+                type="button"
+                class="relative h-9 w-9 rounded-full border transition-all duration-200 flex items-center justify-center"
+                :class="updateButtonClass"
+                @click="handleUpdateIconClick"
+              >
+                <el-icon :class="updateIconClass"><RefreshRight /></el-icon>
+                <span
+                  v-if="showUpdateBadge"
+                  class="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-primary-950/70 animate-pulse"
+                />
+              </button>
+            </el-tooltip>
+            <el-button link class="!text-primary-400 hover:!text-white" @click="showSettings = true">
+              <el-icon><Setting /></el-icon>
+            </el-button>
+          </div>
         </div>
       </div>
     </aside>
@@ -239,6 +255,177 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="showUpdateDialog"
+      title="软件更新"
+      width="540px"
+      align-center
+      class="rounded-2xl"
+    >
+      <div class="space-y-5 py-1">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="text-xs font-medium text-slate-500">当前版本</div>
+            <div class="mt-1 text-lg font-bold text-slate-900">v{{ currentVersion }}</div>
+          </div>
+          <div class="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3">
+            <div class="text-xs font-medium text-primary-500">最新版本</div>
+            <div class="mt-1 text-lg font-bold text-primary-700">
+              {{ latestVersion ? `v${latestVersion}` : '暂无可用更新' }}
+            </div>
+            <div v-if="releaseDate" class="mt-1 text-xs text-primary-500">发布时间：{{ releaseDate }}</div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border px-4 py-3" :class="updateStatusPanelClass">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="text-sm font-semibold" :class="updateStatusTitleClass">{{ updateStatusTitle }}</div>
+              <div class="mt-1 text-xs text-slate-500">{{ updateStatusDescription }}</div>
+            </div>
+            <div
+              class="rounded-full px-3 py-1 text-xs font-semibold"
+              :class="updateStatusChipClass"
+            >
+              {{ updateStatusChipText }}
+            </div>
+          </div>
+          <div v-if="updateStatus === 'downloading'" class="mt-4 space-y-2">
+            <el-progress :percentage="downloadProgress" :stroke-width="10" :show-text="false" />
+            <div class="text-right text-xs text-slate-500">已下载 {{ downloadProgress.toFixed(1) }}%</div>
+          </div>
+          <div v-if="updateStatusMessage" class="mt-3 text-xs text-slate-500">
+            {{ updateStatusMessage }}
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-semibold text-slate-800">更新内容</div>
+            <el-button link class="!px-0 !text-primary-600" @click="toggleHistoryPanel">
+              {{ showHistoryPanel ? '收起历史记录' : '查看历史更新' }}
+            </el-button>
+          </div>
+          <ul v-if="notes.length" class="mt-3 space-y-2 text-sm text-slate-600">
+            <li v-for="item in notes" :key="item" class="flex items-start gap-2">
+              <span class="mt-1 h-1.5 w-1.5 rounded-full bg-primary-400" />
+              <span>{{ item }}</span>
+            </li>
+          </ul>
+          <div v-else class="mt-3 text-sm text-slate-500">当前版本暂未提供额外更新说明。</div>
+        </div>
+
+        <transition name="fade-slide">
+          <div
+            v-if="showHistoryPanel"
+            class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="text-sm font-semibold text-slate-800">历史更新记录</div>
+                <div class="mt-1 text-xs text-slate-500">可在软件内快速查看以往版本的发布时间与更新说明。</div>
+              </div>
+              <el-button
+                v-if="historyError"
+                link
+                class="!px-0 !text-primary-600"
+                @click="loadUpdateHistory(true)"
+              >
+                重试
+              </el-button>
+            </div>
+
+            <div v-if="historyLoading" class="mt-4 flex items-center gap-2 text-sm text-slate-500">
+              <el-icon class="animate-spin"><RefreshRight /></el-icon>
+              正在加载历史更新记录...
+            </div>
+
+            <div v-else-if="historyError" class="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-3 text-sm text-rose-600">
+              {{ historyError }}
+            </div>
+
+            <div v-else-if="updateHistory.length" class="mt-4 space-y-4">
+              <div
+                v-for="entry in updateHistory"
+                :key="entry.version"
+                class="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <div class="text-base font-semibold text-slate-900">{{ entry.title }}</div>
+                      <span
+                        v-if="entry.version === currentVersion"
+                        class="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-600"
+                      >
+                        当前版本
+                      </span>
+                    </div>
+                    <div class="mt-1 text-xs text-slate-500">发布时间：{{ entry.releaseDate || '未提供' }}</div>
+                  </div>
+                  <el-button
+                    v-if="entry.releasePageUrl"
+                    link
+                    class="!px-0 !text-primary-600"
+                    @click="openReleasePage(entry.releasePageUrl)"
+                  >
+                    查看发布页
+                  </el-button>
+                </div>
+
+                <ul v-if="entry.notes.length" class="mt-3 space-y-2 text-sm text-slate-600">
+                  <li v-for="item in entry.notes" :key="`${entry.version}-${item}`" class="flex items-start gap-2">
+                    <span class="mt-1 h-1.5 w-1.5 rounded-full bg-primary-400" />
+                    <span>{{ item }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div v-else class="mt-4 text-sm text-slate-500">
+              暂时还没有可展示的历史更新记录。
+            </div>
+          </div>
+        </transition>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <el-button @click="showUpdateDialog = false">关闭</el-button>
+          <el-button
+            v-if="updateStatus === 'available'"
+            type="primary"
+            :disabled="!updateDownloadUrl"
+            @click="startUpdateDownload"
+          >
+            立即下载
+          </el-button>
+          <el-button
+            v-else-if="updateStatus === 'downloaded'"
+            type="primary"
+            @click="installDownloadedUpdate"
+          >
+            立即安装
+          </el-button>
+          <el-button
+            v-else-if="updateStatus === 'checking' || updateStatus === 'downloading'"
+            type="primary"
+            loading
+            disabled
+          >
+            {{ updateStatus === 'checking' ? '正在检查' : '正在下载' }}
+          </el-button>
+          <el-button
+            v-else
+            type="primary"
+            @click="handleManualUpdateCheck"
+          >
+            重新检查
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -249,7 +436,7 @@ import { useLicenseStore } from "./stores/license"
 import { useAppCacheControl, resetFrontendCaches } from '@/composables/useAppCacheControl'
 import {
   Notebook, User, School, Printer,
-  QuestionFilled, Setting, DataBoard, Key, Check, Clock, Download, Upload
+  QuestionFilled, Setting, DataBoard, Key, Check, Clock, Download, Upload, RefreshRight
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
@@ -264,6 +451,30 @@ const route = useRoute()
 const router = useRouter()
 const licenseStore = useLicenseStore()
 const { frontendResetEpoch } = useAppCacheControl()
+const feedback = createUiFeedback()
+
+type UpdateStatus = 'idle' | 'checking' | 'up_to_date' | 'available' | 'downloading' | 'downloaded' | 'error'
+
+type UpdateCheckResult = {
+  currentVersion: string
+  latestVersion: string | null
+  hasUpdate: boolean
+  enabled: boolean
+  releaseDate: string | null
+  notes: string[]
+  mandatory: boolean
+  url: string | null
+  downloadedFilePath: string | null
+}
+
+type UpdateHistoryEntry = {
+  version: string
+  title: string
+  releaseDate: string
+  notes: string[]
+  url: string
+  releasePageUrl?: string
+}
 
 // Once backend finishes checking, redirect to /registration if license is invalid
 watch(() => licenseStore.checked, (checked) => {
@@ -273,6 +484,22 @@ watch(() => licenseStore.checked, (checked) => {
 })
 
 const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
+const currentVersion = ref('--')
+const updateStatus = ref<UpdateStatus>('idle')
+const latestVersion = ref('')
+const releaseDate = ref('')
+const notes = ref<string[]>([])
+const downloadProgress = ref(0)
+const downloadedFilePath = ref('')
+const updateDownloadUrl = ref('')
+const updateStatusMessage = ref('')
+const showUpdateDialog = ref(false)
+const showHistoryPanel = ref(false)
+const historyLoading = ref(false)
+const historyLoaded = ref(false)
+const historyError = ref('')
+const updateHistory = ref<UpdateHistoryEntry[]>([])
+const showAllNotes = ref(false)
 
 onMounted(() => {
   setInterval(() => {
@@ -320,8 +547,6 @@ const showOptimizationDetails = ref(localStorage.getItem('show_optimization_deta
 
 let devTapTimer: any = null
 const devTapCount = ref(0)
-
-const feedback = createUiFeedback()
 
 const buildStateExportFilename = () => {
   const now = new Date()
@@ -400,6 +625,317 @@ const handleLogoTap = () => {
   }
 }
 
+const showUpdateBadge = computed(() =>
+  ['available', 'downloading', 'downloaded'].includes(updateStatus.value)
+)
+
+const updateTooltip = computed(() => {
+  switch (updateStatus.value) {
+    case 'checking':
+      return '正在检查更新'
+    case 'available':
+      return '发现新版本，点击查看详情'
+    case 'downloading':
+      return '正在下载更新包'
+    case 'downloaded':
+      return '更新包已准备好，点击立即安装'
+    case 'up_to_date':
+      return '当前已是最新版本'
+    case 'error':
+      return '更新检查失败，点击重试'
+    default:
+      return '检查更新'
+  }
+})
+
+const updateButtonClass = computed(() => {
+  if (updateStatus.value === 'available' || updateStatus.value === 'downloading' || updateStatus.value === 'downloaded') {
+    return 'border-primary-400/40 bg-primary-500/20 text-white shadow-lg shadow-primary-950/20 hover:bg-primary-500/30'
+  }
+  if (updateStatus.value === 'checking') {
+    return 'border-primary-300/20 bg-white/10 text-white hover:bg-white/15'
+  }
+  return 'border-white/10 bg-white/5 text-primary-300 hover:bg-white/10 hover:text-white'
+})
+
+const updateIconClass = computed(() =>
+  updateStatus.value === 'checking' ? 'animate-spin text-sm' : 'text-sm'
+)
+
+const updateStatusTitle = computed(() => {
+  switch (updateStatus.value) {
+    case 'checking':
+      return '正在检查最新版本'
+    case 'available':
+      return '发现新版本'
+    case 'downloading':
+      return '更新包下载中'
+    case 'downloaded':
+      return '更新包已下载完成'
+    case 'up_to_date':
+      return '当前已是最新版本'
+    case 'error':
+      return '更新流程遇到问题'
+    default:
+      return '尚未执行更新检查'
+  }
+})
+
+const updateStatusDescription = computed(() => {
+  if (updateStatus.value === 'available' && !updateDownloadUrl.value) {
+    return '检测到新版本，但当前更新源缺少下载地址，请稍后再试。'
+  }
+  switch (updateStatus.value) {
+    case 'checking':
+      return '正在连接更新源并比对版本信息。'
+    case 'available':
+      return '可以开始下载最新安装包，下载完成后即可直接安装。'
+    case 'downloading':
+      return '更新包将下载到本机更新缓存目录，下载完成后可直接启动安装。'
+    case 'downloaded':
+      return '安装时将关闭当前软件，请先确认当前工作已保存。'
+    case 'up_to_date':
+      return '暂时没有比当前版本更高的正式更新。'
+    case 'error':
+      return '你可以稍后重新检查，或确认网络和更新源配置是否正常。'
+    default:
+      return '启动后会静默检测更新，你也可以手动点击图标检查。'
+  }
+})
+
+const updateStatusChipText = computed(() => {
+  switch (updateStatus.value) {
+    case 'checking':
+      return '检查中'
+    case 'available':
+      return '可更新'
+    case 'downloading':
+      return '下载中'
+    case 'downloaded':
+      return '可安装'
+    case 'up_to_date':
+      return '已最新'
+    case 'error':
+      return '异常'
+    default:
+      return '空闲'
+  }
+})
+
+const updateStatusChipClass = computed(() => {
+  switch (updateStatus.value) {
+    case 'available':
+    case 'downloading':
+    case 'downloaded':
+      return 'bg-primary-100 text-primary-700'
+    case 'checking':
+      return 'bg-slate-100 text-slate-600'
+    case 'error':
+      return 'bg-rose-50 text-rose-600'
+    case 'up_to_date':
+      return 'bg-emerald-50 text-emerald-600'
+    default:
+      return 'bg-slate-100 text-slate-500'
+  }
+})
+
+const updateStatusPanelClass = computed(() => {
+  switch (updateStatus.value) {
+    case 'available':
+    case 'downloading':
+    case 'downloaded':
+      return 'border-primary-100 bg-primary-50/70'
+    case 'error':
+      return 'border-rose-100 bg-rose-50/80'
+    case 'up_to_date':
+      return 'border-emerald-100 bg-emerald-50/80'
+    default:
+      return 'border-slate-200 bg-slate-50'
+  }
+})
+
+const updateStatusTitleClass = computed(() => {
+  switch (updateStatus.value) {
+    case 'available':
+    case 'downloading':
+    case 'downloaded':
+      return 'text-primary-700'
+    case 'error':
+      return 'text-rose-600'
+    case 'up_to_date':
+      return 'text-emerald-600'
+    default:
+      return 'text-slate-700'
+  }
+})
+
+const visibleNotes = computed(() =>
+  showAllNotes.value || notes.value.length <= 4 ? notes.value : notes.value.slice(0, 4)
+)
+
+const applyUpdateResult = (result: UpdateCheckResult, manual: boolean) => {
+  showAllNotes.value = false
+  currentVersion.value = result.currentVersion || currentVersion.value
+  latestVersion.value = result.latestVersion || ''
+  releaseDate.value = result.releaseDate || ''
+  notes.value = result.notes || []
+  updateDownloadUrl.value = result.url || ''
+  downloadedFilePath.value = result.downloadedFilePath || ''
+  downloadProgress.value = result.downloadedFilePath ? 100 : 0
+  updateStatusMessage.value = ''
+  if (manual) {
+    showUpdateDialog.value = true
+  }
+
+  if (!result.enabled) {
+    updateStatus.value = 'idle'
+    if (manual) {
+      feedback.info('当前没有可用更新', { toast: true })
+    }
+    return
+  }
+
+  if (result.hasUpdate) {
+    updateStatus.value = result.downloadedFilePath ? 'downloaded' : 'available'
+    if (manual) {
+      if (!result.url) {
+        feedback.warning('检测到新版本，但更新配置不完整，暂时无法下载')
+      }
+    }
+    return
+  }
+
+  updateStatus.value = 'up_to_date'
+  if (manual) {
+    feedback.success('当前已是最新版本', { toast: true })
+  }
+}
+
+const runUpdateCheck = async (manual: boolean) => {
+  const previousStatus = updateStatus.value
+  updateStatus.value = 'checking'
+  updateStatusMessage.value = ''
+  try {
+    const result = await window.electron?.ipcRenderer.invoke('update:check', {
+      reason: manual ? 'manual' : 'startup',
+    }) as UpdateCheckResult
+    if (!result) {
+      throw new Error('未收到更新检查结果')
+    }
+    applyUpdateResult(result, manual)
+  } catch (error: any) {
+    if (manual) {
+      showUpdateDialog.value = true
+      updateStatus.value = 'error'
+      updateStatusMessage.value = error instanceof Error ? error.message : String(error)
+    } else {
+      updateStatus.value =
+        previousStatus === 'downloaded'
+          ? 'downloaded'
+          : previousStatus === 'available'
+            ? 'available'
+            : 'idle'
+      updateStatusMessage.value = ''
+    }
+    if (manual) {
+      feedback.error(formatActionError('检查更新', error))
+    }
+  }
+}
+
+const handleManualUpdateCheck = async () => {
+  showUpdateDialog.value = true
+  await runUpdateCheck(true)
+}
+
+const handleUpdateIconClick = async () => {
+  if (updateStatus.value === 'available' || updateStatus.value === 'downloading' || updateStatus.value === 'downloaded') {
+    showUpdateDialog.value = true
+    return
+  }
+  if (updateStatus.value === 'checking') {
+    showUpdateDialog.value = true
+    return
+  }
+  await runUpdateCheck(true)
+}
+
+const startUpdateDownload = async () => {
+  if (!updateDownloadUrl.value) {
+    feedback.warning('当前更新源缺少安装包地址，暂时无法下载')
+    return
+  }
+  showUpdateDialog.value = true
+  updateStatus.value = 'downloading'
+  updateStatusMessage.value = ''
+  downloadProgress.value = 0
+  try {
+    const result = await window.electron?.ipcRenderer.invoke('update:startDownload') as UpdateCheckResult
+    if (result?.downloadedFilePath) {
+      downloadedFilePath.value = result.downloadedFilePath
+    }
+  } catch (error: any) {
+    updateStatus.value = 'available'
+    updateStatusMessage.value = error instanceof Error ? error.message : String(error)
+    feedback.error(formatActionError('下载更新包', error))
+  }
+}
+
+const installDownloadedUpdate = async () => {
+  if (!downloadedFilePath.value) {
+    feedback.warning('请先下载更新包，再执行安装')
+    return
+  }
+  try {
+    await feedback.confirmWarning({
+      title: '安装新版本',
+      message: '安装将关闭当前软件并启动安装程序，是否继续？',
+      confirmButtonText: '立即安装',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  try {
+    await window.electron?.ipcRenderer.invoke('update:installDownloaded')
+  } catch (error: any) {
+    feedback.error(formatActionError('启动安装包', error))
+  }
+}
+
+const loadUpdateHistory = async (force = false) => {
+  if (historyLoading.value) return
+  if (historyLoaded.value && !force) return
+
+  historyLoading.value = true
+  historyError.value = ''
+  try {
+    const result = await window.electron?.ipcRenderer.invoke('update:getHistory') as UpdateHistoryEntry[]
+    updateHistory.value = Array.isArray(result) ? result : []
+    historyLoaded.value = true
+  } catch (error: any) {
+    historyError.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const toggleHistoryPanel = async () => {
+  showHistoryPanel.value = !showHistoryPanel.value
+  if (showHistoryPanel.value) {
+    await loadUpdateHistory()
+  }
+}
+
+const openReleasePage = async (url: string) => {
+  try {
+    await window.electron?.ipcRenderer.invoke('open_external', url)
+  } catch (error: any) {
+    feedback.error(formatActionError('打开发布页', error))
+  }
+}
+
 watch(developerMode, (val) => {
   localStorage.setItem('developer_mode', val ? 'true' : 'false')
 })
@@ -414,6 +950,56 @@ watch(frontendResetEpoch, () => {
   showDevDialog.value = false
   developerMode.value = false
   showOptimizationDetails.value = false
+  showHistoryPanel.value = false
+  historyLoading.value = false
+  historyLoaded.value = false
+  historyError.value = ''
+  updateHistory.value = []
+  showAllNotes.value = false
+})
+
+onMounted(async () => {
+  try {
+    const version = await window.electron?.ipcRenderer.invoke('update:getCurrentVersion')
+    if (typeof version === 'string' && version.trim()) {
+      currentVersion.value = version.trim()
+    }
+  } catch (error) {
+    currentVersion.value = currentVersion.value || '--'
+  }
+
+  const removeProgressListener = window.electron?.ipcRenderer.on('update-progress', (_event: any, payload: any) => {
+    updateStatus.value = 'downloading'
+    if (typeof payload?.percent === 'number' && Number.isFinite(payload.percent)) {
+      downloadProgress.value = payload.percent
+    }
+    if (typeof payload?.version === 'string' && payload.version.trim()) {
+      latestVersion.value = payload.version.trim()
+    }
+  })
+
+  const removeDownloadedListener = window.electron?.ipcRenderer.on('update-downloaded', (_event: any, payload: any) => {
+    updateStatus.value = 'downloaded'
+    downloadProgress.value = 100
+    downloadedFilePath.value = typeof payload?.filePath === 'string' ? payload.filePath : ''
+    if (typeof payload?.version === 'string' && payload.version.trim()) {
+      latestVersion.value = payload.version.trim()
+    }
+    feedback.success('更新包下载完成，可以立即安装')
+  })
+
+  const removeErrorListener = window.electron?.ipcRenderer.on('update-error', (_event: any, payload: any) => {
+    if (updateStatus.value === 'downloading' || showUpdateDialog.value) {
+      updateStatus.value = 'error'
+      updateStatusMessage.value = typeof payload?.message === 'string' ? payload.message : '更新流程发生异常'
+    }
+  })
+
+  void Promise.resolve().then(() => runUpdateCheck(false))
+
+  void removeProgressListener
+  void removeDownloadedListener
+  void removeErrorListener
 })
 
 const navItems = [
