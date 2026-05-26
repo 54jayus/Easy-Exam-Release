@@ -34,7 +34,7 @@ describe('useSubjectsForm', () => {
     expect(subjects.value[0].name).toBe('语文')
     expect(syncToBackend).toHaveBeenCalledTimes(1)
     expect(validateData).toHaveBeenCalledTimes(1)
-    expect(logInfo).toHaveBeenCalledWith('新增科目：语文')
+    expect(logInfo).toHaveBeenCalledWith('已新增科目：语文')
     expect(formApi.dialogVisible.value).toBe(false)
   })
 })
