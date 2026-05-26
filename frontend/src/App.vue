@@ -60,6 +60,28 @@
         </router-link>
       </nav>
 
+      <!-- Data Backup / Restore -->
+      <div class="px-3 pb-2 flex gap-1.5">
+        <el-tooltip content="将当前所有数据（科目、教师、考场、排班等）导出为备份文件" placement="right" :show-after="300">
+          <el-button
+            class="flex-1 !text-primary-300 !border-white/10 !bg-white/5 hover:!bg-white/10 hover:!text-white !text-[11px] !h-7 !px-1.5 !min-w-0"
+            @click="handleExportState"
+          >
+            <el-icon class="mr-0.5 !text-[11px]"><Download /></el-icon>
+            导出备份
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="从备份文件恢复数据，将覆盖当前所有数据" placement="right" :show-after="300">
+          <el-button
+            class="flex-1 !text-primary-300 !border-white/10 !bg-white/5 hover:!bg-white/10 hover:!text-white !text-[11px] !h-7 !px-1.5 !min-w-0"
+            @click="handleImportState"
+          >
+            <el-icon class="mr-0.5 !text-[11px]"><Upload /></el-icon>
+            导入备份
+          </el-button>
+        </el-tooltip>
+      </div>
+
       <!-- User Profile / Footer -->
       <div class="p-4 bg-primary-950/30 border-t border-white/5">
         <div class="flex items-center gap-3 px-2">
@@ -224,14 +246,17 @@
 import { computed, watch, ref, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLicenseStore } from "./stores/license"
-import { useAppCacheControl } from '@/composables/useAppCacheControl'
-import { 
-  Notebook, User, School, Printer, 
-  QuestionFilled, Setting, DataBoard, Key, Check, Clock
+import { useAppCacheControl, resetFrontendCaches } from '@/composables/useAppCacheControl'
+import {
+  Notebook, User, School, Printer,
+  QuestionFilled, Setting, DataBoard, Key, Check, Clock, Download, Upload
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
+import { pythonBackend } from './lib/pythonBackend'
+import { open, saveAndRun } from './lib/dialog'
+import { createUiFeedback, formatActionError, formatActionSuccess } from './lib/uiFeedback'
 
 dayjs.locale('zh-cn')
 
@@ -295,6 +320,66 @@ const showOptimizationDetails = ref(localStorage.getItem('show_optimization_deta
 
 let devTapTimer: any = null
 const devTapCount = ref(0)
+
+const feedback = createUiFeedback()
+
+const buildStateExportFilename = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  return `考试数据备份_${year}-${month}-${day}_${hours}-${minutes}.examstate`
+}
+
+const handleExportState = async () => {
+  await saveAndRun({
+    dialog: {
+      title: '导出数据备份',
+      filters: [{ name: 'Exam State Files', extensions: ['examstate'] }],
+      defaultPath: buildStateExportFilename(),
+    },
+    run: async (path) => {
+      return await pythonBackend.request('system.exportState', { path })
+    },
+    successText: '数据备份已保存',
+    errorText: '导出数据备份失败',
+    openFolderTitle: '数据备份导出成功',
+  })
+}
+
+const handleImportState = async () => {
+  const selected = await open({
+    title: '导入数据备份',
+    multiple: false,
+    filters: [
+      { name: 'Exam State Files', extensions: ['examstate'] },
+      { name: 'JSON Files', extensions: ['json'] },
+    ],
+  })
+  if (!selected || Array.isArray(selected)) return
+
+  try {
+    await feedback.confirmWarning({
+      message: '导入后将覆盖当前系统全部数据，是否继续？',
+      title: '导入数据备份',
+      confirmButtonText: '继续导入',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  try {
+    await pythonBackend.request('system.importState', { path: selected })
+    resetFrontendCaches()
+    await router.replace('/')
+    feedback.success(formatActionSuccess('导入数据备份'))
+  } catch (e: any) {
+    feedback.error(formatActionError('导入数据备份', e))
+  }
+}
 
 const handleLogoTap = () => {
   devTapCount.value += 1
