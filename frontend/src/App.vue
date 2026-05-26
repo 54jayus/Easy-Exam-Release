@@ -316,19 +316,28 @@
         </div>
 
         <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-          <div class="flex items-center justify-between gap-3">
-            <div class="text-sm font-semibold text-slate-800">更新内容</div>
-            <el-button link class="!px-0 !text-primary-600" @click="toggleHistoryPanel">
-              {{ showHistoryPanel ? '收起历史记录' : '查看历史更新' }}
-            </el-button>
-          </div>
-          <ul v-if="notes.length" class="mt-3 space-y-2 text-sm text-slate-600">
-            <li v-for="item in notes" :key="item" class="flex items-start gap-2">
-              <span class="mt-1 h-1.5 w-1.5 rounded-full bg-primary-400" />
+          <div class="text-sm font-semibold text-slate-800 mb-3">更新内容</div>
+          <ul v-if="notes.length" class="space-y-2 text-sm text-slate-600">
+            <li v-for="item in visibleNotes" :key="item" class="flex items-start gap-2">
+              <span class="mt-1 h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
               <span>{{ item }}</span>
             </li>
           </ul>
-          <div v-else class="mt-3 text-sm text-slate-500">当前版本暂未提供额外更新说明。</div>
+          <div v-else class="text-sm text-slate-500">当前版本暂未提供额外更新说明。</div>
+          <div class="mt-3 flex items-center justify-between">
+            <el-button
+              v-if="notes.length > 4"
+              link
+              class="!px-0 !text-primary-600 !text-xs"
+              @click="showAllNotes = !showAllNotes"
+            >
+              {{ showAllNotes ? '▴ 收起' : `▾ 展开全部 ${notes.length} 条` }}
+            </el-button>
+            <span v-else />
+            <el-button link class="!px-0 !text-primary-600 !text-xs" @click="toggleHistoryPanel">
+              {{ showHistoryPanel ? '收起历史记录' : '查看历史更新' }}
+            </el-button>
+          </div>
         </div>
 
         <transition name="fade-slide">
