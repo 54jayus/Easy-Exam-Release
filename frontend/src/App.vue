@@ -264,19 +264,34 @@
       class="rounded-2xl"
     >
       <div class="space-y-5 py-1 max-h-[calc(80vh-160px)] overflow-y-auto pr-1 custom-scrollbar">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <div class="text-xs font-medium text-slate-500">当前版本</div>
-            <div class="mt-1 text-lg font-bold text-slate-900">v{{ currentVersion }}</div>
-          </div>
-          <div class="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3">
-            <div class="text-xs font-medium text-primary-500">最新版本</div>
-            <div class="mt-1 text-lg font-bold text-primary-700">
-              {{ latestVersion ? `v${latestVersion}` : '暂无可用更新' }}
+        <template v-if="updateStatus === 'up_to_date'">
+          <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+              <el-icon class="text-white text-base"><Check /></el-icon>
             </div>
-            <div v-if="releaseDate" class="mt-1 text-xs text-primary-500">发布时间：{{ releaseDate }}</div>
+            <div>
+              <div class="text-sm font-semibold text-emerald-800">当前已是最新版本</div>
+              <div class="mt-0.5 text-xs text-emerald-600">
+                v{{ currentVersion }}{{ releaseDate ? ` · 发布于 ${releaseDate}` : '' }}
+              </div>
+            </div>
           </div>
-        </div>
+        </template>
+        <template v-else>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div class="text-xs font-medium text-slate-500">当前版本</div>
+              <div class="mt-1 text-lg font-bold text-slate-900">v{{ currentVersion }}</div>
+            </div>
+            <div class="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3">
+              <div class="text-xs font-medium text-primary-500">最新版本</div>
+              <div class="mt-1 text-lg font-bold text-primary-700">
+                {{ latestVersion ? `v${latestVersion}` : '暂无可用更新' }}
+              </div>
+              <div v-if="releaseDate" class="mt-1 text-xs text-primary-500">发布时间：{{ releaseDate }}</div>
+            </div>
+          </div>
+        </template>
 
         <div class="rounded-2xl border px-4 py-3" :class="updateStatusPanelClass">
           <div class="flex items-center justify-between gap-3">
