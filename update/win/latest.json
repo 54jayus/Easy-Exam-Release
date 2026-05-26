@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "version": "3.4.0422",
+  "releaseDate": "2026-05-26",
+  "notes": [
+    "Initial public release metadata scaffold."
+  ],
+  "mandatory": false,
+  "url": "",
+  "sha256": "",
+  "size": 0
+}
