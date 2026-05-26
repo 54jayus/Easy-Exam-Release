@@ -911,6 +911,8 @@ const startUpdateDownload = async () => {
     const result = await window.electron?.ipcRenderer.invoke('update:startDownload') as UpdateCheckResult
     if (result?.downloadedFilePath) {
       downloadedFilePath.value = result.downloadedFilePath
+      updateStatus.value = 'downloaded'
+      downloadProgress.value = 100
     }
   } catch (error: any) {
     updateStatus.value = 'available'
