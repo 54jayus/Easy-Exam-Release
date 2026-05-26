@@ -1,12 +1,20 @@
 {
-  "enabled": false,
+  "enabled": true,
   "version": "3.4.0422",
-  "releaseDate": "2026-05-26",
+  "releaseDate": "2026-04-22",
   "notes": [
-    "Initial public release metadata scaffold."
+    "优化了 3+1+2 选科考场编排算法，减少混合考场并改进尾部人数的考场规划。",
+    "优化了试卷袋标签生成逻辑，按实际参考人数分别统计首选科目与再选科目。",
+    "优化了打印页的科目编辑体验，支持手动编辑后保留用户调整结果。",
+    "限制高考模式与 3+1+2 模式下的试卷袋科目手动编辑，减少误操作。",
+    "修复了考生信息表 PDF 行数过多时排版溢出的问题。",
+    "增加了监考统计高亮功能，便于比较监考负担。",
+    "优化了考场页面按钮命名，使入口含义更直观。",
+    "重构了试卷袋适配器代码，拆分不同模式的生成逻辑。",
+    "补充了排考、试卷袋、打印服务、PDF 排版与监考统计等自动化测试。"
   ],
   "mandatory": false,
-  "url": "",
-  "sha256": "",
-  "size": 0
+  "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.4.0422/EasyExam-Setup-3.4.422.exe",
+  "sha256": "2e24a3ea1bd619f34a676f9b6e2a0e81aa7d93dc3f056dff82f7ac14af8d5efa",
+  "size": 172201117
 }
