@@ -369,41 +369,54 @@
               {{ historyError }}
             </div>
 
-            <div v-else-if="updateHistory.length" class="mt-4 space-y-4">
+            <div v-else-if="updateHistory.length" class="mt-4 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
               <div
-                v-for="entry in updateHistory"
+                v-for="(entry, index) in updateHistory"
                 :key="entry.version"
-                class="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm"
+                class="flex gap-3"
               >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <div class="text-base font-semibold text-slate-900">{{ entry.title }}</div>
-                      <span
-                        v-if="entry.version === currentVersion"
-                        class="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-600"
-                      >
-                        当前版本
-                      </span>
-                    </div>
-                    <div class="mt-1 text-xs text-slate-500">发布时间：{{ entry.releaseDate || '未提供' }}</div>
-                  </div>
-                  <el-button
-                    v-if="entry.releasePageUrl"
-                    link
-                    class="!px-0 !text-primary-600"
-                    @click="openReleasePage(entry.releasePageUrl)"
-                  >
-                    查看发布页
-                  </el-button>
+                <!-- 时间线左侧 -->
+                <div class="flex flex-col items-center flex-shrink-0">
+                  <div
+                    class="w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0"
+                    :class="entry.version === currentVersion ? 'bg-primary-500' : 'bg-slate-300'"
+                  />
+                  <div
+                    v-if="index < updateHistory.length - 1"
+                    class="w-px flex-1 bg-slate-200 my-1"
+                  />
                 </div>
-
-                <ul v-if="entry.notes.length" class="mt-3 space-y-2 text-sm text-slate-600">
-                  <li v-for="item in entry.notes" :key="`${entry.version}-${item}`" class="flex items-start gap-2">
-                    <span class="mt-1 h-1.5 w-1.5 rounded-full bg-primary-400" />
-                    <span>{{ item }}</span>
-                  </li>
-                </ul>
+                <!-- 条目内容 -->
+                <div class="flex-1 pb-4">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-semibold text-slate-800">v{{ entry.version }}</span>
+                    <span
+                      v-if="entry.version === currentVersion"
+                      class="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold text-primary-600"
+                    >
+                      当前版本
+                    </span>
+                    <span class="text-xs text-slate-400 ml-auto">{{ entry.releaseDate || '未提供' }}</span>
+                    <el-button
+                      v-if="entry.releasePageUrl"
+                      link
+                      class="!px-0 !text-primary-600 !text-xs"
+                      @click="openReleasePage(entry.releasePageUrl!)"
+                    >
+                      查看发布页
+                    </el-button>
+                  </div>
+                  <ul v-if="entry.notes.length" class="mt-2 space-y-1 text-xs text-slate-600">
+                    <li
+                      v-for="item in entry.notes"
+                      :key="`${entry.version}-${item}`"
+                      class="flex items-start gap-1.5"
+                    >
+                      <span class="mt-1 h-1 w-1 rounded-full bg-primary-300 flex-shrink-0" />
+                      <span>{{ item }}</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
 
