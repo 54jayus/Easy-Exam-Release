@@ -263,7 +263,7 @@
       align-center
       class="rounded-2xl"
     >
-      <div class="space-y-5 py-1">
+      <div class="space-y-5 py-1 max-h-[calc(80vh-160px)] overflow-y-auto pr-1 custom-scrollbar">
         <div class="grid grid-cols-2 gap-3">
           <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <div class="text-xs font-medium text-slate-500">当前版本</div>
