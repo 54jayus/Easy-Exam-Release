@@ -106,11 +106,7 @@ export class PythonBackendClient {
              // TODO: Handle sidecar path logic for Electron if needed
              cmd = commandName
           } else {
-             if (commandName === 'python-backend-conda') {
-                cmd = (import.meta as any).env?.VITE_PYTHON_PATH || "python"
-             } else if (commandName === 'python-backend') {
-                cmd = 'python'
-             }
+             cmd = 'python'
              args = ["-m", "backend"]
           }
 
@@ -146,9 +142,6 @@ export class PythonBackendClient {
 
       const candidates = [
         { name: "engine", sidecar: true },
-        { name: "python-backend-conda", sidecar: false },
-        { name: "python-backend", sidecar: false },
-        { name: "python-backend-exe", sidecar: false }
       ]
 
       let lastError: unknown = null

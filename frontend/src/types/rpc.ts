@@ -5,6 +5,14 @@ export type RpcMethods = {
     params: {}
     result: {}
   }
+  "system.exportState": {
+    params: { path: string }
+    result: { success: boolean }
+  }
+  "system.importState": {
+    params: { path: string }
+    result: { success: boolean }
+  }
   "system.getHelpManual": {
     params: {}
     result: { content: string }

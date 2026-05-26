@@ -35,6 +35,8 @@ frontend/debug.log
 frontend/debug*.log
 frontend/debug.log.*
 frontend/dev.log
+.env.runtime.local
+.env.runtime.*.local
 
 # IDE
 .vscode/

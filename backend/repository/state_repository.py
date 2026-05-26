@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import errno
 import json
 import logging
 import os
 import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from backend.domain.state import AppState, ProctoringState, RoomsState
 from backend.domain.models import PrintingConfig
@@ -80,6 +83,78 @@ def _deserialize_gaokao_results(data):
     return result
 
 
+def serialize_state(state: AppState) -> dict[str, Any]:
+    return {
+        "subjects": state.subjects,
+        "proctoring": {
+            "teachers": state.proctoring.teachers,
+            "schedule": state.proctoring.schedule,
+            "config": state.proctoring.config,
+        },
+        "rooms": {
+            "settings": state.rooms.settings_data,
+            "config": state.rooms.config,
+            "student_path": state.rooms.student_path,
+            "results": state.rooms.results,
+            "students_preview": state.rooms.students_preview,
+            "gaokao_results": _serialize_gaokao_results(state.rooms.gaokao_results),
+        },
+        "printing": {
+            "sourceType": state.printing.source_type,
+            "dataPath": state.printing.data_path,
+            "headers": state.printing.headers,
+            "mapping": state.printing.mapping,
+            "data": state.printing.data,
+            "total": state.printing.total,
+            "config": state.printing.config,
+            "commonConfig": state.printing.common_config,
+        },
+    }
+
+
+def deserialize_state(state_data: dict[str, Any], state: AppState) -> None:
+    if not isinstance(state_data, dict):
+        raise ValueError("状态数据格式无效：缺少有效的 state 对象")
+
+    proc = state_data.get("proctoring", {})
+    if not isinstance(proc, dict):
+        raise ValueError("状态数据格式无效：proctoring 必须是对象")
+
+    rooms = state_data.get("rooms", {})
+    if not isinstance(rooms, dict):
+        raise ValueError("状态数据格式无效：rooms 必须是对象")
+
+    printing_data = state_data.get("printing", {})
+    if not isinstance(printing_data, dict):
+        raise ValueError("状态数据格式无效：printing 必须是对象")
+
+    state.subjects = state_data.get("subjects", [])
+    state.proctoring = ProctoringState(
+        teachers=proc.get("teachers", []),
+        schedule=proc.get("schedule", None),
+        config=proc.get("config", {}),
+    )
+    state.rooms = RoomsState(
+        settings_data=rooms.get("settings", []),
+        config=rooms.get("config", {}),
+        student_path=rooms.get("student_path", ""),
+        results=rooms.get("results", []),
+        students_preview=rooms.get("students_preview", []),
+        gaokao_results=_deserialize_gaokao_results(rooms.get("gaokao_results")),
+    )
+    state.printing = PrintingConfig(
+        source_type=printing_data.get("sourceType", "empty"),
+        data_path=printing_data.get("dataPath", ""),
+        headers=printing_data.get("headers", []),
+        mapping=printing_data.get("mapping", {}),
+        data=printing_data.get("data", []),
+        total=printing_data.get("total", 0),
+        config=printing_data.get("config", {}),
+        common_config=printing_data.get("commonConfig", {}),
+    )
+    state.exam_arrangement = None
+
+
 class StateRepository(IStateRepository):
     """Handles JSON persistence of AppState with versioning and backup."""
 
@@ -92,96 +167,32 @@ class StateRepository(IStateRepository):
 
     def load(self, state: AppState) -> None:
         """Load persisted data into *state* in-place. Silently ignores missing file."""
-        if not self._path.exists():
-            return
         try:
-            with open(self._path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            document = self._read_document(self._path)
+            if document is None:
+                return
         except Exception as e:
-            logger.error("Load state failed: %s", e)
+            logger.error("Load state failed from %s: %s", self._path, e)
             return
 
-        # 检查版本
-        version = data.get("version", "0.0.0")
-        if version != self.VERSION:
-            logger.warning("State version mismatch: %s != %s, attempting migration", version, self.VERSION)
-            data = self._migrate(data, version)
-
-        # 加载状态数据
-        state_data = data.get("state", data)  # 兼容旧格式
-        state.subjects = state_data.get("subjects", [])
-
-        proc = state_data.get("proctoring", {})
-        state.proctoring = ProctoringState(
-            teachers=proc.get("teachers", []),
-            schedule=proc.get("schedule", None),
-            config=proc.get("config", {}),
-        )
-
-        rooms = state_data.get("rooms", {})
-        state.rooms = RoomsState(
-            settings_data=rooms.get("settings", []),
-            config=rooms.get("config", {}),
-            student_path=rooms.get("student_path", ""),
-            results=rooms.get("results", []),
-            students_preview=rooms.get("students_preview", []),
-            gaokao_results=_deserialize_gaokao_results(rooms.get("gaokao_results")),
-        )
-
-        printing_data = state_data.get("printing", {})
-        state.printing = PrintingConfig(
-            source_type=printing_data.get("sourceType", "empty"),
-            data_path=printing_data.get("dataPath", ""),
-            headers=printing_data.get("headers", []),
-            mapping=printing_data.get("mapping", {}),
-            data=printing_data.get("data", []),
-            total=printing_data.get("total", 0),
-            config=printing_data.get("config", {}),
-            common_config=printing_data.get("commonConfig", {}),
-        )
+        deserialize_state(document["state"], state)
 
     def save(self, state: AppState) -> None:
         """Persist *state* to disk with automatic backup."""
-        try:
-            # 创建备份
-            if self._path.exists():
-                self._create_backup()
+        document = self._build_document(state)
+        self._atomic_write(self._path, document, create_backup=True)
 
-            # 保存新状态（带版本号）
-            os.makedirs(self._path.parent, exist_ok=True)
-            data = {
-                "version": self.VERSION,
-                "state": {
-                    "subjects": state.subjects,
-                    "proctoring": {
-                        "teachers": state.proctoring.teachers,
-                        "schedule": state.proctoring.schedule,
-                        "config": state.proctoring.config,
-                    },
-                    "rooms": {
-                        "settings": state.rooms.settings_data,
-                        "config": state.rooms.config,
-                        "student_path": state.rooms.student_path,
-                        "results": state.rooms.results,
-                        "students_preview": state.rooms.students_preview,
-                        "gaokao_results": _serialize_gaokao_results(state.rooms.gaokao_results),
-                    },
-                    "printing": {
-                        "sourceType": state.printing.source_type,
-                        "dataPath": state.printing.data_path,
-                        "headers": state.printing.headers,
-                        "mapping": state.printing.mapping,
-                        "data": state.printing.data,
-                        "total": state.printing.total,
-                        "config": state.printing.config,
-                        "commonConfig": state.printing.common_config,
-                    },
-                }
-            }
-            with open(self._path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2, default=_json_default)
-        except Exception as e:
-            logger.error("Save state failed: %s", e)
+    def export_to(self, path: str, state: AppState) -> None:
+        export_path = Path(path)
+        document = self._build_document(state)
+        self._atomic_write(export_path, document, create_backup=False)
+
+    def import_from(self, path: str, state: AppState) -> None:
+        import_path = Path(path)
+        document = self._read_document(import_path, strict=True)
+        if document is None:
+            raise ValueError(f"备份文件为空：{import_path}")
+        deserialize_state(document["state"], state)
 
     def _create_backup(self) -> None:
         """创建状态文件备份"""
@@ -210,6 +221,65 @@ class StateRepository(IStateRepository):
 
         # 未来版本迁移逻辑在这里添加
         return data
+
+    def _build_document(self, state: AppState) -> dict[str, Any]:
+        return {
+            "version": self.VERSION,
+            "state": serialize_state(state),
+        }
+
+    def _read_document(self, path: Path, strict: bool = False) -> dict[str, Any] | None:
+        if not path.exists():
+            if strict:
+                raise FileNotFoundError(errno.ENOENT, "未找到状态文件", str(path))
+            return None
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"状态文件格式无效：{path}")
+
+        version = data.get("version", "0.0.0")
+        if version != self.VERSION:
+            logger.warning("State version mismatch: %s != %s, attempting migration", version, self.VERSION)
+            data = self._migrate(data, version)
+
+        state_data = data.get("state", data)
+        if not isinstance(state_data, dict):
+            raise ValueError(f"状态文件格式无效：{path}")
+
+        return {
+            "version": data.get("version", self.VERSION),
+            "state": state_data,
+        }
+
+    def _atomic_write(self, target_path: Path, data: dict[str, Any], *, create_backup: bool) -> None:
+        os.makedirs(target_path.parent, exist_ok=True)
+        payload = json.dumps(data, ensure_ascii=False, indent=2, default=_json_default)
+        fd, temp_name = tempfile.mkstemp(
+            dir=str(target_path.parent),
+            prefix=f".{target_path.stem}.",
+            suffix=".tmp",
+            text=True,
+        )
+        temp_path = Path(temp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+                tmp.write(payload)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+
+            if create_backup and target_path == self._path and target_path.exists():
+                self._create_backup()
+
+            os.replace(temp_path, target_path)
+        finally:
+            try:
+                if temp_path.exists():
+                    temp_path.unlink()
+            except Exception:
+                pass
 
     def delete(self) -> None:
         """Remove the persisted state file."""

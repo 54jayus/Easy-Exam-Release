@@ -38,24 +38,12 @@ python -m pip install -r backend/requirements.txt
 
 ## 3. 本地 Python 配置
 
-开发态通常通过 `frontend/.env.development` 指定 Python 路径：
+本地运行环境统一读取仓库根目录的配置文件：
 
-```env
-VITE_PYTHON_PATH=D:/Anaconda3/envs/exam_scheduler/python.exe
-```
+- 模板文件：`.env.runtime.example`
+- 本机文件：`.env.runtime.local`
 
-如果系统中已能直接调用 `python`，也可以写为：
-
-```env
-VITE_PYTHON_PATH=python
-```
-
-打包脚本 [package.py](/d:/coding%20make%20work%20easy/Easy-Exam/package.py) 当前按以下顺序解析 Python：
-
-1. `EXAM_PYTHON_PATH`
-2. `VITE_PYTHON_PATH`
-3. `sys.executable`
-4. `python` in PATH
+推荐优先使用 Conda 环境名，而不是写死 Python 绝对路径。Electron 开发态、PowerShell 辅助脚本与打包脚本 `package.py` 都读取同一份本机配置。
 
 ## 4. 常用命令
 
@@ -123,10 +111,14 @@ python package.py
 
 ## 5. 关键环境变量
 
-- `VITE_PYTHON_PATH`
-  开发态 Electron 主进程拉起后端时优先使用的 Python
-- `EXAM_PYTHON_PATH`
-  `package.py` 打包时优先使用的 Python
+- `EXAM_PYTHON_MODE`
+  运行环境模式，支持 `conda` 与 `system`
+- `EXAM_CONDA_ENV`
+  当使用 Conda 模式时要启动的环境名
+- `EXAM_CONDA_EXE`
+  可选，指定 `conda` 命令或绝对路径
+- `EXAM_PYTHON_EXE`
+  可选，直接指定 Python 可执行文件或命令名
 - `EXAMFLOW_DATA_DIR` / `EXAMDESK_DATA_DIR`
   指定状态数据根目录，最终写入 `<dir>/data/state.json`
 - `EXAMFLOW_APP_DIR` / `EXAMDESK_APP_DIR`
@@ -242,10 +234,9 @@ Electron 相关问题优先查看：
 
 ## 9. 打包链路的当前注意事项
 
-当前打包链路是真实可运行的，但有两个显式约束：
+当前打包链路是真实可运行的，但仍有一个显式约束：
 
-1. [frontend/engine.spec](/d:/coding%20make%20work%20easy/Easy-Exam/frontend/engine.spec) 内存在本机 Anaconda DLL 的硬编码路径，换机器前需要手动核对
-2. `package.py` 会清理 `frontend/python-dist/`、`frontend/build-python/` 和 `frontend/release_v6/`，打包前要关闭正在运行的旧程序
+1. `package.py` 会清理 `frontend/python-dist/`、`frontend/build-python/` 和 `frontend/release_v6/`，打包前要关闭正在运行的旧程序
 
 ## 10. 文档维护约定
 

@@ -69,6 +69,8 @@ def build_dispatcher() -> RpcDispatcher:
 
     # System
     dispatcher.register("system.resetData", system_svc.reset_data)
+    dispatcher.register("system.exportState", system_svc.export_state)
+    dispatcher.register("system.importState", system_svc.import_state)
     dispatcher.register("system.getHelpManual", system_svc.get_help_manual)
 
     # Licensing
@@ -237,6 +239,20 @@ def main() -> int:
                 "error": {
                     "code": ErrorCode.FILE_IO_ERROR.value,
                     "message": "权限不足，请检查文件访问权限",
+                    "details": {}
+                }
+            }
+            if req_id is not None:
+                reply["id"] = req_id
+            sys.stdout.write(json.dumps(reply, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
+        except OSError as e:
+            logger.warning("文件读写失败: %s", e)
+            reply = {
+                "ok": False,
+                "error": {
+                    "code": ErrorCode.FILE_IO_ERROR.value,
+                    "message": str(e) or "文件读写失败",
                     "details": {}
                 }
             }

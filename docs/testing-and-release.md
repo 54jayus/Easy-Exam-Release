@@ -116,7 +116,6 @@ python package.py
 
 当前真实约束：
 
-- `frontend/engine.spec` 依赖本机 DLL 路径，换环境前需要先调整
 - `frontend/package.json` 将 Electron 输出目录固定为 `release_v6`
 - sidecar 构建依赖 `ortools` 与 PyInstaller
 

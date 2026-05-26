@@ -308,7 +308,7 @@ data/state.json
 - 根目录下的 `使用说明书.md` 与 `使用说明书.pdf`
 - `ortools` 相关隐藏导入与动态库
 
-该 spec 还包含本机 Anaconda DLL 的硬编码路径，这是当前打包链路的真实约束。
+该 spec 会根据当前运行环境自动收集所需 DLL，不再依赖仓库内写死的本机路径。
 
 ### 8.2 Electron 构建
 

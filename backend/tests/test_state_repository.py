@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pandas as pd
+import pytest
 
 from backend.domain.state import AppState
 from backend.repository.state_repository import StateRepository
@@ -102,3 +104,49 @@ def test_state_repository_loads_legacy_unversioned_state(tmp_path) -> None:
     assert loaded.rooms.student_path == "legacy.xlsx"
     assert loaded.rooms.gaokao_results["unified"].to_dict("records") == [{"姓名": "张三", "语文考场号": "001"}]
     assert loaded.rooms.gaokao_results["electives"]["化学"].to_dict("records") == [{"姓名": "张三", "化学考场号": "005"}]
+
+
+def test_state_repository_export_and_import_round_trip(tmp_path) -> None:
+    repo = StateRepository(str(tmp_path / "state.json"))
+    export_path = tmp_path / "grade1.examstate"
+    original = AppState()
+    original.subjects = [{"id": "1", "name": "高一语文"}]
+    original.proctoring.teachers = [{"name": "李老师"}]
+    original.rooms.results = [{"姓名": "张三", "考场号": "001"}]
+    original.printing.source_type = "schedule"
+
+    repo.export_to(str(export_path), original)
+
+    restored = AppState()
+    repo.import_from(str(export_path), restored)
+
+    assert export_path.exists() is True
+    payload = json.loads(export_path.read_text(encoding="utf-8"))
+    assert payload["version"] == StateRepository.VERSION
+    assert payload["state"]["subjects"] == [{"id": "1", "name": "高一语文"}]
+    assert restored.subjects == original.subjects
+    assert restored.proctoring.teachers == original.proctoring.teachers
+    assert restored.rooms.results == original.rooms.results
+    assert restored.printing.source_type == "schedule"
+
+
+def test_state_repository_save_is_atomic_when_replace_fails(tmp_path, monkeypatch) -> None:
+    state_file = tmp_path / "state.json"
+    repo = StateRepository(str(state_file))
+    state = AppState()
+    state.subjects = [{"id": "1", "name": "原始方案"}]
+    repo.save(state)
+    original_contents = state_file.read_text(encoding="utf-8")
+
+    state.subjects = [{"id": "2", "name": "新方案"}]
+
+    def _boom(src, dst):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(os, "replace", _boom)
+
+    with pytest.raises(OSError, match="replace failed"):
+        repo.save(state)
+
+    assert state_file.read_text(encoding="utf-8") == original_contents
+    assert list(tmp_path.glob(".*.tmp")) == []

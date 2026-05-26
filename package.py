@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Iterable
 
 
 def run_command(command, cwd=None):
@@ -16,25 +17,46 @@ def run_command(command, cwd=None):
         sys.exit(1)
 
 
-def resolve_python_executable():
+def load_runtime_config(project_root: Path) -> dict[str, str]:
+    config: dict[str, str] = {}
     candidates = [
-        os.environ.get("EXAM_PYTHON_PATH"),
-        os.environ.get("VITE_PYTHON_PATH"),
-        sys.executable,
-        shutil.which("python"),
+        project_root / ".env.runtime.local",
+        project_root / ".env.runtime.example",
     ]
+    env_path = next((path for path in candidates if path.exists()), None)
+    if env_path is None:
+        return config
 
-    for candidate in candidates:
-        if not candidate:
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
             continue
-        resolved = Path(candidate).expanduser()
-        if resolved.exists():
-            return str(resolved)
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key:
+            config[key] = value
+    return config
 
-    raise FileNotFoundError(
-        "Unable to resolve a Python executable for packaging. "
-        "Set EXAM_PYTHON_PATH or VITE_PYTHON_PATH first."
-    )
+
+def resolve_python_command(project_root: Path, python_args: Iterable[str]) -> tuple[list[str], str]:
+    config = load_runtime_config(project_root)
+    explicit_python = config.get("EXAM_PYTHON_EXE", "").strip()
+    if explicit_python:
+        return [explicit_python, *python_args], f"EXAM_PYTHON_EXE={explicit_python}"
+
+    mode = config.get("EXAM_PYTHON_MODE", "").strip().lower()
+    conda_env = config.get("EXAM_CONDA_ENV", "").strip()
+    if mode == "conda" or conda_env:
+        if not conda_env:
+            raise ValueError("运行环境配置缺少 EXAM_CONDA_ENV")
+        conda_exe = config.get("EXAM_CONDA_EXE", "conda").strip() or "conda"
+        return (
+            [conda_exe, "run", "--no-capture-output", "-n", conda_env, "python", *python_args],
+            f"{conda_exe} run -n {conda_env} python",
+        )
+
+    return ["python", *python_args], "python"
 
 
 def package():
@@ -64,21 +86,21 @@ def package():
                 f"Please close running app instances and retry. Error: {exc}"
             )
 
-    python_executable = resolve_python_executable()
-    print(f"Using Python executable: {python_executable}")
-
-    pyinstaller_cmd = [
-        python_executable,
-        "-m",
-        "PyInstaller",
-        str(spec_file),
-        "--distpath",
-        str(python_dist_dir),
-        "--workpath",
-        str(python_build_dir),
-        "--noconfirm",
-        "--clean",
-    ]
+    pyinstaller_cmd, python_desc = resolve_python_command(
+        project_root,
+        [
+            "-m",
+            "PyInstaller",
+            str(spec_file),
+            "--distpath",
+            str(python_dist_dir),
+            "--workpath",
+            str(python_build_dir),
+            "--noconfirm",
+            "--clean",
+        ],
+    )
+    print(f"Using Python runtime: {python_desc}")
     run_command(pyinstaller_cmd, cwd=str(project_root))
 
     print("\n=== Step 2: Building Electron Frontend & Installer ===")

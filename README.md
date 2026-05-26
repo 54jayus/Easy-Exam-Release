@@ -79,19 +79,20 @@ Set-Location ..
 python -m pip install -r backend/requirements.txt
 ```
 
-### 3. 配置开发态 Python 路径
+### 3. 配置本机运行环境
 
-开发环境通常通过 `frontend/.env.development` 指定 Python：
+开发运行、测试命令与打包时使用的 Python 环境统一读取仓库根目录的运行时配置：
 
-```env
-VITE_PYTHON_PATH=D:/Anaconda3/envs/exam_scheduler/python.exe
+- 模板文件：`.env.runtime.example`
+- 本机文件：`.env.runtime.local`（不提交）
+
+首次使用时，请先在仓库根目录复制模板文件：
+
+```powershell
+Copy-Item .env.runtime.example .env.runtime.local
 ```
 
-如果系统环境已可直接调用 `python`，也可以写成：
-
-```env
-VITE_PYTHON_PATH=python
-```
+然后按本机环境修改 `.env.runtime.local`。推荐优先填写 Conda 环境名，而不是写死 Python 绝对路径。
 
 ### 4. 启动开发环境
 
@@ -117,17 +118,13 @@ npm.cmd run electron:build
 后端测试：
 
 ```powershell
-Set-Location ..
-$env:PYTHONPATH='.'
-pytest
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1
 ```
 
-后端自检：
+后端调试：
 
 ```powershell
-Set-Location ..
-$env:PYTHONPATH='.'
-python -m backend.selfcheck
+powershell -ExecutionPolicy Bypass -File .\tools\run-backend.ps1
 ```
 
 一键打包：
@@ -172,12 +169,11 @@ python package.py
 
 它会串联两步：
 
-1. 使用 `frontend/engine.spec` 通过 PyInstaller 构建 Python sidecar
+1. 按 `.env.runtime.local` 解析出的运行环境，通过 `frontend/engine.spec` 构建 Python sidecar
 2. 在 `frontend/` 下执行 `npm.cmd run electron:build` 产出安装包
 
-当前实现还包含两个需要注意的真实约束：
+当前实现仍有一个固定约束：
 
-- `frontend/engine.spec` 内存在本机 Anaconda DLL 的硬编码路径，跨机器打包前需要先核对
 - Electron 产物目录固定为 `frontend/release_v6/`
 
 ## 建议阅读顺序

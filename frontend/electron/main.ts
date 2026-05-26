@@ -15,9 +15,6 @@ if (process.platform === 'win32') {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DEV_PYTHON_PATH =
-  (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
-    ?.VITE_PYTHON_PATH
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -27,6 +24,71 @@ const logPath = app.isPackaged
 
 const LOG_MAX_BYTES = 5 * 1024 * 1024
 const LOG_BACKUPS = 3
+
+type RuntimeConfig = {
+  EXAM_PYTHON_MODE?: string
+  EXAM_CONDA_ENV?: string
+  EXAM_CONDA_EXE?: string
+  EXAM_PYTHON_EXE?: string
+}
+
+function getProjectRoot(): string {
+  return path.resolve(__dirname, '../..')
+}
+
+function parseEnvFile(filePath: string): RuntimeConfig {
+  const result: RuntimeConfig = {}
+  if (!fs.existsSync(filePath)) return result
+  const text = fs.readFileSync(filePath, 'utf-8')
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#')) continue
+    const eqIndex = line.indexOf('=')
+    if (eqIndex <= 0) continue
+    const key = line.slice(0, eqIndex).trim()
+    let value = line.slice(eqIndex + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    }
+    ;(result as Record<string, string>)[key] = value
+  }
+  return result
+}
+
+function loadRuntimeConfig(): RuntimeConfig {
+  const projectRoot = getProjectRoot()
+  const localPath = path.join(projectRoot, '.env.runtime.local')
+  const examplePath = path.join(projectRoot, '.env.runtime.example')
+  if (fs.existsSync(localPath)) return parseEnvFile(localPath)
+  return parseEnvFile(examplePath)
+}
+
+function resolveDevPythonCommand(): { command: string; argsPrefix: string[]; source: string } {
+  const config = loadRuntimeConfig()
+  const explicitPython = String(config.EXAM_PYTHON_EXE || '').trim()
+  if (explicitPython) {
+    return { command: explicitPython, argsPrefix: [], source: 'EXAM_PYTHON_EXE' }
+  }
+
+  const mode = String(config.EXAM_PYTHON_MODE || '').trim().toLowerCase()
+  const condaEnv = String(config.EXAM_CONDA_ENV || '').trim()
+  if (mode === 'conda' || condaEnv) {
+    if (!condaEnv) {
+      throw new Error('运行环境配置缺少 EXAM_CONDA_ENV')
+    }
+    const condaExe = String(config.EXAM_CONDA_EXE || 'conda').trim() || 'conda'
+    return {
+      command: condaExe,
+      argsPrefix: ['run', '--no-capture-output', '-n', condaEnv, 'python'],
+      source: 'conda',
+    }
+  }
+
+  return { command: 'python', argsPrefix: [], source: 'PATH:python' }
+}
 
 function rotateLogsIfNeeded() {
   try {
@@ -328,9 +390,14 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
       const engineCwd = path.join(resourcesPath, 'engine')
       options = { ...(options || {}), cwd: engineCwd }
     } else {
-      // In development, map 'engine' to local python (configure via VITE_PYTHON_PATH in .env.development)
-      finalCommand = DEV_PYTHON_PATH || "python"
-      finalArgs = ['-m', 'backend', ...finalArgs]
+      const resolved = resolveDevPythonCommand()
+      finalCommand = resolved.command
+      finalArgs = [...resolved.argsPrefix, '-m', 'backend', ...finalArgs]
+      log('info', 'python', '开发环境运行配置已生效', {
+        source: resolved.source,
+        command: finalCommand,
+        args: finalArgs,
+      })
     }
   }
 
@@ -470,7 +537,8 @@ ipcMain.on('renderer-log', (_event, entry: any) => {
       const result = await dialog.showOpenDialog(parentWindow as BrowserWindow, {
         properties,
         filters: options?.filters,
-        defaultPath: options?.defaultPath
+        defaultPath: options?.defaultPath,
+        title: options?.title,
       })
 
       if (result.canceled) return null

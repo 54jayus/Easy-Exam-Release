@@ -154,16 +154,15 @@ Help：
 npm.cmd install
 ```
 
-配置 Python 路径：
+Python 运行环境统一读取仓库根目录配置：
 
-```env
-VITE_PYTHON_PATH=D:/Anaconda3/envs/exam_scheduler/python.exe
-```
+- 模板文件：`../.env.runtime.example`
+- 本机文件：`../.env.runtime.local`
 
-如果系统已能直接调用 `python`，也可以写为：
+首次使用时，请在仓库根目录复制模板文件并按本机环境修改。
 
-```env
-VITE_PYTHON_PATH=python
+```powershell
+Copy-Item ..\.env.runtime.example ..\.env.runtime.local
 ```
 
 ## 7. 常用命令
@@ -205,6 +204,7 @@ npm.cmd run electron:build
 - `engine.spec` 会把 Python 后端打成 `engine` sidecar
 - `package.json` 的 Electron 构建产物输出到 `release_v6/`
 - `extraResources` 会把 `python-dist/engine` 打到安装包的 `resources/engine/`
+- `engine.spec` 会根据当前运行环境自动收集所需 DLL，不再写死机器路径
 
 ## 10. 相关文档
 

@@ -25,6 +25,12 @@
              <el-button size="large" round class="!bg-white/50 backdrop-blur" @click="$router.push('/help')">
                使用指南
              </el-button>
+             <el-button size="large" round class="!bg-white/50 backdrop-blur" @click="handleExportState">
+               导出当前方案
+             </el-button>
+             <el-button size="large" round class="!bg-white/50 backdrop-blur" @click="handleImportState">
+               导入方案
+             </el-button>
              
              <el-popconfirm
                 title="确定要清空所有数据并重置系统吗？此操作不可恢复。"
@@ -150,6 +156,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, onUnmounted, markRaw } from 'vue'
+import { useRouter } from 'vue-router'
 import { 
   Timer, Notebook, User, School, Printer, 
   ArrowRight, Check, ChatDotRound, Delete 
@@ -158,9 +165,11 @@ import { pythonBackend } from '../lib/pythonBackend'
 import { useLicenseStore } from '../stores/license'
 import { resetFrontendCaches } from '../composables/useAppCacheControl'
 import { createUiFeedback, formatActionError, formatActionSuccess } from '../lib/uiFeedback'
+import { open, saveAndRun } from '../lib/dialog'
 
 const licenseStore = useLicenseStore()
 const feedback = createUiFeedback()
+const router = useRouter()
 
 const iconMap: Record<string, any> = {
   'Notebook': markRaw(Notebook),
@@ -184,6 +193,16 @@ const countdown = reactive({
 })
 
 let timer: any = null
+
+const buildStateExportFilename = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  return `考试方案_${year}-${month}-${day}_${hours}-${minutes}.examstate`
+}
 
 const updateCountdown = async () => {
   try {
@@ -347,6 +366,56 @@ const handleReset = async () => {
     await updateCountdown()
   } catch (e: any) {
     feedback.error(formatActionError('重置系统数据', e))
+  }
+}
+
+const handleExportState = async () => {
+  await saveAndRun({
+    dialog: {
+      title: '导出当前方案',
+      filters: [{ name: 'Exam State Files', extensions: ['examstate'] }],
+      defaultPath: buildStateExportFilename(),
+    },
+    run: async (path) => {
+      return await pythonBackend.request('system.exportState', { path })
+    },
+    successText: '方案已保存',
+    errorText: '导出方案失败',
+    openFolderTitle: '方案导出成功',
+  })
+}
+
+const handleImportState = async () => {
+  const selected = await open({
+    title: '导入方案',
+    multiple: false,
+    filters: [
+      { name: 'Exam State Files', extensions: ['examstate'] },
+      { name: 'JSON Files', extensions: ['json'] },
+    ],
+  })
+  if (!selected || Array.isArray(selected)) return
+
+  try {
+    await feedback.confirmWarning({
+      message: '导入后将覆盖当前系统全部数据，是否继续？',
+      title: '导入方案',
+      confirmButtonText: '继续导入',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  try {
+    await pythonBackend.request('system.importState', { path: selected })
+    resetFrontendCaches()
+    await router.replace('/')
+    await loadStats()
+    await updateCountdown()
+    feedback.success(formatActionSuccess('导入方案'))
+  } catch (e: any) {
+    feedback.error(formatActionError('导入方案', e))
   }
 }
 

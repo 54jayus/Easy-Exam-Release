@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
+import sys
 
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
@@ -21,16 +22,29 @@ except Exception:
     ortools_datas = []
     ortools_binaries = []
 
+
+def _build_env_binaries():
+    env_bin_dir = os.path.join(sys.prefix, "Library", "bin")
+    dll_names = [
+        "ffi.dll",
+        "libcrypto-3-x64.dll",
+        "libssl-3-x64.dll",
+        "libexpat.dll",
+    ]
+    binaries = []
+    for dll_name in dll_names:
+        candidate = os.path.join(env_bin_dir, dll_name)
+        if os.path.exists(candidate):
+            binaries.append((candidate, "."))
+    return binaries
+
+
+env_binaries = _build_env_binaries()
+
 a = Analysis(
     [os.path.join(project_root, "backend", "__main__.py")],
     pathex=[project_root],
-    binaries=[
-        ("D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\ffi.dll", "."),
-        ("D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libcrypto-3-x64.dll", "."),
-        ("D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libssl-3-x64.dll", "."),
-        ("D:\\ANACONDA\\envs\\exam_scheduler\\Library\\bin\\libexpat.dll", "."),
-    ]
-    + ortools_binaries,
+    binaries=env_binaries + ortools_binaries,
     datas=[
         (os.path.join(project_root, "backend", "resources"), "backend/resources"),
         (os.path.join(project_root, "\u4f7f\u7528\u8bf4\u660e\u4e66.pdf"), "."),

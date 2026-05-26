@@ -24,6 +24,30 @@ class SystemService:
         self._repo.delete()
         return {"success": True}
 
+    def export_state(self, params: dict) -> Any:
+        path = str(params.get("path") or "").strip()
+        if not path:
+            raise ValueError("缺少导出路径")
+        self._repo.export_to(path, self._state)
+        return {"success": True}
+
+    def import_state(self, params: dict) -> Any:
+        path = str(params.get("path") or "").strip()
+        if not path:
+            raise ValueError("缺少导入路径")
+
+        imported_state = AppState()
+        self._repo.import_from(path, imported_state)
+
+        self._state.subjects = imported_state.subjects
+        self._state.proctoring = imported_state.proctoring
+        self._state.rooms = imported_state.rooms
+        self._state.printing = imported_state.printing
+        self._state.exam_arrangement = None
+
+        self._repo.save(self._state)
+        return {"success": True}
+
     def get_help_manual(self, _params: dict) -> Any:
         try:
             if hasattr(sys, "_MEIPASS"):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from backend.domain.state import AppState
 from backend.repository.state_repository import (
@@ -29,6 +30,32 @@ def test_state_repository_delete_removes_persisted_file(tmp_path) -> None:
     repo.delete()
 
     assert state_file.exists() is False
+
+
+def test_state_repository_import_rejects_invalid_json_without_mutating_state(tmp_path) -> None:
+    state_file = tmp_path / "grade1.examstate"
+    state_file.write_text("{invalid json", encoding="utf-8")
+    repo = StateRepository(str(tmp_path / "state.json"))
+    state = AppState()
+    state.subjects = [{"id": "keep"}]
+
+    with pytest.raises(Exception):
+        repo.import_from(str(state_file), state)
+
+    assert state.subjects == [{"id": "keep"}]
+
+
+def test_state_repository_import_rejects_invalid_document_without_mutating_state(tmp_path) -> None:
+    state_file = tmp_path / "grade1.examstate"
+    state_file.write_text('{"version":"1.0.0","state":[]}', encoding="utf-8")
+    repo = StateRepository(str(tmp_path / "state.json"))
+    state = AppState()
+    state.subjects = [{"id": "keep"}]
+
+    with pytest.raises(ValueError, match="格式无效"):
+        repo.import_from(str(state_file), state)
+
+    assert state.subjects == [{"id": "keep"}]
 
 
 def test_gaokao_result_helpers_preserve_non_empty_frames_and_empty_markers() -> None:

@@ -19,3 +19,18 @@ class IStateRepository(ABC):
     def load(self, state: AppState) -> None:
         """加载应用状态"""
         pass
+
+    @abstractmethod
+    def delete(self) -> None:
+        """删除持久化状态"""
+        pass
+
+    @abstractmethod
+    def export_to(self, path: str, state: AppState) -> None:
+        """导出当前状态到指定文件"""
+        pass
+
+    @abstractmethod
+    def import_from(self, path: str, state: AppState) -> None:
+        """从指定文件导入状态"""
+        pass
