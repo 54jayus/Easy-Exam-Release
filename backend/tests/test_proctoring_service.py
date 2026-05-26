@@ -851,6 +851,58 @@ def test_generate_schedule_cp_sat_uses_regular_teacher_count_objectives_when_spe
     assert result["meta"]["countBalanceConstraintScope"] == "regular_teachers"
 
 
+def test_generate_schedule_cp_sat_prioritizes_consecutive_preference_before_room_repeat(
+    recording_repo,
+) -> None:
+    state = AppState()
+    state.subjects = [
+        {
+            "name": "Subject A",
+            "exam_date": "2026-06-01",
+            "exam_time": "09:00-10:00",
+            "duration_minutes": 60,
+            "room_count": 2,
+        },
+        {
+            "name": "Subject B",
+            "exam_date": "2026-06-01",
+            "exam_time": "10:30-11:30",
+            "duration_minutes": 60,
+            "room_count": 2,
+        },
+    ]
+    service = ProctoringService(state, recording_repo)
+
+    result = service.generate_schedule(
+        {
+            "teachers": [
+                {"name": "Teacher A", "gender": "M", "isInternal": True, "maxSessions": 2},
+                {"name": "Teacher B", "gender": "F", "isInternal": False, "maxSessions": 2},
+                {"name": "Teacher C", "gender": "F", "isInternal": True, "maxSessions": 2},
+                {"name": "Teacher D", "gender": "M", "isInternal": False, "maxSessions": 2},
+            ],
+            "subjects": [
+                {"id": "1", "name": "Subject A", "roomCount": 2},
+                {"id": "2", "name": "Subject B", "roomCount": 2},
+            ],
+            "config": {
+                "roomCount": 2,
+                "mode": "single",
+                "balanceMode": "duration",
+                "roomRepeatPreference": "fixed",
+                "avoidConsecutiveSessions": True,
+                "cpSatProgressIntervalSeconds": 0.1,
+            },
+        }
+    )
+
+    stage_names = [stage["name"] for stage in result["optimizationDetails"]["stages"]]
+    assert stage_names[-2:] == [
+        "minimize_consecutive_sessions",
+        "minimize_distinct_rooms",
+    ]
+
+
 def test_start_solver_job_returns_pollable_status_and_result(recording_repo) -> None:
     state = AppState()
     state.subjects = [

@@ -70,6 +70,11 @@ def _build_objective_stages(
     else:
         stages = duration_stages
 
+    if consecutive_total is not None:
+        stages.append(
+            {"name": "minimize_consecutive_sessions", "expr": consecutive_total, "maximize": False}
+        )
+
     normalized_room_preference = (room_repeat_preference or "").strip().lower()
     if room_usage_total is not None:
         if normalized_room_preference in {"high", "same", "prefer_same", "fixed"}:
@@ -80,10 +85,5 @@ def _build_objective_stages(
             stages.append(
                 {"name": "maximize_distinct_rooms", "expr": room_usage_total, "maximize": True}
             )
-
-    if consecutive_total is not None:
-        stages.append(
-            {"name": "minimize_consecutive_sessions", "expr": consecutive_total, "maximize": False}
-        )
 
     return stages
