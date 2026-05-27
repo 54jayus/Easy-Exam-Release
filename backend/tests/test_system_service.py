@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 
 from backend.application.system_service import SystemService
+from backend.application.update_guard import UpdateGuard
 from backend.domain.models import PrintingConfig
 from backend.domain.state import AppState
 from backend.repository.state_repository import StateRepository
@@ -99,3 +100,40 @@ def test_system_import_state_failure_does_not_mutate_current_state(tmp_path) -> 
         pass
 
     assert state.subjects == [{"name": "保留方案"}]
+
+
+def test_system_get_update_guard_status_returns_guard_snapshot(recording_repo) -> None:
+    guard = UpdateGuard(
+        current_version="3.4.1",
+        fetch_json=lambda _url: {
+            "enabled": True,
+            "version": "3.5.0",
+            "minSupportedVersion": "3.4.5",
+            "mandatory": True,
+            "url": "https://example.com/setup.exe",
+        },
+    )
+    guard.refresh()
+    service = SystemService(AppState(), recording_repo, update_guard=guard)
+
+    result = service.get_update_guard_status({})
+
+    assert result["locked"] is True
+    assert result["requiredVersion"] == "3.4.5"
+
+
+def test_system_refresh_update_guard_reloads_status(recording_repo) -> None:
+    payload = {
+        "enabled": True,
+        "version": "3.5.0",
+        "minSupportedVersion": "3.4.5",
+        "mandatory": True,
+        "url": "https://example.com/setup.exe",
+    }
+    guard = UpdateGuard(current_version="3.4.1", fetch_json=lambda _url: payload)
+    service = SystemService(AppState(), recording_repo, update_guard=guard)
+
+    result = service.refresh_update_guard({})
+
+    assert result["checked"] is True
+    assert result["locked"] is True

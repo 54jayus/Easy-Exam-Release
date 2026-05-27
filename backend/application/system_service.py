@@ -7,12 +7,14 @@ from typing import Any
 from backend.domain.models import PrintingConfig
 from backend.domain.state import AppState
 from backend.repository.interfaces import IStateRepository
+from .update_guard import UpdateGuard
 
 
 class SystemService:
-    def __init__(self, state: AppState, repo: IStateRepository):
+    def __init__(self, state: AppState, repo: IStateRepository, update_guard: UpdateGuard | None = None):
         self._state = state
         self._repo = repo
+        self._update_guard = update_guard
 
     def reset_data(self, _params: dict) -> Any:
         from backend.domain.state import ProctoringState, RoomsState
@@ -71,3 +73,28 @@ class SystemService:
             return {"content": content}
         except Exception as e:
             return {"error": f"读取说明书失败: {str(e)}"}
+
+    def get_update_guard_status(self, _params: dict) -> Any:
+        if not self._update_guard:
+            return {
+                "checked": True,
+                "locked": False,
+                "currentVersion": "",
+                "latestVersion": "",
+                "requiredVersion": "",
+                "minSupportedVersion": "",
+                "mandatory": False,
+                "downloadUrl": "",
+                "releaseDate": "",
+                "notes": [],
+                "enabled": False,
+                "sourceUrl": "",
+                "checkedAt": "",
+                "errorMessage": "更新门禁未初始化",
+            }
+        return self._update_guard.get_status()
+
+    def refresh_update_guard(self, _params: dict) -> Any:
+        if not self._update_guard:
+            return self.get_update_guard_status({})
+        return self._update_guard.refresh()

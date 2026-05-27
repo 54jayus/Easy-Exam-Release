@@ -17,6 +17,44 @@ export type RpcMethods = {
     params: {}
     result: { content: string }
   }
+  "system.getUpdateGuardStatus": {
+    params: {}
+    result: {
+      checked: boolean
+      locked: boolean
+      currentVersion: string
+      latestVersion: string
+      requiredVersion: string
+      minSupportedVersion: string
+      mandatory: boolean
+      downloadUrl: string
+      releaseDate: string
+      notes: string[]
+      enabled: boolean
+      sourceUrl: string
+      checkedAt: string
+      errorMessage: string
+    }
+  }
+  "system.refreshUpdateGuard": {
+    params: {}
+    result: {
+      checked: boolean
+      locked: boolean
+      currentVersion: string
+      latestVersion: string
+      requiredVersion: string
+      minSupportedVersion: string
+      mandatory: boolean
+      downloadUrl: string
+      releaseDate: string
+      notes: string[]
+      enabled: boolean
+      sourceUrl: string
+      checkedAt: string
+      errorMessage: string
+    }
+  }
 
   // Licensing
   "licensing.machineCode": {

@@ -481,6 +481,7 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
 
   try {
     const finalEnv = { ...process.env, ...options?.env }
+    finalEnv.EASY_EXAM_APP_VERSION = app.getVersion()
     if (!finalEnv.EXAMFLOW_DATA_DIR && !finalEnv.EXAMDESK_DATA_DIR) {
       const userData = app.getPath('userData')
       finalEnv.EXAMFLOW_DATA_DIR = userData

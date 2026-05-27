@@ -29,6 +29,23 @@ export type ForceUpdateSnapshot = {
   url: string
 }
 
+export type BackendUpdateGuardStatus = {
+  checked: boolean
+  locked: boolean
+  currentVersion: string
+  latestVersion: string
+  requiredVersion: string
+  minSupportedVersion: string
+  mandatory: boolean
+  downloadUrl: string
+  releaseDate: string
+  notes: string[]
+  enabled: boolean
+  sourceUrl: string
+  checkedAt: string
+  errorMessage: string
+}
+
 export function compareVersions(left: string, right: string): number {
   const leftParts = String(left || '')
     .split('.')

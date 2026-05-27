@@ -5,6 +5,7 @@ from .rooms_service import RoomsService
 from .printing_service import PrintingService
 from .system_service import SystemService
 from .dashboard_service import DashboardService
+from .update_guard import UpdateGuard
 
 __all__ = [
     "SubjectsService",
@@ -14,4 +15,5 @@ __all__ = [
     "PrintingService",
     "SystemService",
     "DashboardService",
+    "UpdateGuard",
 ]

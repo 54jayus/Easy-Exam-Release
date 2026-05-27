@@ -19,6 +19,7 @@ from backend.application import (
     PrintingService,
     SystemService,
     DashboardService,
+    UpdateGuard,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,12 +49,25 @@ def _reply_err(message: str) -> dict[str, Any]:
     return {"ok": False, "error": message}
 
 
-def build_dispatcher() -> RpcDispatcher:
+ALLOWED_METHODS_DURING_FORCE_UPDATE = {
+    "system.getUpdateGuardStatus",
+    "system.refreshUpdateGuard",
+    "system.exportState",
+    "system.getHelpManual",
+    "licensing.machineCode",
+    "licensing.verify",
+    "licensing.register",
+}
+
+
+def build_dispatcher() -> tuple[RpcDispatcher, UpdateGuard]:
     """构建 RPC 调度器"""
     # 构建依赖
     state = AppState()
     repo = StateRepository(_get_state_file())
     repo.load(state)
+    update_guard = UpdateGuard()
+    update_guard.refresh()
 
     # 创建 Services
     subjects_svc = SubjectsService(state, repo)
@@ -61,7 +75,7 @@ def build_dispatcher() -> RpcDispatcher:
     proctoring_svc = ProctoringService(state, repo)
     rooms_svc = RoomsService(state, repo)
     printing_svc = PrintingService(state, repo)
-    system_svc = SystemService(state, repo)
+    system_svc = SystemService(state, repo, update_guard=update_guard)
     dashboard_svc = DashboardService(state)
 
     # 注册路由
@@ -72,6 +86,8 @@ def build_dispatcher() -> RpcDispatcher:
     dispatcher.register("system.exportState", system_svc.export_state)
     dispatcher.register("system.importState", system_svc.import_state)
     dispatcher.register("system.getHelpManual", system_svc.get_help_manual)
+    dispatcher.register("system.getUpdateGuardStatus", system_svc.get_update_guard_status)
+    dispatcher.register("system.refreshUpdateGuard", system_svc.refresh_update_guard)
 
     # Licensing
     dispatcher.register("licensing.machineCode", licensing_svc.machine_code)
@@ -128,7 +144,7 @@ def build_dispatcher() -> RpcDispatcher:
     dispatcher.register("printing.previewPdf", printing_svc.preview_pdf)
     dispatcher.register("printing.generate", printing_svc.generate)
 
-    return dispatcher
+    return dispatcher, update_guard
 
 
 def main() -> int:
@@ -144,7 +160,7 @@ def main() -> int:
             pass
 
     stdin_buffer = sys.stdin.buffer
-    dispatcher = build_dispatcher()
+    dispatcher, update_guard = build_dispatcher()
 
     while True:
         try:
@@ -188,6 +204,7 @@ def main() -> int:
             continue
 
         try:
+            update_guard.ensure_allowed(method, ALLOWED_METHODS_DURING_FORCE_UPDATE)
             result = dispatcher.dispatch(method, params)
             reply = _reply_ok(result)
             if req_id is not None:

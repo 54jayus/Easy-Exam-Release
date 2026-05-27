@@ -295,7 +295,17 @@ export class PythonBackendClient {
         typeof rawError === 'string'
           ? rawError
           : (rawError?.message || rawError?.code || JSON.stringify(rawError))
-      pending.reject(new Error(message))
+      const error = new Error(message) as Error & {
+        code?: string | number
+        details?: Record<string, unknown>
+        raw?: unknown
+      }
+      if (rawError && typeof rawError === 'object') {
+        error.code = rawError.code
+        error.details = rawError.details
+        error.raw = rawError
+      }
+      pending.reject(error)
     }
   }
 }

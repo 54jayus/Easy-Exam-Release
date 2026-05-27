@@ -1,6 +1,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { createUiFeedback, formatActionError } from '@/lib/uiFeedback'
 import {
+  type BackendUpdateGuardStatus,
   compareVersions,
   type ForceUpdateSnapshot,
   type UpdateCheckResult,
@@ -18,6 +19,15 @@ const MOCK_UPDATE_PREVIEW_NOTES = [
 ]
 const MOCK_UPDATE_PREVIEW_URL = `mock://easy-exam/EasyExam-Setup-${MOCK_UPDATE_PREVIEW_VERSION}.exe`
 const MOCK_UPDATE_PREVIEW_FILE_PATH = `mock-preview/EasyExam-Setup-${MOCK_UPDATE_PREVIEW_VERSION}.exe`
+const MOCK_FORCE_UPDATE_PREVIEW_VERSION = '3.5.9001'
+const MOCK_FORCE_UPDATE_PREVIEW_DATE = '2026-06-08'
+const MOCK_FORCE_UPDATE_PREVIEW_NOTES = [
+  '演示强制更新遮罩层：检测到目标版本后，未升级前限制继续使用软件。',
+  '演示强制更新下载与安装状态流转，便于验证按钮、提示语与交互顺序。',
+  '演示强制更新恢复逻辑，确保重新打开应用后仍能保持升级限制。',
+]
+const MOCK_FORCE_UPDATE_PREVIEW_URL = `mock://easy-exam/EasyExam-Setup-${MOCK_FORCE_UPDATE_PREVIEW_VERSION}.exe`
+const MOCK_FORCE_UPDATE_PREVIEW_FILE_PATH = `mock-preview/EasyExam-Setup-${MOCK_FORCE_UPDATE_PREVIEW_VERSION}.exe`
 
 function loadForceUpdateSnapshot(): ForceUpdateSnapshot | null {
   const raw = localStorage.getItem(FORCE_UPDATE_STORAGE_KEY)
@@ -68,8 +78,12 @@ export function useAppUpdate() {
   const updateHistory = ref<UpdateHistoryEntry[]>([])
   const showAllNotes = ref(false)
   const mockUpdatePreviewActive = ref(false)
+  const mockForceUpdatePreviewActive = ref(false)
+  const backendGuardForceUpdateActive = ref(false)
   const forceUpdateActive = ref(false)
   const forceUpdateMeta = ref<ForceUpdateSnapshot | null>(null)
+
+  const isMockPreviewRunning = () => mockUpdatePreviewActive.value || mockForceUpdatePreviewActive.value
 
   const createForceUpdateSnapshotFromResult = (result: UpdateCheckResult): ForceUpdateSnapshot | null => {
     const version = typeof result.latestVersion === 'string' ? result.latestVersion.trim() : ''
@@ -83,6 +97,7 @@ export function useAppUpdate() {
   }
 
   const clearForceUpdateState = (clearPersisted = true) => {
+    backendGuardForceUpdateActive.value = false
     forceUpdateActive.value = false
     forceUpdateMeta.value = null
     if (clearPersisted) {
@@ -137,33 +152,52 @@ export function useAppUpdate() {
     return true
   }
 
-  const createMockUpdateResult = (): UpdateCheckResult => ({
-    currentVersion: currentVersion.value,
-    latestVersion: MOCK_UPDATE_PREVIEW_VERSION,
-    hasUpdate: true,
-    enabled: true,
-    releaseDate: MOCK_UPDATE_PREVIEW_DATE,
-    notes: [...MOCK_UPDATE_PREVIEW_NOTES],
-    mandatory: false,
-    url: MOCK_UPDATE_PREVIEW_URL,
-    downloadedFilePath:
-      updateStatus.value === 'downloaded' && downloadedFilePath.value
-        ? downloadedFilePath.value
-        : null,
-  })
+  const createMockUpdateResult = (mandatory = false): UpdateCheckResult => {
+    const version = mandatory ? MOCK_FORCE_UPDATE_PREVIEW_VERSION : MOCK_UPDATE_PREVIEW_VERSION
+    return {
+      currentVersion: currentVersion.value,
+      latestVersion: version,
+      hasUpdate: true,
+      enabled: true,
+      releaseDate: mandatory ? MOCK_FORCE_UPDATE_PREVIEW_DATE : MOCK_UPDATE_PREVIEW_DATE,
+      notes: mandatory ? [...MOCK_FORCE_UPDATE_PREVIEW_NOTES] : [...MOCK_UPDATE_PREVIEW_NOTES],
+      mandatory,
+      url: mandatory ? MOCK_FORCE_UPDATE_PREVIEW_URL : MOCK_UPDATE_PREVIEW_URL,
+      downloadedFilePath:
+        updateStatus.value === 'downloaded' && downloadedFilePath.value
+          ? downloadedFilePath.value
+          : null,
+    }
+  }
 
-  const createMockUpdateHistoryEntry = (): UpdateHistoryEntry => ({
-    version: MOCK_UPDATE_PREVIEW_VERSION,
-    title: `Easy Exam.v${MOCK_UPDATE_PREVIEW_VERSION}`,
-    releaseDate: MOCK_UPDATE_PREVIEW_DATE,
-    notes: [...MOCK_UPDATE_PREVIEW_NOTES],
-    url: MOCK_UPDATE_PREVIEW_URL,
-    releasePageUrl: '',
-  })
+  const createForceUpdateSnapshotFromBackendStatus = (
+    status: BackendUpdateGuardStatus
+  ): ForceUpdateSnapshot | null => {
+    const version = String(status.requiredVersion || status.latestVersion || '').trim()
+    if (!version) return null
+    return {
+      version,
+      releaseDate: String(status.releaseDate || '').trim(),
+      notes: Array.isArray(status.notes) ? [...status.notes] : [],
+      url: String(status.downloadUrl || '').trim(),
+    }
+  }
+
+  const createMockUpdateHistoryEntry = (mandatory = false): UpdateHistoryEntry => {
+    const version = mandatory ? MOCK_FORCE_UPDATE_PREVIEW_VERSION : MOCK_UPDATE_PREVIEW_VERSION
+    return {
+      version,
+      title: `Easy Exam.v${version}`,
+      releaseDate: mandatory ? MOCK_FORCE_UPDATE_PREVIEW_DATE : MOCK_UPDATE_PREVIEW_DATE,
+      notes: mandatory ? [...MOCK_FORCE_UPDATE_PREVIEW_NOTES] : [...MOCK_UPDATE_PREVIEW_NOTES],
+      url: mandatory ? MOCK_FORCE_UPDATE_PREVIEW_URL : MOCK_UPDATE_PREVIEW_URL,
+      releasePageUrl: '',
+    }
+  }
 
   const mergeMockUpdateHistory = (entries: UpdateHistoryEntry[]) => {
-    if (!mockUpdatePreviewActive.value) return entries
-    const mockEntry = createMockUpdateHistoryEntry()
+    if (!isMockPreviewRunning()) return entries
+    const mockEntry = createMockUpdateHistoryEntry(mockForceUpdatePreviewActive.value)
     return [mockEntry, ...entries.filter((entry) => entry.version !== mockEntry.version)]
   }
 
@@ -430,6 +464,14 @@ export function useAppUpdate() {
   )
 
   const applyUpdateResult = (result: UpdateCheckResult, manual: boolean) => {
+    if (backendGuardForceUpdateActive.value && !result.mandatory) {
+      currentVersion.value = result.currentVersion || currentVersion.value
+      if (manual) {
+        feedback.warning('当前版本已被后端强制更新门禁限制，请先升级后再继续使用。', { toast: true })
+      }
+      return
+    }
+
     showAllNotes.value = false
     currentVersion.value = result.currentVersion || currentVersion.value
     latestVersion.value = result.latestVersion || ''
@@ -489,6 +531,8 @@ export function useAppUpdate() {
   const activateMockUpdatePreview = async () => {
     const hadLoadedHistory = historyLoaded.value
     mockUpdatePreviewActive.value = true
+    mockForceUpdatePreviewActive.value = false
+    backendGuardForceUpdateActive.value = false
     clearForceUpdateState(false)
     historyError.value = ''
     showHistoryPanel.value = false
@@ -503,7 +547,59 @@ export function useAppUpdate() {
     feedback.success('已切换到新版本更新预演模式', { toast: true })
   }
 
+  const applyBackendUpdateGuardStatus = (
+    status: BackendUpdateGuardStatus,
+    options?: { persist?: boolean; message?: string }
+  ) => {
+    if (!status?.locked) {
+      if (forceUpdateActive.value && !mockForceUpdatePreviewActive.value) {
+        clearForceUpdateState(options?.persist !== false)
+      }
+      return
+    }
+
+    backendGuardForceUpdateActive.value = true
+    const snapshot = createForceUpdateSnapshotFromBackendStatus(status)
+    if (!snapshot) return
+    if (options?.persist !== false) {
+      persistForceUpdateSnapshot(snapshot)
+    }
+    applyForceUpdateSnapshot(snapshot, {
+      keepStatus: true,
+      message:
+        options?.message ||
+        '后端已启用强制更新门禁，请先完成升级后再继续使用软件。',
+    })
+    updateStatus.value = downloadedFilePath.value ? 'downloaded' : snapshot.url ? 'available' : 'error'
+  }
+
+  const activateMockForceUpdatePreview = async () => {
+    const hadLoadedHistory = historyLoaded.value
+    mockUpdatePreviewActive.value = false
+    mockForceUpdatePreviewActive.value = true
+    backendGuardForceUpdateActive.value = false
+    historyError.value = ''
+    showHistoryPanel.value = false
+    updateStatusMessage.value = '当前为开发者强制更新预演模式，下载与安装均不会触发真实更新。'
+    applyUpdateResult(createMockUpdateResult(true), true)
+    clearForceUpdateSnapshot()
+    if (hadLoadedHistory) {
+      updateHistory.value = mergeMockUpdateHistory(updateHistory.value)
+      historyLoaded.value = true
+    } else {
+      historyLoaded.value = false
+    }
+    feedback.success('已切换到强制更新预演模式', { toast: true })
+  }
+
   const runUpdateCheck = async (manual: boolean) => {
+    if (mockForceUpdatePreviewActive.value) {
+      applyUpdateResult(createMockUpdateResult(true), manual)
+      clearForceUpdateSnapshot()
+      updateStatusMessage.value = '当前为开发者强制更新预演模式，下载与安装均不会触发真实更新。'
+      return
+    }
+
     if (mockUpdatePreviewActive.value) {
       applyUpdateResult(createMockUpdateResult(), manual)
       updateStatusMessage.value = '当前为开发者预演模式，下载与安装均不会触发真实更新。'
@@ -606,19 +702,25 @@ export function useAppUpdate() {
       return
     }
 
-    if (mockUpdatePreviewActive.value) {
+    if (isMockPreviewRunning()) {
       showUpdateDialog.value = true
       updateStatus.value = 'downloading'
-      updateStatusMessage.value = '正在模拟下载过程，不会请求真实安装包。'
+      updateStatusMessage.value = mockForceUpdatePreviewActive.value
+        ? '正在模拟强制更新下载过程，不会请求真实安装包。'
+        : '正在模拟下载过程，不会请求真实安装包。'
       downloadProgress.value = 0
       for (const percent of [9, 23, 41, 58, 76, 92, 100]) {
         await wait(180)
         downloadProgress.value = percent
       }
-      downloadedFilePath.value = MOCK_UPDATE_PREVIEW_FILE_PATH
+      downloadedFilePath.value = mockForceUpdatePreviewActive.value
+        ? MOCK_FORCE_UPDATE_PREVIEW_FILE_PATH
+        : MOCK_UPDATE_PREVIEW_FILE_PATH
       updateStatus.value = 'downloaded'
-      updateStatusMessage.value = '模拟下载已完成，可以继续预览安装确认交互。'
-      feedback.success('模拟下载完成，可以继续预览安装流程')
+      updateStatusMessage.value = mockForceUpdatePreviewActive.value
+        ? '模拟强制更新下载已完成，可以继续预览安装确认交互。'
+        : '模拟下载已完成，可以继续预览安装确认交互。'
+      feedback.success(mockForceUpdatePreviewActive.value ? '模拟强制更新下载完成，可以继续预览安装流程' : '模拟下载完成，可以继续预览安装流程')
       return
     }
 
@@ -656,9 +758,11 @@ export function useAppUpdate() {
       return
     }
 
-    if (mockUpdatePreviewActive.value) {
-      updateStatusMessage.value = '本次为开发者预演模式，已跳过真实安装程序启动。'
-      feedback.success('已完成安装交互预演，真实安装未执行')
+    if (isMockPreviewRunning()) {
+      updateStatusMessage.value = mockForceUpdatePreviewActive.value
+        ? '本次为开发者强制更新预演模式，已跳过真实安装程序启动。'
+        : '本次为开发者预演模式，已跳过真实安装程序启动。'
+      feedback.success(mockForceUpdatePreviewActive.value ? '已完成强制更新安装交互预演，真实安装未执行' : '已完成安装交互预演，真实安装未执行')
       return
     }
 
@@ -702,14 +806,16 @@ export function useAppUpdate() {
   }
 
   const resetMockUpdatePreview = async (silent = false) => {
-    const hadMockPreview = mockUpdatePreviewActive.value
+    const hadMockPreview = isMockPreviewRunning()
     mockUpdatePreviewActive.value = false
+    mockForceUpdatePreviewActive.value = false
     downloadProgress.value = 0
     downloadedFilePath.value = ''
     updateStatusMessage.value = ''
 
     if (!hadMockPreview) return
 
+    clearForceUpdateState()
     historyLoaded.value = false
     updateHistory.value = []
     if (showHistoryPanel.value) {
@@ -738,6 +844,7 @@ export function useAppUpdate() {
     updateHistory.value = []
     showAllNotes.value = false
     mockUpdatePreviewActive.value = false
+    mockForceUpdatePreviewActive.value = false
     clearForceUpdateState()
     updateStatus.value = 'idle'
     latestVersion.value = ''
@@ -813,6 +920,7 @@ export function useAppUpdate() {
     updateHistory,
     showAllNotes,
     mockUpdatePreviewActive,
+    mockForceUpdatePreviewActive,
     forceUpdateActive,
     forceUpdateMeta,
     showUpdateBadge,
@@ -833,7 +941,9 @@ export function useAppUpdate() {
     toggleHistoryPanel,
     loadUpdateHistory,
     openReleasePage,
+    applyBackendUpdateGuardStatus,
     activateMockUpdatePreview,
+    activateMockForceUpdatePreview,
     resetMockUpdatePreview,
     closeUpdateDialog,
     toggleShowAllNotes,

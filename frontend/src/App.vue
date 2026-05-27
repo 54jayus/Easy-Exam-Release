@@ -272,18 +272,21 @@
                 </div>
                 <span
                   class="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                  :class="mockUpdatePreviewActive ? 'bg-primary-100 text-primary-700' : 'bg-white text-slate-500 border border-slate-200'"
+                  :class="updatePreviewBadgeClass"
                 >
-                  {{ mockUpdatePreviewActive ? '预演中' : '未启动' }}
+                  {{ updatePreviewBadgeText }}
                 </span>
               </div>
               <div class="mt-3 flex flex-wrap gap-2">
                 <el-button type="primary" size="small" @click="activateMockUpdatePreview">
                   模拟新版本更新
                 </el-button>
+                <el-button type="danger" size="small" @click="activateMockForceUpdatePreview">
+                  模拟强制更新
+                </el-button>
                 <el-button
                   size="small"
-                  :disabled="!mockUpdatePreviewActive"
+                  :disabled="!isAnyUpdatePreviewActive"
                   @click="resetMockUpdatePreview()"
                 >
                   恢复真实更新状态
@@ -364,6 +367,7 @@ import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { createUiFeedback, formatActionError, formatActionSuccess } from '@/lib/uiFeedback'
 import { useLicenseStore } from '@/stores/license'
+import type { BackendUpdateGuardStatus } from '@/types/appUpdate'
 
 dayjs.locale('zh-cn')
 
@@ -389,6 +393,7 @@ const {
   updateHistory,
   showAllNotes,
   mockUpdatePreviewActive,
+  mockForceUpdatePreviewActive,
   forceUpdateActive,
   forceUpdateMeta,
   showUpdateBadge,
@@ -409,7 +414,9 @@ const {
   toggleHistoryPanel,
   loadUpdateHistory,
   openReleasePage,
+  applyBackendUpdateGuardStatus,
   activateMockUpdatePreview,
+  activateMockForceUpdatePreview,
   resetMockUpdatePreview,
   closeUpdateDialog,
   toggleShowAllNotes,
@@ -417,6 +424,23 @@ const {
 } = useAppUpdate()
 
 const canDownload = computed(() => Boolean(updateDownloadUrl.value))
+const isAnyUpdatePreviewActive = computed(
+  () => mockUpdatePreviewActive.value || mockForceUpdatePreviewActive.value
+)
+const updatePreviewBadgeText = computed(() => {
+  if (mockForceUpdatePreviewActive.value) return '强更预演中'
+  if (mockUpdatePreviewActive.value) return '普通预演中'
+  return '未启动'
+})
+const updatePreviewBadgeClass = computed(() => {
+  if (mockForceUpdatePreviewActive.value) {
+    return 'bg-rose-100 text-rose-700'
+  }
+  if (mockUpdatePreviewActive.value) {
+    return 'bg-primary-100 text-primary-700'
+  }
+  return 'bg-white text-slate-500 border border-slate-200'
+})
 
 const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 const showSettings = ref(false)
@@ -527,6 +551,22 @@ const handleLogoTap = () => {
   }
 }
 
+const syncBackendUpdateGuard = async (forceRefresh = false) => {
+  try {
+    const status = await pythonBackend.request(
+      forceRefresh ? 'system.refreshUpdateGuard' : 'system.getUpdateGuardStatus',
+      {}
+    ) as BackendUpdateGuardStatus
+    applyBackendUpdateGuardStatus(status, {
+      message: status.locked
+        ? '后端已启用强制更新门禁，请先完成升级后再继续使用软件。'
+        : undefined,
+    })
+  } catch (error) {
+    console.warn('读取后端更新门禁状态失败', error)
+  }
+}
+
 const enforceProtectedRoute = () => {
   if (forceUpdateActive.value) {
     if (route.path !== '/dashboard') {
@@ -549,7 +589,7 @@ watch(
 
 watch(developerMode, (value) => {
   localStorage.setItem('developer_mode', value ? 'true' : 'false')
-  if (!value && mockUpdatePreviewActive.value) {
+  if (!value && isAnyUpdatePreviewActive.value) {
     void resetMockUpdatePreview(true)
   }
 })
@@ -581,6 +621,8 @@ onMounted(() => {
       console.error('Failed to load profile', error)
     }
   }
+
+  void syncBackendUpdateGuard(false)
 })
 
 const navItems = [
