@@ -94,18 +94,19 @@
           </div>
           <div class="flex items-center gap-1">
             <el-tooltip :content="updateTooltip" placement="top" :show-after="200">
-              <button
-                type="button"
-                class="relative h-9 w-9 rounded-full border transition-all duration-200 flex items-center justify-center"
+              <el-button
+                link
+                class="relative !p-0"
                 :class="updateButtonClass"
                 @click="handleUpdateIconClick"
               >
-                <el-icon :class="updateIconClass"><RefreshRight /></el-icon>
+                <el-icon v-if="updateStatus === 'checking'" class="animate-spin"><Loading /></el-icon>
+                <el-icon v-else><Download /></el-icon>
                 <span
                   v-if="showUpdateBadge"
-                  class="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-primary-950/70 animate-pulse"
+                  class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-primary-900 animate-pulse"
                 />
-              </button>
+              </el-button>
             </el-tooltip>
             <el-button link class="!text-primary-400 hover:!text-white" @click="showSettings = true">
               <el-icon><Setting /></el-icon>
@@ -502,7 +503,7 @@ import { useLicenseStore } from "./stores/license"
 import { useAppCacheControl, resetFrontendCaches } from '@/composables/useAppCacheControl'
 import {
   Notebook, User, School, Printer,
-  QuestionFilled, Setting, DataBoard, Key, Check, Clock, Download, Upload, RefreshRight
+  QuestionFilled, Setting, DataBoard, Key, Check, Clock, Download, Upload, RefreshRight, Loading
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
@@ -759,17 +760,14 @@ const updateTooltip = computed(() => {
 
 const updateButtonClass = computed(() => {
   if (updateStatus.value === 'available' || updateStatus.value === 'downloading' || updateStatus.value === 'downloaded') {
-    return 'border-primary-400/40 bg-primary-500/20 text-white shadow-lg shadow-primary-950/20 hover:bg-primary-500/30'
+    return '!text-amber-400 hover:!text-amber-300'
   }
   if (updateStatus.value === 'checking') {
-    return 'border-primary-300/20 bg-white/10 text-white hover:bg-white/15'
+    return '!text-primary-300 hover:!text-white'
   }
-  return 'border-white/10 bg-white/5 text-primary-300 hover:bg-white/10 hover:text-white'
+  return '!text-primary-400 hover:!text-white'
 })
 
-const updateIconClass = computed(() =>
-  updateStatus.value === 'checking' ? 'animate-spin text-sm' : 'text-sm'
-)
 
 const updateStatusTitle = computed(() => {
   switch (updateStatus.value) {
