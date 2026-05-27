@@ -148,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, onUnmounted, markRaw } from 'vue'
+import { ref, onMounted, reactive, onUnmounted, markRaw, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Timer, Notebook, User, School, Printer,
@@ -156,12 +156,13 @@ import {
 } from '@element-plus/icons-vue'
 import { pythonBackend } from '../lib/pythonBackend'
 import { useLicenseStore } from '../stores/license'
-import { resetFrontendCaches } from '../composables/useAppCacheControl'
+import { resetFrontendCaches, useAppCacheControl } from '../composables/useAppCacheControl'
 import { createUiFeedback, formatActionError, formatActionSuccess } from '../lib/uiFeedback'
 
 const licenseStore = useLicenseStore()
 const feedback = createUiFeedback()
 const router = useRouter()
+const { frontendResetEpoch } = useAppCacheControl()
 
 const iconMap: Record<string, any> = {
   'Notebook': markRaw(Notebook),
@@ -186,10 +187,17 @@ const countdown = reactive({
 
 let timer: any = null
 
+const clearCountdownTimer = () => {
+  if (!timer) return
+  clearInterval(timer)
+  timer = null
+}
+
 const updateCountdown = async () => {
   try {
     const res = await pythonBackend.request('subjects.list')
     if (!res.subjects || res.subjects.length === 0) {
+      clearCountdownTimer()
       countdown.days = '0'
       countdown.time = '无待考科目'
       countdown.targetDate = '请先设置'
@@ -245,15 +253,17 @@ const updateCountdown = async () => {
       }
 
       calculateTime()
-      if (timer) clearInterval(timer)
+      clearCountdownTimer()
       timer = setInterval(calculateTime, 1000)
     } else {
+       clearCountdownTimer()
        countdown.days = '0'
        countdown.time = '无待考科目'
        countdown.targetDate = '已结束'
     }
   } catch (e) {
     console.error("更新倒计时失败", e)
+    clearCountdownTimer()
   }
 }
 
@@ -351,13 +361,23 @@ const handleReset = async () => {
   }
 }
 
+const reloadDashboardData = async () => {
+  await Promise.all([
+    loadStats(),
+    updateCountdown(),
+  ])
+}
+
 onMounted(() => {
-  loadStats()
-  updateCountdown()
+  void reloadDashboardData()
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  clearCountdownTimer()
+})
+
+watch(frontendResetEpoch, () => {
+  void reloadDashboardData()
 })
 </script>
 
