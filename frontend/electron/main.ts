@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
+import { AppUpdater, type UpdateCheckReason } from './updater'
 
 // Set stdout/stderr encoding to UTF-8 for Windows
 if (process.platform === 'win32') {
@@ -197,6 +198,7 @@ process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
 let win: BrowserWindow | null
+let pythonProcess: ChildProcess | null = null
 
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
@@ -291,6 +293,39 @@ function createWindow() {
   })
 }
 
+function getMainWindow(): BrowserWindow | null {
+  return win && !win.isDestroyed() ? win : null
+}
+
+function stopPythonProcess() {
+  if (!pythonProcess) return
+  try {
+    pythonProcess.kill()
+  } catch (error) {
+    log('warn', 'python', '停止后端进程时出现异常', {
+      message: error instanceof Error ? error.message : String(error),
+    })
+  } finally {
+    pythonProcess = null
+  }
+}
+
+async function prepareForInstall() {
+  log('info', 'updater', '准备启动安装包，开始关闭后台进程')
+  stopPythonProcess()
+  for (const browserWindow of BrowserWindow.getAllWindows()) {
+    if (!browserWindow.isDestroyed()) {
+      browserWindow.hide()
+    }
+  }
+}
+
+const updater = new AppUpdater({
+  getWindow: getMainWindow,
+  log,
+  prepareForInstall,
+})
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
@@ -298,9 +333,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
     // Ensure python process is killed
-    if (pythonProcess) {
-      pythonProcess.kill()
-    }
+    stopPythonProcess()
   }
 })
 
@@ -370,8 +403,38 @@ ipcMain.handle('open_external', async (_, url) => {
   }
 })
 
+ipcMain.handle('update:getCurrentVersion', () => {
+  return updater.getCurrentVersion()
+})
+
+ipcMain.handle('update:getHistory', async () => {
+  return updater.getHistory()
+})
+
+ipcMain.handle('update:check', async (_, payload?: { reason?: UpdateCheckReason }) => {
+  const reason = payload?.reason === 'startup' ? 'startup' : 'manual'
+  try {
+    return await updater.check(reason)
+  } catch (error) {
+    if (reason === 'startup') {
+      log('warn', 'updater', '启动静默检查更新失败，已忽略本次异常', {
+        message: error instanceof Error ? error.message : String(error),
+      })
+      return updater.buildCheckFailureResult(error)
+    }
+    throw error
+  }
+})
+
+ipcMain.handle('update:startDownload', async () => {
+  return updater.startDownload()
+})
+
+ipcMain.handle('update:installDownloaded', async () => {
+  return updater.installDownloaded()
+})
+
 // Python Process Management
-let pythonProcess: ChildProcess | null = null
 
 ipcMain.handle('spawn_python', (_, { command, args, options }) => {
   log('info', 'python', '收到启动请求', { command, args })
@@ -483,10 +546,7 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
 })
 
 ipcMain.handle('kill_python', () => {
-  if (pythonProcess) {
-    pythonProcess.kill()
-    pythonProcess = null
-  }
+  stopPythonProcess()
   return true
 })
 

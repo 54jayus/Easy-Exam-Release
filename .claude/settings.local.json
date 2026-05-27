@@ -30,7 +30,14 @@
       "Bash(git push:*)",
       "Bash(cd frontend:*)",
       "Bash(cd:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "mcp__MiniMax__understand_image",
+      "Bash(C:\\\\Users\\\\Administrator\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\scripts\\\\start-server.sh *)",
+      "PowerShell(node \"C:\\\\Users\\\\Administrator\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\skills\\\\brainstorming\\\\scripts\\\\server.cjs\" --project-dir \"D:\\\\coding make work easy\\\\Easy-Exam\")",
+      "PowerShell(node \"C:\\\\Users\\\\Administrator\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\skills\\\\brainstorming\\\\scripts\\\\server.cjs\" --project-dir \"D:\\\\coding make work easy\\\\Easy-Exam\" --host 127.0.0.1)",
+      "PowerShell(New-Item *)",
+      "PowerShell(cd \"D:\\\\coding make work easy\\\\Easy-Exam\\\\frontend\"; npx vue-tsc -p tsconfig.json --noEmit; Write-Output \"EXIT_CODE=$LASTEXITCODE\")",
+      "Bash(npx vitest *)"
     ]
   }
 }

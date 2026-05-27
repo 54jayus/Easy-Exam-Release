@@ -5,11 +5,14 @@ const ALLOWED_INVOKE_CHANNELS = [
   'backend_project_root', 'app_exe_dir',
   'open_path', 'open_external',
   'dialog:open', 'dialog:save',
+  'update:getCurrentVersion', 'update:getHistory', 'update:check',
+  'update:startDownload', 'update:installDownloaded',
 ] as const
 
 const ALLOWED_ON_CHANNELS = [
   'python-stdout', 'python-stderr', 'python-exit', 'python-error',
   'main-process-message',
+  'update-progress', 'update-downloaded', 'update-error',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = ['renderer-log'] as const

@@ -1,0 +1,46 @@
+<h2>软件更新弹窗 — 优化方向选择</h2>
+<p class="subtitle">三种方案各有侧重，选择最符合你期望的方向（可多选）</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>方案 A：高度收紧 + 内容折叠</h3>
+      <p>弹窗整体加 max-height 限制，内容区内部滚动；更新说明超过 4 条时折叠，点击展开；历史记录面板加高度上限。弹窗不再撑满屏幕，视觉更紧凑。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>改动最小，风险低</li><li>保留现有布局结构</li><li>立竿见影解决溢出问题</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>版本卡片重复问题未解决</li><li>历史记录与更新内容仍有重叠</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>方案 B：全面重构信息层级（推荐）</h3>
+      <p>在 A 的基础上，优化版本卡片（已最新时合并为单卡片）；将"更新内容"与"历史记录"合并为统一的版本时间线，消除重复；弹窗整体更清爽。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>彻底解决所有 5 个问题</li><li>信息层级更清晰</li><li>用户体验提升最明显</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>改动范围较大</li><li>需要调整数据展示逻辑</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>方案 C：拆分为两个弹窗</h3>
+      <p>主更新弹窗只保留版本状态 + 操作按钮，精简到 3-4 行；历史记录单独做一个弹窗，点击"查看历史"才打开。两个弹窗各司其职，互不干扰。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>主弹窗极度精简</li><li>职责分离最彻底</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>多一层交互跳转</li><li>改动量最大</li><li>对于简单更新场景略显繁琐</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: #f0f9ff; border-radius: 12px; border: 1px solid #bae6fd;">
+  <p style="margin: 0; font-size: 13px; color: #0369a1;"><strong>我的推荐：方案 B</strong> — 一次性解决所有问题，改动集中在 App.vue 一个文件，风险可控。如果你希望改动更保守，方案 A 也是不错的起点。</p>
+</div>
