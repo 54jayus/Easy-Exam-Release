@@ -237,18 +237,46 @@
             inactive-text="关闭"
           />
         </div>
-        <transition name="fade-slide">
-          <div v-if="developerMode" class="border-t border-slate-100 pt-3 mt-3 space-y-3">
-             <div class="flex items-center justify-between">
-                <div class="flex flex-col">
-                   <span class="text-sm text-slate-700">展示二次均衡明细</span>
-                   <span class="text-[10px] text-slate-400">优化完成后自动弹出详细对比数据</span>
+         <transition name="fade-slide">
+           <div v-if="developerMode" class="border-t border-slate-100 pt-3 mt-3 space-y-3">
+              <div class="flex items-center justify-between">
+                 <div class="flex flex-col">
+                    <span class="text-sm text-slate-700">展示二次均衡明细</span>
+                    <span class="text-[10px] text-slate-400">优化完成后自动弹出详细对比数据</span>
+                 </div>
+                 <el-switch v-model="showOptimizationDetails" size="small" />
+              </div>
+              <div class="rounded-2xl border border-dashed border-primary-200 bg-primary-50/70 px-4 py-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="space-y-1">
+                    <div class="text-sm font-semibold text-primary-700">更新弹窗预演</div>
+                    <div class="text-[11px] leading-5 text-primary-600/80">
+                      不发布真实版本也能演示“发现新版本、下载进度、安装确认”整套交互。
+                    </div>
+                  </div>
+                  <span
+                    class="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                    :class="mockUpdatePreviewActive ? 'bg-primary-100 text-primary-700' : 'bg-white text-slate-500 border border-slate-200'"
+                  >
+                    {{ mockUpdatePreviewActive ? '预演中' : '未启动' }}
+                  </span>
                 </div>
-                <el-switch v-model="showOptimizationDetails" size="small" />
-             </div>
-          </div>
-        </transition>
-      </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <el-button type="primary" size="small" @click="activateMockUpdatePreview">
+                    模拟新版本更新
+                  </el-button>
+                  <el-button
+                    size="small"
+                    :disabled="!mockUpdatePreviewActive"
+                    @click="resetMockUpdatePreview()"
+                  >
+                    恢复真实更新状态
+                  </el-button>
+                </div>
+              </div>
+           </div>
+         </transition>
+       </div>
       <template #footer>
         <div class="flex justify-end gap-2">
           <el-button @click="showDevDialog = false">关闭</el-button>
@@ -514,6 +542,16 @@ type UpdateHistoryEntry = {
   releasePageUrl?: string
 }
 
+const MOCK_UPDATE_PREVIEW_VERSION = '3.5.0001'
+const MOCK_UPDATE_PREVIEW_DATE = '2026-06-01'
+const MOCK_UPDATE_PREVIEW_NOTES = [
+  '新增更新弹窗交互优化，支持更清晰的状态提示与历史版本查看。',
+  '改进下载进度展示与完成反馈，便于演示完整更新流程。',
+  '优化安装前确认文案与异常提示，让更新操作更易理解。',
+]
+const MOCK_UPDATE_PREVIEW_URL = `mock://easy-exam/EasyExam-Setup-${MOCK_UPDATE_PREVIEW_VERSION}.exe`
+const MOCK_UPDATE_PREVIEW_FILE_PATH = `mock-preview/EasyExam-Setup-${MOCK_UPDATE_PREVIEW_VERSION}.exe`
+
 // Once backend finishes checking, redirect to /registration if license is invalid
 watch(() => licenseStore.checked, (checked) => {
   if (checked && !licenseStore.valid && route.path !== '/registration') {
@@ -538,6 +576,7 @@ const historyLoaded = ref(false)
 const historyError = ref('')
 const updateHistory = ref<UpdateHistoryEntry[]>([])
 const showAllNotes = ref(false)
+const mockUpdatePreviewActive = ref(false)
 
 onMounted(() => {
   setInterval(() => {
@@ -585,6 +624,38 @@ const showOptimizationDetails = ref(localStorage.getItem('show_optimization_deta
 
 let devTapTimer: any = null
 const devTapCount = ref(0)
+
+const createMockUpdateResult = (): UpdateCheckResult => ({
+  currentVersion: currentVersion.value,
+  latestVersion: MOCK_UPDATE_PREVIEW_VERSION,
+  hasUpdate: true,
+  enabled: true,
+  releaseDate: MOCK_UPDATE_PREVIEW_DATE,
+  notes: [...MOCK_UPDATE_PREVIEW_NOTES],
+  mandatory: false,
+  url: MOCK_UPDATE_PREVIEW_URL,
+  downloadedFilePath:
+    updateStatus.value === 'downloaded' && downloadedFilePath.value
+      ? downloadedFilePath.value
+      : null,
+})
+
+const createMockUpdateHistoryEntry = (): UpdateHistoryEntry => ({
+  version: MOCK_UPDATE_PREVIEW_VERSION,
+  title: `Easy Exam.v${MOCK_UPDATE_PREVIEW_VERSION}`,
+  releaseDate: MOCK_UPDATE_PREVIEW_DATE,
+  notes: [...MOCK_UPDATE_PREVIEW_NOTES],
+  url: MOCK_UPDATE_PREVIEW_URL,
+  releasePageUrl: '',
+})
+
+const mergeMockUpdateHistory = (entries: UpdateHistoryEntry[]) => {
+  if (!mockUpdatePreviewActive.value) return entries
+  const mockEntry = createMockUpdateHistoryEntry()
+  return [mockEntry, ...entries.filter((entry) => entry.version !== mockEntry.version)]
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const buildStateExportFilename = () => {
   const now = new Date()
@@ -720,6 +791,18 @@ const updateStatusTitle = computed(() => {
 })
 
 const updateStatusDescription = computed(() => {
+  if (mockUpdatePreviewActive.value) {
+    switch (updateStatus.value) {
+      case 'available':
+        return '当前是开发者预演模式，可直接演示新版本提示与下载入口。'
+      case 'downloading':
+        return '正在本地模拟下载进度，不会访问真实更新源或安装包。'
+      case 'downloaded':
+        return '可以继续查看安装确认交互，真实安装程序不会被启动。'
+      default:
+        break
+    }
+  }
   if (updateStatus.value === 'available' && !updateDownloadUrl.value) {
     return '检测到新版本，但当前更新源缺少下载地址，请稍后再试。'
   }
@@ -849,7 +932,49 @@ const applyUpdateResult = (result: UpdateCheckResult, manual: boolean) => {
   }
 }
 
+const activateMockUpdatePreview = async () => {
+  const hadLoadedHistory = historyLoaded.value
+  mockUpdatePreviewActive.value = true
+  historyError.value = ''
+  showHistoryPanel.value = false
+  updateStatusMessage.value = '当前为开发者预演模式，下载与安装均不会触发真实更新。'
+  applyUpdateResult(createMockUpdateResult(), true)
+  if (hadLoadedHistory) {
+    updateHistory.value = mergeMockUpdateHistory(updateHistory.value)
+    historyLoaded.value = true
+  } else {
+    historyLoaded.value = false
+  }
+  feedback.success('已切换到新版本更新预演模式', { toast: true })
+}
+
+const resetMockUpdatePreview = async (silent = false) => {
+  const hadMockPreview = mockUpdatePreviewActive.value
+  mockUpdatePreviewActive.value = false
+  downloadProgress.value = 0
+  downloadedFilePath.value = ''
+  updateStatusMessage.value = ''
+
+  if (!hadMockPreview) return
+
+  historyLoaded.value = false
+  updateHistory.value = []
+  if (showHistoryPanel.value) {
+    await loadUpdateHistory(true)
+  }
+  await runUpdateCheck(false)
+  if (!silent) {
+    feedback.success('已恢复真实更新状态', { toast: true })
+  }
+}
+
 const runUpdateCheck = async (manual: boolean) => {
+  if (mockUpdatePreviewActive.value) {
+    applyUpdateResult(createMockUpdateResult(), manual)
+    updateStatusMessage.value = '当前为开发者预演模式，下载与安装均不会触发真实更新。'
+    return
+  }
+
   const previousStatus = updateStatus.value
   updateStatus.value = 'checking'
   updateStatusMessage.value = ''
@@ -903,6 +1028,23 @@ const startUpdateDownload = async () => {
     feedback.warning('当前更新源缺少安装包地址，暂时无法下载')
     return
   }
+
+  if (mockUpdatePreviewActive.value) {
+    showUpdateDialog.value = true
+    updateStatus.value = 'downloading'
+    updateStatusMessage.value = '正在模拟下载过程，不会请求真实安装包。'
+    downloadProgress.value = 0
+    for (const percent of [9, 23, 41, 58, 76, 92, 100]) {
+      await wait(180)
+      downloadProgress.value = percent
+    }
+    downloadedFilePath.value = MOCK_UPDATE_PREVIEW_FILE_PATH
+    updateStatus.value = 'downloaded'
+    updateStatusMessage.value = '模拟下载已完成，可以继续预览安装确认交互。'
+    feedback.success('模拟下载完成，可以继续预览安装流程')
+    return
+  }
+
   showUpdateDialog.value = true
   updateStatus.value = 'downloading'
   updateStatusMessage.value = ''
@@ -937,6 +1079,12 @@ const installDownloadedUpdate = async () => {
     return
   }
 
+  if (mockUpdatePreviewActive.value) {
+    updateStatusMessage.value = '本次为开发者预演模式，已跳过真实安装程序启动。'
+    feedback.success('已完成安装交互预演，真实安装未执行')
+    return
+  }
+
   try {
     await window.electron?.ipcRenderer.invoke('update:installDownloaded')
   } catch (error: any) {
@@ -952,7 +1100,7 @@ const loadUpdateHistory = async (force = false) => {
   historyError.value = ''
   try {
     const result = await window.electron?.ipcRenderer.invoke('update:getHistory') as UpdateHistoryEntry[]
-    updateHistory.value = Array.isArray(result) ? result : []
+    updateHistory.value = mergeMockUpdateHistory(Array.isArray(result) ? result : [])
     historyLoaded.value = true
   } catch (error: any) {
     historyError.value = error instanceof Error ? error.message : String(error)
@@ -978,6 +1126,9 @@ const openReleasePage = async (url: string) => {
 
 watch(developerMode, (val) => {
   localStorage.setItem('developer_mode', val ? 'true' : 'false')
+  if (!val && mockUpdatePreviewActive.value) {
+    void resetMockUpdatePreview(true)
+  }
 })
 
 watch(showOptimizationDetails, (val) => {
@@ -996,6 +1147,7 @@ watch(frontendResetEpoch, () => {
   historyError.value = ''
   updateHistory.value = []
   showAllNotes.value = false
+  mockUpdatePreviewActive.value = false
 })
 
 onMounted(async () => {
