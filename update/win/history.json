@@ -19,6 +19,54 @@
       "releasePageUrl": "https://github.com/54jayus/Easy-Exam-Release/releases/tag/v3.4.0422",
       "sha256": "2e24a3ea1bd619f34a676f9b6e2a0e81aa7d93dc3f056dff82f7ac14af8d5efa",
       "size": 172201117
+    },
+    {
+      "version": "3.3.0416",
+      "title": "Easy Exam.v3.3.0416",
+      "releaseDate": "2026-04-16",
+      "notes": [
+        "增强了智能监考编排能力，支持在已有安排基础上继续补全，并提供更清晰的编排过程反馈。",
+        "新增教师视图与更多高级设置，支持连续监考控制、考场偏好和历次监考时长均衡。",
+        "优化预设监考导入和已有安排恢复流程，支持“无需编排”等特殊场景处理。",
+        "完善高考模式高级设置，支持科目名称唯一性校验、自习时间自定义和统计导出优化。",
+        "优化打印页面配置、导入映射、预览生成等流程，并联动高考高级设置中的科目与时间。",
+        "修复部分环境白屏、授权证书丢失和页面状态异常问题，提升安装与运行稳定性。"
+      ],
+      "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.3.0416/EasyExam-Setup-3.3.416.exe",
+      "releasePageUrl": "https://github.com/54jayus/Easy-Exam-Release/releases/tag/v3.3.0416",
+      "sha256": "4c3315f7764e2b08ad90dabcfa437b9585861129e127aaa796704407c682ec82",
+      "size": 172191303
+    },
+    {
+      "version": "3.2.0316",
+      "title": "Easy Exam.v3.2.0316",
+      "releaseDate": "2026-03-16",
+      "notes": [
+        "新增高考模式支持，覆盖编排结果导入、试卷袋数据源适配和表格分组列头适配。",
+        "优化打印资料页面，在切换标签时自动刷新考场编排数据并改进整体配置体验。",
+        "新增应用图标并调整打包配置，改进安装包的整体使用体验。",
+        "修复试卷袋预览、普通模式打印功能、高考模式数据持久化和 PDF 生成相关问题。",
+        "更新使用说明书到 v3.2.0316，并补充系统功能说明。"
+      ],
+      "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.2.0316/EasyExam-Setup-3.2.0316.exe",
+      "releasePageUrl": "https://github.com/54jayus/Easy-Exam-Release/releases/tag/v3.2.0316",
+      "sha256": "936655f3bc3a8dcc031f58906a2eef95226f6d2ca47eef41002d24ce49192ea3",
+      "size": 201735276
+    },
+    {
+      "version": "3.1.0301",
+      "title": "Easy Exam.v3.1.0301",
+      "releaseDate": "2026-03-01",
+      "notes": [
+        "将 RoomsPage.vue 重构为模块化组件结构，拆分为多个 composables 与 UI 组件。",
+        "主文件代码量减少约 70%，明显提升了代码可维护性和可测试性。",
+        "优化帮助中心全文搜索功能，并更新使用说明书格式。",
+        "发布 Windows 安装包 EasyExam-Setup-3.1.0301.exe。"
+      ],
+      "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.1.0301/EasyExam-Setup-3.1.0301.exe",
+      "releasePageUrl": "https://github.com/54jayus/Easy-Exam-Release/releases/tag/v3.1.0301",
+      "sha256": "4f014f5bb6a5ebe5f9b7f435236f07f3a6b326da57ea1df1fc4ad4e695a56f55",
+      "size": 202445517
     }
   ]
 }
