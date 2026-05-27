@@ -37,7 +37,20 @@
       "PowerShell(node \"C:\\\\Users\\\\Administrator\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.1.0\\\\skills\\\\brainstorming\\\\scripts\\\\server.cjs\" --project-dir \"D:\\\\coding make work easy\\\\Easy-Exam\" --host 127.0.0.1)",
       "PowerShell(New-Item *)",
       "PowerShell(cd \"D:\\\\coding make work easy\\\\Easy-Exam\\\\frontend\"; npx vue-tsc -p tsconfig.json --noEmit; Write-Output \"EXIT_CODE=$LASTEXITCODE\")",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "WebSearch",
+      "WebFetch(domain:docs.godotengine.org)",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/stable/tutorials/navigation/index.html\"、)",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/tutorials/navigation/index.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/stable/tutorials/navigation/index.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/classes/class_navigationserver2d.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/classes/class_navigationserver3d.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/tutorials/navigation/navigation_introduction_2d.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/tutorials/navigation/navigation_introduction_3d.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/tutorials/navigation/navigation_using_navigationservers.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/tutorials/migrating/upgrading_to_godot_4.5.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/tutorials/migrating/upgrading_to_godot_4.6.html\")",
+      "Bash(curl -s -L \"https://docs.godotengine.org/en/latest/about/docs_changelog.html\")"
     ]
   }
 }
