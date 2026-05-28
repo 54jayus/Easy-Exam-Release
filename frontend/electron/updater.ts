@@ -18,11 +18,7 @@ const MOCK_UPDATE_URL = `mock://easy-exam/EasyExam-Setup-${MOCK_UPDATE_VERSION}.
 const MOCK_DOWNLOAD_PROGRESS_STEP_COUNT = 60
 const MOCK_DOWNLOAD_TOTAL_DURATION_MS = 60 * 1000
 
-function buildMockDownloadProgressSteps(stepCount: number): number[] {
-  return Array.from({ length: stepCount }, (_value, index) =>
-    Math.round((((index + 1) / stepCount) * 1000)) / 10
-  )
-}
+import { compareVersions, buildMockDownloadProgressSteps } from '../src/lib/versionUtils'
 
 const UPDATE_FEED_URLS = [
   'https://54jayus.github.io/Easy-Exam-Release/update/win/latest.json',
@@ -97,22 +93,6 @@ type UpdaterOptions = {
   prepareForInstall: () => Promise<void> | void
 }
 
-function compareVersions(a: string, b: string): number {
-  const left = String(a || '')
-    .split('.')
-    .map((part) => Number.parseInt(part, 10) || 0)
-  const right = String(b || '')
-    .split('.')
-    .map((part) => Number.parseInt(part, 10) || 0)
-  const maxLength = Math.max(left.length, right.length)
-  for (let index = 0; index < maxLength; index += 1) {
-    const leftValue = left[index] ?? 0
-    const rightValue = right[index] ?? 0
-    if (leftValue > rightValue) return 1
-    if (leftValue < rightValue) return -1
-  }
-  return 0
-}
 
 function normalizeManifest(input: any): UpdateManifest {
   return {

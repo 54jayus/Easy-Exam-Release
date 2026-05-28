@@ -10,25 +10,6 @@
     <div class="max-h-[calc(80vh-160px)] overflow-y-auto pr-1 custom-scrollbar">
       <UpdateDetailsContent
         accent="primary"
-        :current-version="currentVersion"
-        :latest-version="latestVersion"
-        :release-date="releaseDate"
-        :notes="notes"
-        :visible-notes="visibleNotes"
-        :show-all-notes="showAllNotes"
-        :show-history-panel="showHistoryPanel"
-        :history-loading="historyLoading"
-        :history-error="historyError"
-        :update-history="updateHistory"
-        :update-status="updateStatus"
-        :update-status-title="updateStatusTitle"
-        :update-status-description="updateStatusDescription"
-        :update-status-message="updateStatusMessage"
-        :update-status-title-class="updateStatusTitleClass"
-        :update-status-panel-class="updateStatusPanelClass"
-        :update-status-chip-text="updateStatusChipText"
-        :update-status-chip-class="updateStatusChipClass"
-        :download-progress="downloadProgress"
         :show-up-to-date-card="updateStatus === 'up_to_date'"
         @toggle-notes="$emit('toggle-notes')"
         @toggle-history="$emit('toggle-history')"
@@ -39,6 +20,22 @@
 
     <template #footer>
       <div class="flex items-center justify-end gap-2">
+        <el-button
+          v-if="updateStatus === 'available'"
+          link
+          class="!text-slate-400 !text-xs"
+          @click="skipCurrentVersion()"
+        >
+          忽略此版本
+        </el-button>
+        <el-button
+          v-if="updateStatus === 'available'"
+          link
+          class="!text-slate-400 !text-xs"
+          @click="remindLater()"
+        >
+          稍后提醒
+        </el-button>
         <el-button
           v-if="updateStatus === 'available'"
           type="primary"
@@ -88,32 +85,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRef } from 'vue'
+import { inject } from 'vue'
 import UpdateDetailsContent from './UpdateDetailsContent.vue'
-import { useSmoothProgress } from '@/composables/useSmoothProgress'
-import type { UpdateHistoryEntry, UpdateStatus } from '@/types/appUpdate'
+import { UPDATE_DISPLAY_INJECTION_KEY } from '@/composables/useUpdateDisplayContext'
 
-const props = defineProps<{
+const ctx = inject(UPDATE_DISPLAY_INJECTION_KEY)!
+const updateStatus = ctx.updateStatus
+const skipCurrentVersion = ctx.skipCurrentVersion
+const remindLater = ctx.remindLater
+
+defineProps<{
   modelValue: boolean
-  currentVersion: string
-  latestVersion: string
-  releaseDate: string
-  notes: string[]
-  visibleNotes: string[]
-  showAllNotes: boolean
-  showHistoryPanel: boolean
-  historyLoading: boolean
-  historyError: string
-  updateHistory: UpdateHistoryEntry[]
-  updateStatus: UpdateStatus
-  updateStatusTitle: string
-  updateStatusDescription: string
-  updateStatusMessage: string
-  updateStatusTitleClass: string
-  updateStatusPanelClass: string
-  updateStatusChipText: string
-  updateStatusChipClass: string
-  downloadProgress: number
   canDownload: boolean
 }>()
 
@@ -136,6 +118,4 @@ const handleModelValueChange = (value: boolean) => {
     emit('close')
   }
 }
-
-const smoothProgress = useSmoothProgress(toRef(props, 'downloadProgress'))
 </script>

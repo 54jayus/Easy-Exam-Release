@@ -25,25 +25,6 @@
           <div class="space-y-5 px-6 py-6 md:px-8">
             <UpdateDetailsContent
               accent="rose"
-              :current-version="currentVersion"
-              :latest-version="latestVersion"
-              :release-date="releaseDate"
-              :notes="notes"
-              :visible-notes="visibleNotes"
-              :show-all-notes="showAllNotes"
-              :show-history-panel="showHistoryPanel"
-              :history-loading="historyLoading"
-              :history-error="historyError"
-              :update-history="updateHistory"
-              :update-status="updateStatus"
-              :update-status-title="updateStatusTitle"
-              :update-status-description="updateStatusDescription"
-              :update-status-message="updateStatusMessage"
-              :update-status-title-class="updateStatusTitleClass"
-              :update-status-panel-class="updateStatusPanelClass"
-              :update-status-chip-text="updateStatusChipText"
-              :update-status-chip-class="updateStatusChipClass"
-              :download-progress="downloadProgress"
               @toggle-notes="$emit('toggle-notes')"
               @toggle-history="$emit('toggle-history')"
               @retry-history="$emit('retry-history')"
@@ -90,31 +71,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import UpdateDetailsContent from './UpdateDetailsContent.vue'
-import type { ForceUpdateSnapshot, UpdateHistoryEntry, UpdateStatus } from '@/types/appUpdate'
+import { UPDATE_DISPLAY_INJECTION_KEY } from '@/composables/useUpdateDisplayContext'
+import type { ForceUpdateSnapshot } from '@/types/appUpdate'
+
+const ctx = inject(UPDATE_DISPLAY_INJECTION_KEY)!
+const currentVersion = ctx.currentVersion
+const latestVersion = ctx.latestVersion
+const updateStatus = ctx.updateStatus
 
 const props = defineProps<{
   active: boolean
-  currentVersion: string
-  latestVersion: string
-  releaseDate: string
-  notes: string[]
-  visibleNotes: string[]
-  showAllNotes: boolean
-  showHistoryPanel: boolean
-  historyLoading: boolean
-  historyError: string
-  updateHistory: UpdateHistoryEntry[]
-  updateStatus: UpdateStatus
-  updateStatusTitle: string
-  updateStatusDescription: string
-  updateStatusMessage: string
-  updateStatusTitleClass: string
-  updateStatusPanelClass: string
-  updateStatusChipText: string
-  updateStatusChipClass: string
-  downloadProgress: number
   canDownload: boolean
   forceUpdateMeta: ForceUpdateSnapshot | null
 }>()
@@ -129,5 +97,5 @@ defineEmits<{
   'open-release-page': [url: string]
 }>()
 
-const targetVersion = computed(() => props.forceUpdateMeta?.requiredVersion || props.latestVersion || '')
+const targetVersion = computed(() => props.forceUpdateMeta?.requiredVersion || latestVersion.value || '')
 </script>

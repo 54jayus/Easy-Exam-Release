@@ -182,25 +182,6 @@
 
     <ForceUpdateOverlay
       :active="forceUpdateActive"
-      :current-version="currentVersion"
-      :latest-version="latestVersion"
-      :release-date="releaseDate"
-      :notes="notes"
-      :visible-notes="visibleNotes"
-      :show-all-notes="showAllNotes"
-      :show-history-panel="showHistoryPanel"
-      :history-loading="historyLoading"
-      :history-error="historyError"
-      :update-history="updateHistory"
-      :update-status="updateStatus"
-      :update-status-title="updateStatusTitle"
-      :update-status-description="updateStatusDescription"
-      :update-status-message="updateStatusMessage"
-      :update-status-title-class="updateStatusTitleClass"
-      :update-status-panel-class="updateStatusPanelClass"
-      :update-status-chip-text="updateStatusChipText"
-      :update-status-chip-class="updateStatusChipClass"
-      :download-progress="downloadProgress"
       :can-download="canDownload"
       :force-update-meta="forceUpdateMeta"
       @check="retryForceUpdateCheck"
@@ -412,25 +393,6 @@
     <UpdateDialog
       v-if="!forceUpdateActive"
       v-model="showUpdateDialog"
-      :current-version="currentVersion"
-      :latest-version="latestVersion"
-      :release-date="releaseDate"
-      :notes="notes"
-      :visible-notes="visibleNotes"
-      :show-all-notes="showAllNotes"
-      :show-history-panel="showHistoryPanel"
-      :history-loading="historyLoading"
-      :history-error="historyError"
-      :update-history="updateHistory"
-      :update-status="updateStatus"
-      :update-status-title="updateStatusTitle"
-      :update-status-description="updateStatusDescription"
-      :update-status-message="updateStatusMessage"
-      :update-status-title-class="updateStatusTitleClass"
-      :update-status-panel-class="updateStatusPanelClass"
-      :update-status-chip-text="updateStatusChipText"
-      :update-status-chip-class="updateStatusChipClass"
-      :download-progress="downloadProgress"
       :can-download="canDownload"
       @close="closeUpdateDialog"
       @check="handleManualUpdateCheck"
@@ -446,7 +408,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, provide, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -474,6 +436,7 @@ import BackgroundDownloadBar from '@/components/update/BackgroundDownloadBar.vue
 import ForceUpdateOverlay from '@/components/update/ForceUpdateOverlay.vue'
 import UpdateDialog from '@/components/update/UpdateDialog.vue'
 import { useAppUpdate } from '@/composables/useAppUpdate'
+import { UPDATE_DISPLAY_INJECTION_KEY } from '@/composables/useUpdateDisplayContext'
 import { useAppCacheControl, resetFrontendCaches } from '@/composables/useAppCacheControl'
 import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
@@ -518,6 +481,7 @@ const {
   updateStatusPanelClass,
   updateStatusTitleClass,
   visibleNotes,
+  maxVisibleNotes,
   handleManualUpdateCheck,
   handleUpdateIconClick,
   retryForceUpdateCheck,
@@ -534,12 +498,40 @@ const {
   closeUpdateDialog,
   toggleShowAllNotes,
   resetUpdateUiState,
+  skipCurrentVersion,
+  remindLater,
 } = useAppUpdate()
 
 const canDownload = computed(() => Boolean(updateDownloadUrl.value))
 const isAnyUpdatePreviewActive = computed(
   () => mockUpdatePreviewActive.value || mockForceUpdatePreviewActive.value
 )
+
+provide(UPDATE_DISPLAY_INJECTION_KEY, {
+  currentVersion,
+  latestVersion,
+  releaseDate,
+  notes,
+  visibleNotes,
+  showAllNotes,
+  showHistoryPanel,
+  historyLoading,
+  historyError,
+  updateHistory,
+  updateStatus,
+  updateStatusTitle,
+  updateStatusDescription,
+  updateStatusMessage,
+  updateStatusTitleClass,
+  updateStatusPanelClass,
+  updateStatusChipText,
+  updateStatusChipClass,
+  downloadProgress,
+  backgroundDownloadActive,
+  maxVisibleNotes,
+  skipCurrentVersion,
+  remindLater,
+})
 const updatePreviewBadgeText = computed(() => {
   if (mockForceUpdatePreviewActive.value) return '强更预演中'
   if (mockUpdatePreviewActive.value) return '普通预演中'
