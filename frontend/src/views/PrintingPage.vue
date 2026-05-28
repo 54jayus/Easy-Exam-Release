@@ -901,6 +901,8 @@ function _scheduleSaveConfig() {
             commonConfig: JSON.parse(JSON.stringify(commonConfig)),
             totalCount: totalCount.value,
             sourceType: sourceType.value,
+            subjectRows: JSON.parse(JSON.stringify(subjectRows.value)),
+            studentInfoTitles: JSON.parse(JSON.stringify(studentInfoTitles)),
          })
       } catch {}
    }, 600)
@@ -1004,6 +1006,7 @@ const {
    syncingSubjects,
    subjectPreviewWithTime,
    initializeSubjectRows,
+   restoreSubjectRows,
    resetSubjectRows,
    syncSubjectRowsForCurrentSource,
    openSubjectDialog,
@@ -1024,6 +1027,7 @@ watch(config, _scheduleSaveConfig, { deep: true })
 watch(commonConfig, _scheduleSaveConfig, { deep: true })
 watch(totalCount, _scheduleSaveConfig)
 watch(sourceType, _scheduleSaveConfig)
+watch(subjectRows, _scheduleSaveConfig, { deep: true })
 
 watch(printingSubjectDependencyEpoch, async () => {
    if (sourceType.value !== 'schedule') return
@@ -1067,7 +1071,10 @@ watch(() => config.table.title, (val) => {
    studentInfoTitles[m] = String(val ?? '')
    storage.setJsonPref('studentInfoTitles_v1', { ...studentInfoTitles })
 })
+watch(studentInfoTitles, _scheduleSaveConfig, { deep: true })
 onMounted(async () => {
+   initializeSubjectRows()
+
    // Restore printing state
    try {
       const state = await pythonBackend.request<any>('printing.getState', {})
@@ -1103,6 +1110,15 @@ onMounted(async () => {
       if (state && state.totalCount != null) {
          totalCount.value = state.totalCount
       }
+      if (Array.isArray(state?.subjectRows) && state.subjectRows.length > 0) {
+         restoreSubjectRows(state.subjectRows, true)
+      }
+      if (state && state.studentInfoTitles && typeof state.studentInfoTitles === 'object') {
+         const nextTitles = state.studentInfoTitles as Record<string, string>
+         if (nextTitles.class != null) studentInfoTitles.class = String(nextTitles.class)
+         if (nextTitles.examroom != null) studentInfoTitles.examroom = String(nextTitles.examroom)
+         storage.setJsonPref('studentInfoTitles_v1', { ...studentInfoTitles })
+      }
 
       // Re-sync studentInfoTitles from restored config.table.title if sessionStorage had no saved value
       if (!storage.hasPref('studentInfoTitles_v1')) {
@@ -1112,8 +1128,6 @@ onMounted(async () => {
    } catch (e) {
       console.error('Failed to restore printing state:', e)
    }
-
-   initializeSubjectRows()
 
    previewScale.value = 1
    await nextTick()

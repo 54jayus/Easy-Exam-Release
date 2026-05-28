@@ -8,9 +8,19 @@ param(
 $projectRoot = Get-ProjectRoot -StartDir $PSScriptRoot
 Set-Location $projectRoot
 
-$args = @("-m", "pytest")
+$pythonArgs = @("-m", "pytest")
 if ($PytestArgs) {
-    $args += $PytestArgs
+    $pythonArgs += $PytestArgs
 }
 
-Invoke-ProjectPython -ProjectRoot $projectRoot -PythonArgs $args
+$command = Resolve-ProjectPythonCommand -ProjectRoot $projectRoot -PythonArgs $pythonArgs
+Write-Host "Using Python runtime: $($command.Description)"
+$process = Start-Process `
+    -FilePath $command.FilePath `
+    -ArgumentList @($command.Arguments) `
+    -NoNewWindow `
+    -Wait `
+    -PassThru
+if ($process.ExitCode -ne 0) {
+    exit $process.ExitCode
+}

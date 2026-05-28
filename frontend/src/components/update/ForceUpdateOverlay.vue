@@ -129,5 +129,5 @@ defineEmits<{
   'open-release-page': [url: string]
 }>()
 
-const targetVersion = computed(() => props.latestVersion || props.forceUpdateMeta?.version || '')
+const targetVersion = computed(() => props.forceUpdateMeta?.requiredVersion || props.latestVersion || '')
 </script>

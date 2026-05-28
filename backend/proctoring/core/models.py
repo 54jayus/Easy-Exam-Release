@@ -95,7 +95,7 @@ class Schedule:
         if self.get_constraint("gender_mix"):
             if not teacher1.gender or not teacher2.gender:
                 return False
-            if teacher1.gender == teacher2.gender:
+            if str(teacher1.gender).upper() == "M" and str(teacher2.gender).upper() == "M":
                 return False
 
         if self.get_constraint("internal_mix"):

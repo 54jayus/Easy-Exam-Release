@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import pytest
-
-from backend.application.update_guard import ForceUpdateRequiredError, UpdateGuard
-from backend.domain.errors import ErrorCode
+from backend.application.update_guard import UpdateGuard
 
 
 def test_update_guard_locks_when_current_version_below_min_supported() -> None:
@@ -22,7 +19,9 @@ def test_update_guard_locks_when_current_version_below_min_supported() -> None:
 
     status = guard.refresh()
 
-    assert status["locked"] is True
+    assert status["checkSucceeded"] is True
+    assert status["hasUpdate"] is True
+    assert status["mandatoryDetected"] is True
     assert status["requiredVersion"] == "3.4.5"
     assert status["downloadUrl"] == "https://example.com/setup.exe"
 
@@ -40,7 +39,7 @@ def test_update_guard_falls_back_to_latest_version_when_manifest_is_mandatory() 
 
     status = guard.refresh()
 
-    assert status["locked"] is True
+    assert status["mandatoryDetected"] is True
     assert status["requiredVersion"] == "3.5.0"
     assert status["minSupportedVersion"] == "3.5.0"
 
@@ -50,26 +49,21 @@ def test_update_guard_skips_lock_when_current_version_missing() -> None:
 
     status = guard.refresh()
 
-    assert status["locked"] is False
+    assert status["checkSucceeded"] is False
+    assert status["mandatoryDetected"] is False
     assert "版本号" in status["errorMessage"]
 
 
-def test_update_guard_raises_structured_error_for_blocked_method() -> None:
+def test_update_guard_returns_failed_check_when_feeds_unavailable() -> None:
     guard = UpdateGuard(
         current_version="3.4.1",
-        fetch_json=lambda _url: {
-            "enabled": True,
-            "version": "3.5.0",
-            "minSupportedVersion": "3.4.5",
-            "mandatory": True,
-            "url": "https://example.com/setup.exe",
-        },
+        fetch_json=lambda _url: (_ for _ in ()).throw(RuntimeError("network down")),
     )
-    guard.refresh()
 
-    with pytest.raises(ForceUpdateRequiredError) as exc_info:
-        guard.ensure_allowed("subjects.list", {"system.getUpdateGuardStatus"})
+    status = guard.refresh()
 
-    error = exc_info.value
-    assert error.code == ErrorCode.FORCE_UPDATE_REQUIRED
-    assert error.details["requiredVersion"] == "3.4.5"
+    assert status["checkSucceeded"] is False
+    assert status["hasUpdate"] is False
+    assert status["mandatoryDetected"] is False
+    assert status["currentVersion"] == "3.4.1"
+    assert "network down" in status["errorMessage"]

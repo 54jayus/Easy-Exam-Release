@@ -15,6 +15,14 @@ const MOCK_UPDATE_NOTES = [
   '优化安装前确认文案与异常提示，让更新操作更易理解。',
 ]
 const MOCK_UPDATE_URL = `mock://easy-exam/EasyExam-Setup-${MOCK_UPDATE_VERSION}.exe`
+const MOCK_DOWNLOAD_PROGRESS_STEP_COUNT = 60
+const MOCK_DOWNLOAD_TOTAL_DURATION_MS = 60 * 1000
+
+function buildMockDownloadProgressSteps(stepCount: number): number[] {
+  return Array.from({ length: stepCount }, (_value, index) =>
+    Math.round((((index + 1) / stepCount) * 1000)) / 10
+  )
+}
 
 const UPDATE_FEED_URLS = [
   'https://54jayus.github.io/Easy-Exam-Release/update/win/latest.json',
@@ -61,6 +69,14 @@ export type UpdateHistoryEntry = {
   releasePageUrl?: string
   sha256?: string
   size?: number
+}
+
+export type DownloadPreparation = {
+  version: string
+  releaseDate?: string | null
+  notes?: string[]
+  mandatory?: boolean
+  url: string
 }
 
 type UpdateProgressPayload = {
@@ -170,6 +186,13 @@ export class AppUpdater {
   private latestManifest: UpdateManifest | null = null
   private downloadedFilePath: string | null = null
   private activeDownload: Promise<UpdateCheckResult> | null = null
+  private abortController: AbortController | null = null
+  private pausedState: {
+    receivedBytes: number
+    totalBytes: number | null
+    tempPath: string
+    targetPath: string
+  } | null = null
 
   constructor(private readonly options: UpdaterOptions) {}
 
@@ -275,7 +298,154 @@ export class AppUpdater {
       return await task
     } finally {
       this.activeDownload = null
+      this.abortController = null
     }
+  }
+
+  pauseDownload(): void {
+    this.options.log('info', 'updater', '暂停下载')
+    this.abortController?.abort()
+    this.abortController = null
+    this.activeDownload = null
+  }
+
+  isPaused(): boolean {
+    return this.pausedState !== null
+  }
+
+  getPausedProgress(): number | null {
+    if (!this.pausedState || !this.pausedState.totalBytes) return null
+    return Math.round((this.pausedState.receivedBytes / this.pausedState.totalBytes) * 1000) / 10
+  }
+
+  private async resumeDownload(initial: UpdateCheckResult): Promise<UpdateCheckResult> {
+    const paused = this.pausedState!
+    this.pausedState = null
+
+    const { receivedBytes, tempPath, targetPath } = paused
+    const url = this.latestManifest!.url
+
+    this.options.log('info', 'updater', '恢复下载', {
+      version: this.latestManifest!.version,
+      url,
+      receivedBytes,
+      tempPath,
+    })
+
+    this.abortController = new AbortController()
+    let writer: fs.WriteStream | null = null
+    try {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        signal: this.abortController.signal,
+        headers: { Range: `bytes=${receivedBytes}-` },
+      })
+
+      // Server may return 206 (Partial Content) or 200 (full content, ignore Range)
+      if (response.status === 416) {
+        // Range not satisfiable — file is likely complete
+        await fs.promises.rename(tempPath, targetPath)
+        this.downloadedFilePath = targetPath
+        this.emitDownloaded({ version: this.latestManifest!.version, filePath: targetPath })
+        return { ...initial, downloadedFilePath: targetPath }
+      }
+
+      if (!response.ok || !response.body) {
+        throw new Error(`安装包下载失败（HTTP ${response.status}）`)
+      }
+
+      const totalBytesHeader = response.headers.get('content-length')
+      const contentLength = totalBytesHeader ? Number.parseInt(totalBytesHeader, 10) : NaN
+      const isPartial = response.status === 206
+
+      // Total bytes = already received + remaining from server (if partial)
+      const total = isPartial
+        ? (Number.isFinite(contentLength) ? receivedBytes + contentLength : null)
+        : (Number.isFinite(contentLength) ? contentLength : null)
+
+      let currentBytes = receivedBytes
+
+      // If server returned full content (200), overwrite temp file; otherwise append
+      writer = fs.createWriteStream(tempPath, { flags: isPartial ? 'a' : 'w' })
+      const reader = response.body.getReader()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!value) continue
+        await new Promise<void>((resolve, reject) => {
+          writer!.write(Buffer.from(value), (error) => {
+            if (error) reject(error)
+            else resolve()
+          })
+        })
+        currentBytes += value.byteLength
+        const percent = total ? Math.min(100, Math.round((currentBytes / total) * 1000) / 10) : null
+        this.emitProgress({
+          version: this.latestManifest!.version,
+          receivedBytes: currentBytes,
+          totalBytes: total,
+          percent,
+        })
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        writer!.end((error?: Error | null) => {
+          if (error) reject(error)
+          else resolve()
+        })
+      })
+      writer = null
+
+      await fs.promises.rename(tempPath, targetPath)
+      this.downloadedFilePath = targetPath
+      this.emitDownloaded({ version: this.latestManifest!.version, filePath: targetPath })
+      this.options.log('info', 'updater', '恢复下载完成', {
+        version: this.latestManifest!.version,
+        targetPath,
+      })
+
+      return { ...initial, downloadedFilePath: targetPath }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        if (writer) {
+          await new Promise<void>((resolve) => writer!.end(() => resolve()))
+        }
+        let newReceivedBytes = receivedBytes
+        try {
+          const stat = await fs.promises.stat(tempPath)
+          newReceivedBytes = stat.size
+        } catch {}
+        this.pausedState = {
+          receivedBytes: newReceivedBytes,
+          totalBytes: total ?? null,
+          tempPath,
+          targetPath,
+        }
+        this.options.log('info', 'updater', '下载已暂停', {
+          receivedBytes: newReceivedBytes,
+          tempPath,
+        })
+        throw new Error('DOWNLOAD_PAUSED')
+      }
+      writer?.destroy()
+      await fs.promises.rm(tempPath, { force: true }).catch(() => undefined)
+      this.emitError(error)
+      throw error
+    }
+  }
+
+  primeManifest(input: DownloadPreparation): UpdateManifest {
+    const manifest = normalizeManifest({
+      enabled: true,
+      version: input.version,
+      releaseDate: input.releaseDate || '',
+      notes: Array.isArray(input.notes) ? input.notes : [],
+      mandatory: input.mandatory === true,
+      url: input.url,
+    })
+    this.latestManifest = manifest
+    return manifest
   }
 
   async installDownloaded(): Promise<{ launched: true; filePath: string }> {
@@ -341,12 +511,19 @@ export class AppUpdater {
     const existingDownload = await this.resolveExistingDownload(this.latestManifest)
     if (existingDownload) {
       this.downloadedFilePath = existingDownload
+      this.pausedState = null
       this.emitDownloaded({ version: this.latestManifest.version, filePath: existingDownload })
       return {
         ...initial,
         downloadedFilePath: existingDownload,
       }
     }
+
+    // Resume from paused state if available
+    if (this.pausedState && !isMockUpdateUrl(this.latestManifest.url)) {
+      return this.resumeDownload(initial)
+    }
+    this.pausedState = null
 
     if (isMockUpdateUrl(this.latestManifest.url)) {
       return this.simulateDownload(initial, this.latestManifest)
@@ -365,9 +542,13 @@ export class AppUpdater {
       targetPath,
     })
 
+    this.abortController = new AbortController()
     let writer: fs.WriteStream | null = null
     try {
-      const response = await fetch(this.latestManifest.url, { cache: 'no-store' })
+      const response = await fetch(this.latestManifest.url, {
+        cache: 'no-store',
+        signal: this.abortController.signal,
+      })
       if (!response.ok || !response.body) {
         throw new Error(`安装包下载失败（HTTP ${response.status}）`)
       }
@@ -421,6 +602,34 @@ export class AppUpdater {
         downloadedFilePath: targetPath,
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Pause: close writer gracefully to preserve partial file
+        if (writer) {
+          await new Promise<void>((resolve) => writer!.end(() => resolve()))
+        }
+        // Get the actual size of the partial file
+        let receivedBytes = 0
+        try {
+          const stat = await fs.promises.stat(tempPath)
+          receivedBytes = stat.size
+        } catch {}
+        const totalBytesHeader = undefined // total is known from the download
+        this.pausedState = {
+          receivedBytes,
+          totalBytes: null, // will be resolved from manifest on resume
+          tempPath,
+          targetPath,
+        }
+        // Try to get total from manifest
+        if (this.latestManifest?.size) {
+          this.pausedState.totalBytes = this.latestManifest.size
+        }
+        this.options.log('info', 'updater', '下载已暂停', {
+          receivedBytes,
+          tempPath,
+        })
+        throw new Error('DOWNLOAD_PAUSED')
+      }
       writer?.destroy()
       await fs.promises.rm(tempPath, { force: true }).catch(() => undefined)
       this.emitError(error)
@@ -486,23 +695,63 @@ export class AppUpdater {
     await fs.promises.mkdir(updatesDir, { recursive: true })
 
     const targetPath = path.join(updatesDir, this.getDownloadFileName(manifest))
-    const checkpoints = [8, 21, 39, 56, 74, 91, 100]
+    const tempPath = `${targetPath}.download`
     const totalBytes = manifest.size ?? 24 * 1024 * 1024
+
+    // Support resume: check for existing partial file
+    let startBytes = 0
+    try {
+      const stat = await fs.promises.stat(tempPath)
+      startBytes = stat.size
+    } catch {}
+
+    const startPercent = totalBytes > 0 ? (startBytes / totalBytes) * 100 : 0
+    const progressSteps = buildMockDownloadProgressSteps(MOCK_DOWNLOAD_PROGRESS_STEP_COUNT)
+    const stepDelay = Math.max(
+      1,
+      Math.round(MOCK_DOWNLOAD_TOTAL_DURATION_MS / progressSteps.length)
+    )
+
+    this.abortController = new AbortController()
 
     this.options.log('info', 'updater', '模拟更新模式：开始生成下载进度', {
       version: manifest.version,
       targetPath,
+      startBytes,
     })
 
-    for (const percent of checkpoints) {
-      const receivedBytes = Math.round((totalBytes * percent) / 100)
-      this.emitProgress({
-        version: manifest.version,
-        receivedBytes,
-        totalBytes,
-        percent,
-      })
-      await new Promise((resolve) => setTimeout(resolve, 220))
+    try {
+      for (const percent of progressSteps) {
+        if (percent < startPercent) continue
+        const receivedBytes = Math.round((totalBytes * percent) / 100)
+        this.emitProgress({
+          version: manifest.version,
+          receivedBytes,
+          totalBytes,
+          percent,
+        })
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(resolve, stepDelay)
+          this.abortController!.signal.addEventListener('abort', () => {
+            clearTimeout(timer)
+            reject(new DOMException('Aborted', 'AbortError'))
+          }, { once: true })
+        })
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Write partial mock file for resume
+        await fs.promises.writeFile(tempPath, `mock-partial:${manifest.version}`, 'utf8')
+        this.pausedState = {
+          receivedBytes: startBytes,
+          totalBytes,
+          tempPath,
+          targetPath,
+        }
+        this.options.log('info', 'updater', '模拟下载已暂停')
+        throw new Error('DOWNLOAD_PAUSED')
+      }
+      throw error
     }
 
     await fs.promises.writeFile(
@@ -514,6 +763,9 @@ export class AppUpdater {
       ].join('\n'),
       'utf8'
     )
+
+    // Clean up temp file on completion
+    await fs.promises.rm(tempPath, { force: true }).catch(() => undefined)
 
     this.downloadedFilePath = targetPath
     this.emitDownloaded({ version: manifest.version, filePath: targetPath })

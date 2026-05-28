@@ -1042,3 +1042,50 @@ def test_export_schedule_workbook_includes_time_overview_sheet(recording_repo, t
         {"日期": "2026-06-07", "时间": "09:00-11:00", "科目": "语文", "考场编号": 2, "考场": "第二考场", "监考教师": "Teacher B"},
         {"日期": "2026-06-07", "时间": "10:00-12:00", "科目": "数学", "考场编号": 1, "考场": "第一考场", "监考教师": "Teacher B"},
     ]
+
+
+def test_export_schedule_workbook_sanitizes_invalid_subject_sheet_names(recording_repo, tmp_path) -> None:
+    service = ProctoringService(AppState(), recording_repo)
+    path = tmp_path / "schedule-invalid-subject-names.xlsx"
+
+    service.export(
+        {
+            "path": str(path),
+            "teachers": [
+                {"name": "Teacher A", "gender": "M", "isInternal": True, "maxSessions": 2},
+                {"name": "Teacher B", "gender": "F", "isInternal": False, "maxSessions": 2},
+            ],
+            "subjects": [
+                {"id": "1", "name": "物理/历史", "exam_date": "2026-06-07", "time": "09:00-10:15", "roomCount": 1},
+                {"id": "2", "name": "物理:历史", "exam_date": "2026-06-07", "time": "10:45-12:00", "roomCount": 1},
+            ],
+            "schedule": [
+                {
+                    "subjectId": "1",
+                    "subjectName": "物理/历史",
+                    "time": "09:00-10:15",
+                    "rooms": [
+                        {"id": 1, "roomNum": 1, "location": "第一考场", "teachers": [{"name": "Teacher A"}]},
+                    ],
+                },
+                {
+                    "subjectId": "2",
+                    "subjectName": "物理:历史",
+                    "time": "10:45-12:00",
+                    "rooms": [
+                        {"id": 1, "roomNum": 1, "location": "第一考场", "teachers": [{"name": "Teacher B"}]},
+                    ],
+                },
+            ],
+            "config": {"mode": "single"},
+        }
+    )
+
+    workbook = pd.ExcelFile(path)
+    assert "物理 历史" in workbook.sheet_names
+    assert "物理 历史(2)" in workbook.sheet_names
+
+    subject_sheet = pd.read_excel(path, sheet_name="物理 历史").fillna("")
+    assert subject_sheet.to_dict("records") == [
+        {"考场编号": 1, "考场": "第一考场", "监考教师（姓名）": "Teacher A", "性别": "男", "来源": "本校"}
+    ]

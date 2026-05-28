@@ -387,7 +387,7 @@
                                     size="small"
                                     effect="plain"
                                     class="!border-0"
-                                    :type="row.gender === 'M' ? '' : row.gender === 'F' ? 'danger' : 'info'"
+                                    :type="row.gender === 'F' ? 'danger' : row.gender ? 'primary' : 'info'"
                                  >
                                     {{ row.genderLabel }}
                                  </el-tag>
@@ -450,8 +450,8 @@
                       <el-table-column prop="name" label="教师姓名" min-width="100" align="center" fixed />
                       <el-table-column prop="gender" label="性别" min-width="60" align="center">
                          <template #default="{ row }">
-                            <el-tag size="small" :type="row.gender === 'M' ? '' : 'danger'" effect="plain" class="!border-0">
-                               {{ row.gender === 'M' ? '男' : '女' }}
+                            <el-tag size="small" :type="row.gender === 'F' ? 'danger' : row.gender === 'M' ? 'primary' : 'info'" effect="plain" class="!border-0">
+                               {{ row.gender === 'M' ? '男' : row.gender === 'F' ? '女' : '未填写' }}
                             </el-tag>
                          </template>
                       </el-table-column>
@@ -982,6 +982,7 @@ const schedulingStepText = ref('')
 const isScheduling = ref(false)
 const subjectRoomSettingsVisible = ref(false)
 const subjectRoomDrafts = ref<SubjectItem[]>([])
+let saveProctoringConfigTimer: ReturnType<typeof setTimeout> | null = null
 
 // Persistence Watchers
 watch(sidebarCollapsed, (val) => storage.setPref('sidebarCollapsed', String(val)))
@@ -999,11 +1000,26 @@ const config = reactive({
   avoidConsecutiveSessions: false,
 })
 
+const scheduleSaveProctoringConfig = () => {
+  if (saveProctoringConfigTimer) clearTimeout(saveProctoringConfigTimer)
+  saveProctoringConfigTimer = setTimeout(async () => {
+    try {
+      await pythonBackend.request('proctoring.saveConfig', {
+        config: JSON.parse(JSON.stringify(config)),
+      })
+    } catch (error) {
+      console.error('Failed to save proctoring config:', error)
+    }
+  }, 500)
+}
+
 // Data
 const subjects = ref<SubjectItem[]>([])
 const teachers = ref<any[]>([])
 const schedule = ref<any[]>([]) // [{subjectId, rooms: [{id, teachers: []}]}]
 const selectedSubjectId = ref('')
+
+watch(config, scheduleSaveProctoringConfig, { deep: true })
 
 // --- Computed ---
 const {

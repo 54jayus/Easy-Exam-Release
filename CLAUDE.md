@@ -114,3 +114,7 @@ Key dependencies: `pandas`, `openpyxl`, `xlrd`, `xlsxwriter`, `PyInstaller`
 All business logic is dispatched through `build_dispatch()` in `rpc_server.py`, which returns a dict mapping method names to handler functions. In-memory state variables (subjects, rooms, students, schedule, config) are captured as closures. The `main()` function reads JSON lines from stdin and writes JSON replies to stdout.
 
 When adding a new RPC method: add a handler function inside `build_dispatch()` and register it in the returned dict.
+
+## Image Recognition
+
+进行图片识别、OCR、截图分析等任务时，使用 `mcp__mimo-image-recognition__understand_image` 工具。不要使用 Read 工具读取图片文件。

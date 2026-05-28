@@ -5,6 +5,26 @@ from typing import Any, Sequence
 from .common import SubjectContext, _normalize_report_number, _safe_int, cp_model
 
 
+def _gender_pair_capacity(male_count: int, female_count: int) -> int:
+    return min(max(0, female_count), max(0, male_count + female_count) // 2)
+
+
+def _gender_internal_pair_capacity(
+    internal_male: int,
+    internal_female: int,
+    external_male: int,
+    external_female: int,
+) -> int:
+    max_pairs = 0
+    max_internal_male_pairs = min(max(0, internal_male), max(0, external_female))
+    for internal_male_pairs in range(max_internal_male_pairs + 1):
+        remaining_external_female = max(0, external_female - internal_male_pairs)
+        remaining_external_pool = max(0, external_male) + remaining_external_female
+        pair_count = internal_male_pairs + min(max(0, internal_female), remaining_external_pool)
+        max_pairs = max(max_pairs, pair_count)
+    return max_pairs
+
+
 def _format_clock(minute: int) -> str:
     normalized = max(0, int(minute))
     return f"{normalized // 60:02d}:{normalized % 60:02d}"
@@ -233,7 +253,55 @@ def _build_infeasibility_diagnostic_message(
             for room in rooms_by_subject.get(subject_id, [])
             if schedule.room_requires_pair_constraints(subject_id, room)
         )
-        if schedule.mode == "double" and schedule.get_constraint("gender_mix", False):
+        if (
+            schedule.mode == "double"
+            and schedule.get_constraint("gender_mix", False)
+            and schedule.get_constraint("internal_mix", False)
+        ):
+            if room_demand <= 0:
+                continue
+            internal_male = sum(
+                1
+                for teacher_index in segment_teacher_indexes
+                if getattr(schedule.teachers[teacher_index], "is_internal", None) is True
+                and str(getattr(schedule.teachers[teacher_index], "gender", "") or "").upper() == "M"
+            )
+            internal_female = sum(
+                1
+                for teacher_index in segment_teacher_indexes
+                if getattr(schedule.teachers[teacher_index], "is_internal", None) is True
+                and str(getattr(schedule.teachers[teacher_index], "gender", "") or "").upper() == "F"
+            )
+            external_male = sum(
+                1
+                for teacher_index in segment_teacher_indexes
+                if getattr(schedule.teachers[teacher_index], "is_internal", None) is False
+                and str(getattr(schedule.teachers[teacher_index], "gender", "") or "").upper() == "M"
+            )
+            external_female = sum(
+                1
+                for teacher_index in segment_teacher_indexes
+                if getattr(schedule.teachers[teacher_index], "is_internal", None) is False
+                and str(getattr(schedule.teachers[teacher_index], "gender", "") or "").upper() == "F"
+            )
+            pair_cap = _gender_internal_pair_capacity(
+                internal_male,
+                internal_female,
+                external_male,
+                external_female,
+            )
+            if pair_cap < room_demand:
+                return (
+                    f"已开启男女搭配和本外校搭配。{_format_segment_label(segment)} 时段最多只能组成 "
+                    f"{pair_cap} 对合法搭配，但当前需要 {room_demand} 对。涉及科目：{subject_names}。"
+                    "请补充老师，或关闭相关搭配条件。"
+                )
+
+        if (
+            schedule.mode == "double"
+            and schedule.get_constraint("gender_mix", False)
+            and not schedule.get_constraint("internal_mix", False)
+        ):
             if room_demand <= 0:
                 continue
             male_count = sum(
@@ -246,10 +314,11 @@ def _build_infeasibility_diagnostic_message(
                 for teacher_index in segment_teacher_indexes
                 if str(getattr(schedule.teachers[teacher_index], "gender", "") or "").upper() == "F"
             )
-            if male_count < room_demand or female_count < room_demand:
+            pair_cap = _gender_pair_capacity(male_count, female_count)
+            if pair_cap < room_demand:
                 return (
-                    f"已开启男女搭配。{_format_segment_label(segment)} 时段共需要 {room_demand} 名男老师和 "
-                    f"{room_demand} 名女老师，但当前可用男老师 {male_count} 名、女老师 {female_count} 名。"
+                    f"已开启男女搭配。{_format_segment_label(segment)} 时段最多只能组成 {pair_cap} 对合法搭配，"
+                    f"但当前需要 {room_demand} 对。可用男老师 {male_count} 名、女老师 {female_count} 名。"
                     f"涉及科目：{subject_names}。请补充老师，或关闭男女搭配。"
                 )
 

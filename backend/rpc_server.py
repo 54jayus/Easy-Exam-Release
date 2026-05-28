@@ -49,18 +49,7 @@ def _reply_err(message: str) -> dict[str, Any]:
     return {"ok": False, "error": message}
 
 
-ALLOWED_METHODS_DURING_FORCE_UPDATE = {
-    "system.getUpdateGuardStatus",
-    "system.refreshUpdateGuard",
-    "system.exportState",
-    "system.getHelpManual",
-    "licensing.machineCode",
-    "licensing.verify",
-    "licensing.register",
-}
-
-
-def build_dispatcher() -> tuple[RpcDispatcher, UpdateGuard]:
+def build_dispatcher() -> RpcDispatcher:
     """构建 RPC 调度器"""
     # 构建依赖
     state = AppState()
@@ -107,6 +96,7 @@ def build_dispatcher() -> tuple[RpcDispatcher, UpdateGuard]:
 
     # Proctoring
     dispatcher.register("proctoring.getState", proctoring_svc.get_state)
+    dispatcher.register("proctoring.saveConfig", proctoring_svc.save_config)
     dispatcher.register("proctoring.startSolverJob", proctoring_svc.start_solver_job)
     dispatcher.register("proctoring.getJobStatus", proctoring_svc.get_job_status)
     dispatcher.register("proctoring.clearState", proctoring_svc.clear_state)
@@ -123,6 +113,7 @@ def build_dispatcher() -> tuple[RpcDispatcher, UpdateGuard]:
     # Rooms
     dispatcher.register("rooms.resetState", rooms_svc.reset_state)
     dispatcher.register("rooms.getState", rooms_svc.get_state)
+    dispatcher.register("rooms.saveState", rooms_svc.save_state)
     dispatcher.register("rooms.getSubjectPriority", rooms_svc.get_subject_priority)
     dispatcher.register("rooms.setSubjectPriority", rooms_svc.set_subject_priority)
     dispatcher.register("rooms.getGaokaoTimeSettings", rooms_svc.get_gaokao_time_settings)
@@ -144,7 +135,7 @@ def build_dispatcher() -> tuple[RpcDispatcher, UpdateGuard]:
     dispatcher.register("printing.previewPdf", printing_svc.preview_pdf)
     dispatcher.register("printing.generate", printing_svc.generate)
 
-    return dispatcher, update_guard
+    return dispatcher
 
 
 def main() -> int:
@@ -160,7 +151,7 @@ def main() -> int:
             pass
 
     stdin_buffer = sys.stdin.buffer
-    dispatcher, update_guard = build_dispatcher()
+    dispatcher = build_dispatcher()
 
     while True:
         try:
@@ -204,7 +195,6 @@ def main() -> int:
             continue
 
         try:
-            update_guard.ensure_allowed(method, ALLOWED_METHODS_DURING_FORCE_UPDATE)
             result = dispatcher.dispatch(method, params)
             reply = _reply_ok(result)
             if req_id is not None:

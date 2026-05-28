@@ -7,8 +7,6 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 from urllib.request import Request, urlopen
 
-from backend.domain.errors import DomainError, ErrorCode
-
 logger = logging.getLogger(__name__)
 
 UPDATE_FEED_URLS = (
@@ -32,26 +30,6 @@ def compare_versions(left: str, right: str) -> int:
     return 0
 
 
-class ForceUpdateRequiredError(DomainError):
-    def __init__(self, status: dict[str, Any]):
-        details = {
-            "currentVersion": status.get("currentVersion") or "",
-            "latestVersion": status.get("latestVersion") or "",
-            "requiredVersion": status.get("requiredVersion") or "",
-            "minSupportedVersion": status.get("minSupportedVersion") or "",
-            "downloadUrl": status.get("downloadUrl") or "",
-            "releaseDate": status.get("releaseDate") or "",
-            "notes": status.get("notes") or [],
-            "checkedAt": status.get("checkedAt") or "",
-            "sourceUrl": status.get("sourceUrl") or "",
-        }
-        super().__init__(
-            ErrorCode.FORCE_UPDATE_REQUIRED,
-            "当前版本过低，必须升级后才能继续使用软件。",
-            details,
-        )
-
-
 class UpdateGuard:
     def __init__(
         self,
@@ -67,7 +45,9 @@ class UpdateGuard:
     def _build_default_status(self) -> dict[str, Any]:
         return {
             "checked": False,
-            "locked": False,
+            "checkSucceeded": False,
+            "hasUpdate": False,
+            "mandatoryDetected": False,
             "currentVersion": self._current_version,
             "latestVersion": "",
             "requiredVersion": "",
@@ -90,7 +70,8 @@ class UpdateGuard:
             self._status = {
                 **self._build_default_status(),
                 "checked": True,
-                "errorMessage": "后端未收到当前软件版本号，已跳过强制更新门禁。",
+                "currentVersion": self._current_version,
+                "errorMessage": "后端未收到当前软件版本号，已跳过更新检查。",
             }
             return self.get_status()
 
@@ -105,14 +86,6 @@ class UpdateGuard:
                 last_error = error if isinstance(error, Exception) else Exception(str(error))
                 logger.warning("更新门禁检查失败，将尝试下一个地址：%s", feed_url, exc_info=error)
 
-        if self._status.get("locked"):
-            self._status = {
-                **self._status,
-                "checked": True,
-                "errorMessage": str(last_error) if last_error else "更新门禁检查失败",
-            }
-            return self.get_status()
-
         self._status = {
             **self._build_default_status(),
             "checked": True,
@@ -120,12 +93,6 @@ class UpdateGuard:
             "errorMessage": str(last_error) if last_error else "更新门禁检查失败",
         }
         return self.get_status()
-
-    def ensure_allowed(self, method: str, allowed_methods: set[str]) -> None:
-        if method in allowed_methods:
-            return
-        if self._status.get("locked"):
-            raise ForceUpdateRequiredError(self._status)
 
     def _build_status_from_manifest(self, payload: dict[str, Any], source_url: str) -> dict[str, Any]:
         latest_version = str(payload.get("version") or "").strip()
@@ -143,15 +110,23 @@ class UpdateGuard:
         download_url = str(payload.get("url") or "").strip()
         enabled = payload.get("enabled") is True
         required_version = min_supported_version or latest_version
-        locked = (
+        has_update = (
             enabled
+            and bool(latest_version)
+            and compare_versions(self._current_version, latest_version) < 0
+        )
+        mandatory_detected = (
+            enabled
+            and mandatory
             and bool(required_version)
             and compare_versions(self._current_version, required_version) < 0
         )
 
         return {
             "checked": True,
-            "locked": locked,
+            "checkSucceeded": True,
+            "hasUpdate": has_update,
+            "mandatoryDetected": mandatory_detected,
             "currentVersion": self._current_version,
             "latestVersion": latest_version,
             "requiredVersion": required_version,

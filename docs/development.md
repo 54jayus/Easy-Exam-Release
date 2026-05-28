@@ -22,7 +22,7 @@ npm.cmd install
 
 ```powershell
 Set-Location ..
-python -m pip install -r backend/requirements.txt
+conda run --no-capture-output -n exam_scheduler python -m pip install -r backend/requirements.txt
 ```
 
 `backend/requirements.txt` 当前包含：
@@ -71,33 +71,25 @@ npm.cmd run build
 ### 4.3 后端测试
 
 ```powershell
-Set-Location ..
-$env:PYTHONPATH='.'
-pytest
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1
 ```
 
 定向执行示例：
 
 ```powershell
-$env:PYTHONPATH='.'
-pytest backend/tests/test_subjects_service.py backend/tests/test_subjects_excel.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_subjects_service.py backend/tests/test_subjects_excel.py
 
-$env:PYTHONPATH='.'
-pytest backend/tests/test_proctoring_service.py backend/tests/test_proctoring_jobs.py backend/tests/test_proctoring_validators.py backend/tests/test_cp_sat_solver.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_proctoring_service.py backend/tests/test_proctoring_jobs.py backend/tests/test_proctoring_validators.py backend/tests/test_cp_sat_solver.py
 
-$env:PYTHONPATH='.'
-pytest backend/tests/test_rooms_service.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_rooms_service.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py
 
-$env:PYTHONPATH='.'
-pytest backend/tests/test_printing_service.py backend/tests/test_printing_excel_generators.py backend/tests/test_printing_examroom_adapter.py backend/tests/test_data_loader_and_desk_validator.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_printing_service.py backend/tests/test_printing_excel_generators.py backend/tests/test_printing_examroom_adapter.py backend/tests/test_data_loader_and_desk_validator.py
 ```
 
 ### 4.4 后端自检
 
 ```powershell
-Set-Location ..
-$env:PYTHONPATH='.'
-python -m backend.selfcheck
+powershell -ExecutionPolicy Bypass -File .\tools\selfcheck-backend.ps1
 ```
 
 该脚本会检查关键模块导入，并执行一次最小打印生成流程。

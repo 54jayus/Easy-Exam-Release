@@ -327,8 +327,8 @@ def solve_schedule_with_cp_sat(
                             male_vars.append(var)
                         elif gender == "F":
                             female_vars.append(var)
-                model.Add(sum(male_vars) == 1)
-                model.Add(sum(female_vars) == 1)
+                model.Add(sum(male_vars) <= 1)
+                model.Add(sum(male_vars) + sum(female_vars) == 2)
 
     room_usage_total = None
     if room_repeat_preference:

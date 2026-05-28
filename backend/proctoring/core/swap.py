@@ -135,17 +135,27 @@ def swap_teachers(schedule, session1_info, session2_info):
             if (
                 other_teacher2
                 and original_teacher1
-                and other_teacher2.gender
-                and original_teacher1.gender
-                and other_teacher2.gender == original_teacher1.gender
+                and (not other_teacher2.gender or not original_teacher1.gender)
+            ):
+                return False, f"教师 {original_teacher1.name} 与考场{room2}的另一位教师缺少性别信息"
+            if (
+                other_teacher2
+                and original_teacher1
+                and str(other_teacher2.gender).upper() == "M"
+                and str(original_teacher1.gender).upper() == "M"
             ):
                 return False, f"教师 {original_teacher1.name} 与考场{room2}的另一位教师性别不匹配"
             if (
                 other_teacher1
                 and original_teacher2
-                and other_teacher1.gender
-                and original_teacher2.gender
-                and other_teacher1.gender == original_teacher2.gender
+                and (not other_teacher1.gender or not original_teacher2.gender)
+            ):
+                return False, f"教师 {original_teacher2.name} 与考场{room1}的另一位教师缺少性别信息"
+            if (
+                other_teacher1
+                and original_teacher2
+                and str(other_teacher1.gender).upper() == "M"
+                and str(original_teacher2.gender).upper() == "M"
             ):
                 return False, f"教师 {original_teacher2.name} 与考场{room1}的另一位教师性别不匹配"
 

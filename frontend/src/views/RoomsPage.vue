@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { Expand } from '@element-plus/icons-vue'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { applyPageReset } from '@/composables/useAppCacheControl'
@@ -148,6 +148,7 @@ const {
   initializeFromStorage,
   setupWatchers
 } = useRoomsPersistence()
+let saveRoomsStateTimer: ReturnType<typeof setTimeout> | null = null
 
 const {
   logs,
@@ -222,6 +223,21 @@ const normalizeSubjectPriorityOrder = (order: unknown): string[] => {
   return dedup.slice(0, allowed.length)
 }
 
+const scheduleSaveRoomsConfig = () => {
+  if (saveRoomsStateTimer) clearTimeout(saveRoomsStateTimer)
+  saveRoomsStateTimer = setTimeout(async () => {
+    try {
+      await pythonBackend.request('rooms.saveState', {
+        config: JSON.parse(JSON.stringify(config)),
+      })
+    } catch (error) {
+      console.error('Failed to save rooms config:', error)
+    }
+  }, 500)
+}
+
+watch(config, scheduleSaveRoomsConfig, { deep: true })
+
 // Reset page handler
 const handleResetPage = async () => {
   try {
@@ -268,6 +284,14 @@ const handleClearSettings = async () => {
 
   roomSettings.value = []
   config.totalRooms = 30
+  try {
+    await pythonBackend.request('rooms.saveState', {
+      settings: [],
+      config: JSON.parse(JSON.stringify(config)),
+    })
+  } catch (error) {
+    logError(formatActionError('清除考场设置', error))
+  }
   feedback.success('已清除考场设置', {
     logMessage: formatActionSuccess('清除考场设置数据'),
   })
@@ -288,6 +312,14 @@ const handleClearStudents = async () => {
 
   students.value = []
   studentPath.value = ''
+  try {
+    await pythonBackend.request('rooms.saveState', {
+      students: [],
+      studentPath: '',
+    })
+  } catch (error) {
+    logError(formatActionError('清除考生名册', error))
+  }
   feedback.success('已清除考生名册', {
     logMessage: formatActionSuccess('清除考生名册数据'),
   })

@@ -67,3 +67,5 @@ class PrintingConfig:
     total: int = 0
     config: dict = field(default_factory=dict)
     common_config: dict = field(default_factory=dict)
+    subject_rows: list[dict] = field(default_factory=list)
+    student_info_titles: dict[str, str] = field(default_factory=dict)

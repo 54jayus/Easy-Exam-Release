@@ -268,3 +268,25 @@ def test_solve_schedule_with_cp_sat_supports_negative_previous_durations() -> No
     assert report["metrics"]["overall_duration_min"] == -60
     assert report["metrics"]["overall_duration_max"] == 0
     assert schedule.exams[0].schedule[1][0].name == "Teacher A"
+
+
+def test_solve_schedule_with_cp_sat_allows_two_female_teachers_when_gender_mix_enabled() -> None:
+    teachers = [
+        Teacher("Teacher A", gender="F", is_internal=True, max_sessions=1),
+        Teacher("Teacher B", gender="F", is_internal=False, max_sessions=1),
+    ]
+    schedule = Schedule(teachers, num_subjects=1, num_rooms=1, mode="double")
+    schedule.set_constraint("gender_mix", True)
+    schedule.set_constraint("subject_durations", [60])
+    schedule.set_constraint("subject_room_counts", [1])
+
+    report = cp_sat.solve_schedule_with_cp_sat(
+        schedule,
+        [_make_context(1, "Subject A", "2026-06-01", 9, 10)],
+        time_limit_seconds=5,
+        num_workers=1,
+    )
+
+    assert report["status"] in {"OPTIMAL", "FEASIBLE"}
+    assigned = schedule.exams[0].schedule[1]
+    assert {teacher.name for teacher in assigned} == {"Teacher A", "Teacher B"}

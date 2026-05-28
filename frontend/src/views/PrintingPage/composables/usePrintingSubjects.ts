@@ -150,6 +150,13 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     subjectRowsCustomized.value = false
   }
 
+  function restoreSubjectRows(rows: SubjectRow[], customized = true) {
+    const nextRows = ensureSubjectRowsLength(rows, rows.length || 9)
+    subjectRows.value = nextRows
+    persistSubjectRows(nextRows)
+    subjectRowsCustomized.value = customized
+  }
+
   function resetSubjectRows(count = 9) {
     setAndPersistSubjectRows([], count)
   }
@@ -245,6 +252,7 @@ export function usePrintingSubjects({ storage, sourceType, isGaokaoMode }: UsePr
     subjectPreview,
     subjectPreviewWithTime,
     initializeSubjectRows,
+    restoreSubjectRows,
     resetSubjectRows,
     syncSubjectRowsForCurrentSource,
     openSubjectDialog,

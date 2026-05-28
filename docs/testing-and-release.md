@@ -7,6 +7,8 @@
 - 前端：`frontend/tests/`，使用 `vitest`
 - 后端：`backend/tests/`，使用 `pytest`
 
+后端脚本统一通过项目运行时配置调用 `conda run` 或指定 Python；在 Windows + Conda 环境下，不建议并行执行多个后端脚本，否则可能触发 `__conda_tmp_*.txt` 临时文件占用错误。
+
 发布前建议同时完成前端验证、后端验证、自检和一次打包验证，而不是只跑其中一项。
 
 ## 2. 前端验证
@@ -33,8 +35,7 @@ npm.cmd run build
 在仓库根目录执行：
 
 ```powershell
-$env:PYTHONPATH='.'
-pytest
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1
 ```
 
 `pytest.ini` 已把默认测试路径指向 `backend/tests/`。
@@ -44,36 +45,31 @@ pytest
 科目相关：
 
 ```powershell
-$env:PYTHONPATH='.'
-pytest backend/tests/test_subjects_service.py backend/tests/test_subjects_excel.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_subjects_service.py backend/tests/test_subjects_excel.py
 ```
 
 监考相关：
 
 ```powershell
-$env:PYTHONPATH='.'
-pytest backend/tests/test_proctoring_service.py backend/tests/test_proctoring_jobs.py backend/tests/test_proctoring_validators.py backend/tests/test_cp_sat_solver.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_proctoring_service.py backend/tests/test_proctoring_jobs.py backend/tests/test_proctoring_validators.py backend/tests/test_cp_sat_solver.py
 ```
 
 考场相关：
 
 ```powershell
-$env:PYTHONPATH='.'
-pytest backend/tests/test_rooms_service.py backend/tests/test_rooms_imports_and_templates.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_rooms_service.py backend/tests/test_rooms_imports_and_templates.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py
 ```
 
 打印相关：
 
 ```powershell
-$env:PYTHONPATH='.'
-pytest backend/tests/test_printing_service.py backend/tests/test_printing_excel_generators.py backend/tests/test_printing_examroom_adapter.py backend/tests/test_data_loader_and_desk_validator.py backend/tests/test_generator_factory.py backend/tests/test_pdf_export.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_printing_service.py backend/tests/test_printing_excel_generators.py backend/tests/test_printing_examroom_adapter.py backend/tests/test_data_loader_and_desk_validator.py backend/tests/test_generator_factory.py backend/tests/test_pdf_export.py
 ```
 
 系统、授权、状态与帮助中心：
 
 ```powershell
-$env:PYTHONPATH='.'
-pytest backend/tests/test_licensing_service.py backend/tests/test_license_manager.py backend/tests/test_cert_store.py backend/tests/test_state_repository.py backend/tests/test_state_repository_edges.py backend/tests/test_system_service.py backend/tests/test_system_service_edges.py backend/tests/test_dashboard_service.py backend/tests/test_manual_loader.py backend/tests/test_manual_markdown_edges.py backend/tests/test_manual_search_edges.py backend/tests/test_manual_utils.py
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_licensing_service.py backend/tests/test_license_manager.py backend/tests/test_cert_store.py backend/tests/test_state_repository.py backend/tests/test_state_repository_edges.py backend/tests/test_system_service.py backend/tests/test_system_service_edges.py backend/tests/test_dashboard_service.py backend/tests/test_manual_loader.py backend/tests/test_manual_markdown_edges.py backend/tests/test_manual_search_edges.py backend/tests/test_manual_utils.py
 ```
 
 ## 4. 自检与冒烟验证
@@ -81,8 +77,7 @@ pytest backend/tests/test_licensing_service.py backend/tests/test_license_manage
 发布前建议额外执行：
 
 ```powershell
-$env:PYTHONPATH='.'
-python -m backend.selfcheck
+powershell -ExecutionPolicy Bypass -File .\tools\selfcheck-backend.ps1
 ```
 
 该脚本会验证：

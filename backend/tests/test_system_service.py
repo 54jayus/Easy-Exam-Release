@@ -118,7 +118,8 @@ def test_system_get_update_guard_status_returns_guard_snapshot(recording_repo) -
 
     result = service.get_update_guard_status({})
 
-    assert result["locked"] is True
+    assert result["checkSucceeded"] is True
+    assert result["mandatoryDetected"] is True
     assert result["requiredVersion"] == "3.4.5"
 
 
@@ -136,4 +137,5 @@ def test_system_refresh_update_guard_reloads_status(recording_repo) -> None:
     result = service.refresh_update_guard({})
 
     assert result["checked"] is True
-    assert result["locked"] is True
+    assert result["checkSucceeded"] is True
+    assert result["mandatoryDetected"] is True

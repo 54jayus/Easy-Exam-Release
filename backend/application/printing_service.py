@@ -62,6 +62,8 @@ class PrintingService:
             "total": self._state.printing.total,
             "config": self._state.printing.config,
             "commonConfig": self._state.printing.common_config,
+            "subjectRows": self._state.printing.subject_rows,
+            "studentInfoTitles": self._state.printing.student_info_titles,
         }
 
     def save_config(self, params: dict) -> Any:
@@ -83,6 +85,10 @@ class PrintingService:
             self._state.printing.data = list(params["data"] or [])
         if "previewTotal" in params:
             self._state.printing.total = int(params["previewTotal"] or 0)
+        if "subjectRows" in params:
+            self._state.printing.subject_rows = list(params["subjectRows"] or [])
+        if "studentInfoTitles" in params:
+            self._state.printing.student_info_titles = dict(params["studentInfoTitles"] or {})
         self._repo.save(self._state)
         return {}
 

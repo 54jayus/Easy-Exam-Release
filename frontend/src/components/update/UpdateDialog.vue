@@ -38,8 +38,7 @@
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <el-button @click="$emit('close')">关闭</el-button>
+      <div class="flex items-center justify-end gap-2">
         <el-button
           v-if="updateStatus === 'available'"
           type="primary"
@@ -49,6 +48,19 @@
           立即下载
         </el-button>
         <el-button
+          v-else-if="updateStatus === 'paused'"
+          type="primary"
+          @click="$emit('download')"
+        >
+          继续下载
+        </el-button>
+        <el-button
+          v-else-if="updateStatus === 'downloading'"
+          @click="$emit('pause')"
+        >
+          暂停
+        </el-button>
+        <el-button
           v-else-if="updateStatus === 'downloaded'"
           type="primary"
           @click="$emit('install')"
@@ -56,12 +68,12 @@
           立即安装
         </el-button>
         <el-button
-          v-else-if="updateStatus === 'checking' || updateStatus === 'downloading'"
+          v-else-if="updateStatus === 'checking'"
           type="primary"
           loading
           disabled
         >
-          {{ updateStatus === 'checking' ? '正在检查' : '正在下载' }}
+          正在检查
         </el-button>
         <el-button
           v-else
@@ -76,7 +88,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed, toRef } from 'vue'
 import UpdateDetailsContent from './UpdateDetailsContent.vue'
+import { useSmoothProgress } from '@/composables/useSmoothProgress'
 import type { UpdateHistoryEntry, UpdateStatus } from '@/types/appUpdate'
 
 const props = defineProps<{
@@ -108,6 +122,7 @@ const emit = defineEmits<{
   close: []
   check: []
   download: []
+  pause: []
   install: []
   'toggle-notes': []
   'toggle-history': []
@@ -122,5 +137,5 @@ const handleModelValueChange = (value: boolean) => {
   }
 }
 
-void props
+const smoothProgress = useSmoothProgress(toRef(props, 'downloadProgress'))
 </script>

@@ -221,6 +221,15 @@ export function useProctoringDataManagement({
     } catch {
       return
     }
+    try {
+      await pythonBackend.request('proctoring.clearState', {
+        clearTeachers: false,
+        clearSchedule: true,
+        clearConfig: false
+      })
+    } catch (e) {
+      logWarning(formatActionWarning('清除当前编排', `后端状态同步失败：${e instanceof Error ? e.message : String(e)}`))
+    }
     resetScheduleState()
     logSuccess(formatActionSuccess('清除当前监考编排'))
   }

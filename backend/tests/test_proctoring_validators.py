@@ -43,3 +43,35 @@ def test_is_schedule_complete_respects_double_mode_slot_requirement() -> None:
 
     exam.schedule[1] = [teacher_a, teacher_b]
     assert schedule.is_schedule_complete() is True
+
+
+def test_is_valid_pair_allows_two_female_teachers_when_gender_mix_enabled() -> None:
+    teacher_a = Teacher("Teacher A", gender="F", is_internal=True, max_sessions=1)
+    teacher_b = Teacher("Teacher B", gender="F", is_internal=False, max_sessions=1)
+    schedule = Schedule([teacher_a, teacher_b], num_subjects=1, num_rooms=1, mode="double")
+    schedule.set_constraint("gender_mix", True)
+
+    assert schedule.is_valid_pair(teacher_a, teacher_b) is True
+
+
+def test_is_valid_pair_rejects_two_male_teachers_when_gender_mix_enabled() -> None:
+    teacher_a = Teacher("Teacher A", gender="M", is_internal=True, max_sessions=1)
+    teacher_b = Teacher("Teacher B", gender="M", is_internal=False, max_sessions=1)
+    schedule = Schedule([teacher_a, teacher_b], num_subjects=1, num_rooms=1, mode="double")
+    schedule.set_constraint("gender_mix", True)
+
+    assert schedule.is_valid_pair(teacher_a, teacher_b) is False
+
+
+def test_check_feasibility_allows_all_female_pair_when_gender_mix_enabled() -> None:
+    teachers = [
+        Teacher("Teacher A", gender="F", is_internal=True, max_sessions=1),
+        Teacher("Teacher B", gender="F", is_internal=False, max_sessions=1),
+    ]
+    schedule = Schedule(teachers, num_subjects=1, num_rooms=1, mode="double")
+    schedule.set_constraint("gender_mix", True)
+
+    feasible, reason = schedule.check_feasibility()
+
+    assert feasible is True
+    assert reason == "可行"

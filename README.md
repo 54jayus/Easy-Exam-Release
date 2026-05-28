@@ -76,8 +76,10 @@ npm.cmd install
 
 ```powershell
 Set-Location ..
-python -m pip install -r backend/requirements.txt
+conda run --no-capture-output -n exam_scheduler python -m pip install -r backend/requirements.txt
 ```
+
+如果你使用的是项目约定的运行时配置，建议先确认 `.env.runtime.local` 中的环境名，再在对应环境里安装依赖，避免把包装到系统默认 Python。
 
 ### 3. 配置本机运行环境
 
@@ -121,10 +123,22 @@ npm.cmd run electron:build
 powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1
 ```
 
+定向测试示例：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_update_guard.py backend/tests/test_system_service.py
+```
+
 后端调试：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\run-backend.ps1
+```
+
+后端自检：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\selfcheck-backend.ps1
 ```
 
 一键打包：

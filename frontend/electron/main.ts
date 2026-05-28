@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
-import { AppUpdater, type UpdateCheckReason } from './updater'
+import { AppUpdater, type DownloadPreparation, type UpdateCheckReason } from './updater'
 
 // Set stdout/stderr encoding to UTF-8 for Windows
 if (process.platform === 'win32') {
@@ -154,6 +154,32 @@ function shouldIgnorePythonStderrLine(line: string): boolean {
   const normalized = String(line || '').trim()
   if (!normalized) return true
   return normalized.includes('numexpr.utils: NumExpr defaulting to') && normalized.includes('threads')
+}
+
+function parsePythonLoggingLine(line: string): { level: LogLevel; message: string } | null {
+  const normalized = String(line || '').trim()
+  if (!normalized) return null
+
+  const match = normalized.match(
+    /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\s+(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+([^\s:]+):\s*(.*)$/i
+  )
+  if (!match) return null
+
+  const [, timestamp, rawLevel, loggerName, message] = match
+  const upperLevel = rawLevel.toUpperCase()
+  const level: LogLevel =
+    upperLevel === 'DEBUG'
+      ? 'debug'
+      : upperLevel === 'INFO'
+        ? 'info'
+        : upperLevel === 'WARNING'
+          ? 'warn'
+          : 'error'
+
+  return {
+    level,
+    message: `[${timestamp}] [${loggerName}] ${message || ''}`.trim(),
+  }
 }
 
 function logToFileLine(line: string) {
@@ -358,6 +384,11 @@ app.whenReady().then(() => {
     const focused = BrowserWindow.getFocusedWindow()
     if (focused) focused.webContents.toggleDevTools()
   })
+
+  ipcMain.handle('open-devtools', () => {
+    const focused = BrowserWindow.getFocusedWindow()
+    if (focused) focused.webContents.openDevTools()
+  })
 })
 
 // --- IPC Handlers ---
@@ -426,8 +457,16 @@ ipcMain.handle('update:check', async (_, payload?: { reason?: UpdateCheckReason 
   }
 })
 
-ipcMain.handle('update:startDownload', async () => {
+ipcMain.handle('update:startDownload', async (_, payload?: DownloadPreparation) => {
+  if (payload?.version && payload?.url) {
+    updater.primeManifest(payload)
+  }
   return updater.startDownload()
+})
+
+ipcMain.handle('update:pauseDownload', () => {
+  updater.pauseDownload()
+  return { paused: true }
 })
 
 ipcMain.handle('update:installDownloaded', async () => {
@@ -521,7 +560,13 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
         const line = raw.trim()
         if (!line) continue
         if (shouldIgnorePythonStderrLine(line)) continue
-        log('warn', 'python', '标准错误', line.length > 2000 ? line.slice(0, 2000) + '…' : line)
+        const truncated = line.length > 2000 ? line.slice(0, 2000) + '…' : line
+        const parsedLog = parsePythonLoggingLine(truncated)
+        if (parsedLog) {
+          log(parsedLog.level, 'python', '后端日志', parsedLog.message)
+          continue
+        }
+        log('warn', 'python', '标准错误', truncated)
       }
     })
 

@@ -108,6 +108,8 @@ def serialize_state(state: AppState) -> dict[str, Any]:
             "total": state.printing.total,
             "config": state.printing.config,
             "commonConfig": state.printing.common_config,
+            "subjectRows": state.printing.subject_rows,
+            "studentInfoTitles": state.printing.student_info_titles,
         },
     }
 
@@ -151,6 +153,8 @@ def deserialize_state(state_data: dict[str, Any], state: AppState) -> None:
         total=printing_data.get("total", 0),
         config=printing_data.get("config", {}),
         common_config=printing_data.get("commonConfig", {}),
+        subject_rows=printing_data.get("subjectRows", []),
+        student_info_titles=printing_data.get("studentInfoTitles", {}),
     )
     state.exam_arrangement = None
 

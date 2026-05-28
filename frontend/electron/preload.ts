@@ -5,8 +5,9 @@ const ALLOWED_INVOKE_CHANNELS = [
   'backend_project_root', 'app_exe_dir',
   'open_path', 'open_external',
   'dialog:open', 'dialog:save',
+  'open-devtools',
   'update:getCurrentVersion', 'update:getHistory', 'update:check',
-  'update:startDownload', 'update:installDownloaded',
+  'update:startDownload', 'update:pauseDownload', 'update:installDownloaded',
 ] as const
 
 const ALLOWED_ON_CHANNELS = [

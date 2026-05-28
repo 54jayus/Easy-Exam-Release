@@ -39,9 +39,9 @@
           {{ updateStatusChipText }}
         </div>
       </div>
-      <div v-if="updateStatus === 'downloading'" class="mt-4 space-y-2">
-        <el-progress :percentage="downloadProgress" :stroke-width="10" :show-text="false" />
-        <div class="text-right text-xs text-slate-500">已下载 {{ downloadProgress.toFixed(1) }}%</div>
+      <div v-if="updateStatus === 'downloading' || updateStatus === 'paused'" class="mt-4 space-y-2">
+        <el-progress :percentage="smoothProgress" :stroke-width="10" :show-text="false" />
+        <div class="text-right text-xs text-slate-500">已下载 {{ smoothProgress.toFixed(1) }}%</div>
       </div>
       <div v-if="updateStatusMessage" class="mt-3 text-xs leading-5 text-slate-500">
         {{ updateStatusMessage }}
@@ -162,8 +162,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRef } from 'vue'
 import { Check, RefreshRight } from '@element-plus/icons-vue'
+import { useSmoothProgress } from '@/composables/useSmoothProgress'
 import type { UpdateHistoryEntry, UpdateStatus } from '@/types/appUpdate'
 
 const props = withDefaults(defineProps<{
@@ -199,6 +200,8 @@ defineEmits<{
   'retry-history': []
   'open-release-page': [url: string]
 }>()
+
+const smoothProgress = useSmoothProgress(toRef(props, 'downloadProgress'))
 
 const latestVersionCardClass = computed(() =>
   props.accent === 'rose' ? 'border-rose-100 bg-rose-50' : 'border-primary-100 bg-primary-50'

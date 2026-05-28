@@ -1,4 +1,4 @@
-export type UpdateStatus = 'idle' | 'checking' | 'up_to_date' | 'available' | 'downloading' | 'downloaded' | 'error'
+export type UpdateStatus = 'idle' | 'checking' | 'up_to_date' | 'available' | 'downloading' | 'paused' | 'downloaded' | 'error'
 
 export type UpdateCheckResult = {
   currentVersion: string
@@ -23,15 +23,19 @@ export type UpdateHistoryEntry = {
 }
 
 export type ForceUpdateSnapshot = {
-  version: string
+  requiredVersion: string
+  latestVersion: string
   releaseDate: string
   notes: string[]
   url: string
+  checkedAt: string
 }
 
 export type BackendUpdateGuardStatus = {
   checked: boolean
-  locked: boolean
+  checkSucceeded: boolean
+  hasUpdate: boolean
+  mandatoryDetected: boolean
   currentVersion: string
   latestVersion: string
   requiredVersion: string

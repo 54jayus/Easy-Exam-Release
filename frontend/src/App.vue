@@ -94,9 +94,33 @@
               >
                 <el-icon v-if="updateStatus === 'checking'" class="animate-spin"><Loading /></el-icon>
                 <el-icon v-else><Download /></el-icon>
+                <!-- Background download mini ring -->
+                <svg
+                  v-if="backgroundDownloadActive"
+                  class="absolute inset-[-3px] w-[calc(100%+6px)] h-[calc(100%+6px)] -rotate-90 pointer-events-none"
+                  viewBox="0 0 36 36"
+                >
+                  <circle
+                    cx="18" cy="18" r="16"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.15)"
+                    stroke-width="2.5"
+                  />
+                  <circle
+                    cx="18" cy="18" r="16"
+                    fill="none"
+                    stroke="#fbbf24"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    :stroke-dasharray="`${downloadProgress * 1.005} 100.5`"
+                    class="transition-all duration-300"
+                  />
+                </svg>
+                <!-- Badge: downloading (amber pulse) or ready (green solid) -->
                 <span
-                  v-if="showUpdateBadge"
-                  class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-primary-900 animate-pulse"
+                  v-if="showUpdateBadge && !backgroundDownloadActive"
+                  class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-primary-900 animate-pulse"
+                  :class="updateStatus === 'downloaded' ? 'bg-emerald-400' : 'bg-amber-400'"
                 />
               </el-button>
             </el-tooltip>
@@ -236,72 +260,154 @@
 
     <el-dialog
       v-model="showDevDialog"
-      title="开发者选项"
-      width="420px"
+      width="500px"
       align-center
       destroy-on-close
+      class="dev-dialog"
     >
-      <div class="space-y-4 py-2">
-        <div class="text-sm text-slate-600 leading-relaxed">
-          开发者模式仅用于调试和问题排查，请勿在正式环境长期开启。
+      <template #header>
+        <div class="flex items-center gap-2.5 -mb-1">
+          <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+            <el-icon class="text-amber-600" :size="16"><Setting /></el-icon>
+          </div>
+          <div>
+            <div class="text-base font-bold text-slate-800">开发者选项</div>
+            <div class="text-xs text-slate-400 font-normal">仅用于调试与问题排查</div>
+          </div>
         </div>
-        <div class="flex items-center justify-between mt-2">
-          <span class="text-sm text-slate-700">开发者模式</span>
-          <el-switch
-            v-model="developerMode"
-            active-text="开启"
-            inactive-text="关闭"
-          />
+      </template>
+
+      <div class="space-y-5 py-1">
+        <!-- Warning Banner -->
+        <div class="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200/80">
+          <el-icon class="text-amber-500 mt-0.5 flex-shrink-0" :size="16"><Warning /></el-icon>
+          <p class="text-xs text-amber-700 leading-relaxed">
+            开发者模式包含调试功能，可能影响系统稳定性。请勿在正式考试环境长期开启，使用完毕后建议及时关闭。
+          </p>
         </div>
-        <transition name="fade-slide">
-          <div v-if="developerMode" class="border-t border-slate-100 pt-3 mt-3 space-y-3">
+
+        <!-- Section: General -->
+        <div class="rounded-xl border border-slate-200/80 overflow-hidden">
+          <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100">
             <div class="flex items-center justify-between">
-              <div class="flex flex-col">
-                <span class="text-sm text-slate-700">展示二次均衡明细</span>
-                <span class="text-[10px] text-slate-400">优化完成后自动弹出详细对比数据</span>
+              <div class="flex items-center gap-2.5">
+                <el-icon class="text-slate-500" :size="14"><Setting /></el-icon>
+                <span class="text-sm font-semibold text-slate-700">通用</span>
               </div>
-              <el-switch v-model="showOptimizationDetails" size="small" />
+              <el-switch
+                v-model="developerMode"
+                active-text="开启"
+                inactive-text="关闭"
+                size="small"
+              />
             </div>
-            <div class="rounded-2xl border border-dashed border-primary-200 bg-primary-50/70 px-4 py-3">
-              <div class="flex items-start justify-between gap-3">
-                <div class="space-y-1">
-                  <div class="text-sm font-semibold text-primary-700">更新弹窗预演</div>
-                  <div class="text-[11px] leading-5 text-primary-600/80">
-                    不发布真实版本也能演示“发现新版本、下载进度、安装确认”整套交互。
+          </div>
+
+          <transition name="fade-slide">
+            <div v-if="developerMode" class="divide-y divide-slate-100">
+              <!-- DevTools -->
+              <div class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
+                    <el-icon class="text-indigo-500" :size="14"><Monitor /></el-icon>
+                  </div>
+                  <div>
+                    <span class="text-sm text-slate-700 font-medium">开发者工具</span>
+                    <span class="block text-[11px] text-slate-400">打开 Chromium DevTools 控制台</span>
                   </div>
                 </div>
-                <span
-                  class="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                  :class="updatePreviewBadgeClass"
-                >
-                  {{ updatePreviewBadgeText }}
-                </span>
-              </div>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <el-button type="primary" size="small" @click="activateMockUpdatePreview">
-                  模拟新版本更新
+                <el-button size="small" type="primary" plain @click="openDevTools">
+                  打开
                 </el-button>
-                <el-button type="danger" size="small" @click="activateMockForceUpdatePreview">
+              </div>
+
+              <!-- Optimization details -->
+              <div class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                    <el-icon class="text-emerald-500" :size="14"><View /></el-icon>
+                  </div>
+                  <div>
+                    <span class="text-sm text-slate-700 font-medium">二次均衡明细</span>
+                    <span class="block text-[11px] text-slate-400">优化完成后弹出详细对比数据</span>
+                  </div>
+                </div>
+                <el-switch v-model="showOptimizationDetails" size="small" />
+              </div>
+            </div>
+          </transition>
+
+          <div v-if="!developerMode" class="px-4 py-6 text-center">
+            <p class="text-sm text-slate-400">开启开发者模式以查看调试选项</p>
+          </div>
+        </div>
+
+        <!-- Section: Update Preview -->
+        <transition name="fade-slide">
+          <div v-if="developerMode" class="rounded-xl border border-slate-200/80 overflow-hidden">
+            <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <el-icon class="text-slate-500" :size="14"><Download /></el-icon>
+                <span class="text-sm font-semibold text-slate-700">更新弹窗预演</span>
+              </div>
+              <span
+                class="rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-wide"
+                :class="updatePreviewBadgeClass"
+              >
+                {{ updatePreviewBadgeText }}
+              </span>
+            </div>
+            <div class="px-4 py-3 space-y-3">
+              <p class="text-xs text-slate-500 leading-relaxed">
+                不发布真实版本也能演示"发现新版本 → 下载进度 → 安装确认"整套交互流程。
+              </p>
+              <div class="flex gap-2">
+                <el-button type="primary" size="small" class="flex-1" @click="activateMockUpdatePreview">
+                  模拟更新
+                </el-button>
+                <el-button type="danger" size="small" class="flex-1" @click="activateMockForceUpdatePreview">
                   模拟强制更新
                 </el-button>
                 <el-button
                   size="small"
+                  class="flex-1"
                   :disabled="!isAnyUpdatePreviewActive"
                   @click="resetMockUpdatePreview()"
                 >
-                  恢复真实更新状态
+                  恢复真实状态
                 </el-button>
               </div>
             </div>
           </div>
         </transition>
       </div>
+
       <template #footer>
-        <div class="flex justify-end gap-2">
+        <div class="flex items-center justify-between">
+          <el-button
+            size="small"
+            :icon="Refresh"
+            :disabled="!developerMode"
+            @click="resetDevOptions"
+          >
+            重置默认
+          </el-button>
           <el-button @click="showDevDialog = false">关闭</el-button>
         </div>
       </template>
     </el-dialog>
+
+    <BackgroundDownloadBar
+      :visible="showBgDownloadBar"
+      :progress="downloadProgress"
+      :version="latestVersion"
+      :is-ready="bgDownloadReady"
+      :is-paused="bgDownloadPaused"
+      @install="installDownloadedUpdate"
+      @pause="pauseUpdateDownload"
+      @resume="startBackgroundUpdateDownload"
+      @dismiss="handleBgBarDismiss"
+    />
 
     <UpdateDialog
       v-if="!forceUpdateActive"
@@ -329,6 +435,7 @@
       @close="closeUpdateDialog"
       @check="handleManualUpdateCheck"
       @download="startUpdateDownload"
+      @pause="pauseUpdateDownload"
       @install="installDownloadedUpdate"
       @toggle-notes="toggleShowAllNotes"
       @toggle-history="toggleHistoryPanel"
@@ -356,9 +463,14 @@ import {
   Download,
   Upload,
   Loading,
+  Warning,
+  Monitor,
+  Refresh,
+  View,
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
+import BackgroundDownloadBar from '@/components/update/BackgroundDownloadBar.vue'
 import ForceUpdateOverlay from '@/components/update/ForceUpdateOverlay.vue'
 import UpdateDialog from '@/components/update/UpdateDialog.vue'
 import { useAppUpdate } from '@/composables/useAppUpdate'
@@ -367,7 +479,6 @@ import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { createUiFeedback, formatActionError, formatActionSuccess } from '@/lib/uiFeedback'
 import { useLicenseStore } from '@/stores/license'
-import type { BackendUpdateGuardStatus } from '@/types/appUpdate'
 
 dayjs.locale('zh-cn')
 
@@ -394,6 +505,7 @@ const {
   showAllNotes,
   mockUpdatePreviewActive,
   mockForceUpdatePreviewActive,
+  backgroundDownloadActive,
   forceUpdateActive,
   forceUpdateMeta,
   showUpdateBadge,
@@ -410,11 +522,12 @@ const {
   handleUpdateIconClick,
   retryForceUpdateCheck,
   startUpdateDownload,
+  startBackgroundUpdateDownload,
+  pauseUpdateDownload,
   installDownloadedUpdate,
   toggleHistoryPanel,
   loadUpdateHistory,
   openReleasePage,
-  applyBackendUpdateGuardStatus,
   activateMockUpdatePreview,
   activateMockForceUpdatePreview,
   resetMockUpdatePreview,
@@ -441,6 +554,20 @@ const updatePreviewBadgeClass = computed(() => {
   }
   return 'bg-white text-slate-500 border border-slate-200'
 })
+
+const bgDownloadReady = computed(() =>
+  !backgroundDownloadActive.value && updateStatus.value === 'downloaded' && !showUpdateDialog.value
+)
+const bgDownloadPaused = computed(() =>
+  updateStatus.value === 'paused' && !showUpdateDialog.value
+)
+const bgDownloadBarDismissed = ref(false)
+const showBgDownloadBar = computed(() =>
+  ((backgroundDownloadActive.value && !showUpdateDialog.value) || bgDownloadReady.value || bgDownloadPaused.value) && !bgDownloadBarDismissed.value
+)
+const handleBgBarDismiss = () => {
+  bgDownloadBarDismissed.value = true
+}
 
 const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 const showSettings = ref(false)
@@ -551,20 +678,17 @@ const handleLogoTap = () => {
   }
 }
 
-const syncBackendUpdateGuard = async (forceRefresh = false) => {
-  try {
-    const status = await pythonBackend.request(
-      forceRefresh ? 'system.refreshUpdateGuard' : 'system.getUpdateGuardStatus',
-      {}
-    ) as BackendUpdateGuardStatus
-    applyBackendUpdateGuardStatus(status, {
-      message: status.locked
-        ? '后端已启用强制更新门禁，请先完成升级后再继续使用软件。'
-        : undefined,
-    })
-  } catch (error) {
-    console.warn('读取后端更新门禁状态失败', error)
+const openDevTools = () => {
+  window.electron?.ipcRenderer.invoke('open-devtools')
+}
+
+const resetDevOptions = () => {
+  developerMode.value = false
+  showOptimizationDetails.value = false
+  if (isAnyUpdatePreviewActive.value) {
+    void resetMockUpdatePreview(true)
   }
+  ElMessage.success('开发者选项已重置')
 }
 
 const enforceProtectedRoute = () => {
@@ -594,6 +718,10 @@ watch(developerMode, (value) => {
   }
 })
 
+watch(backgroundDownloadActive, (active) => {
+  if (active) bgDownloadBarDismissed.value = false
+})
+
 watch(showOptimizationDetails, (value) => {
   localStorage.setItem('show_optimization_details', value ? 'true' : 'false')
 })
@@ -621,8 +749,6 @@ onMounted(() => {
       console.error('Failed to load profile', error)
     }
   }
-
-  void syncBackendUpdateGuard(false)
 })
 
 const navItems = [

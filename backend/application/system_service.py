@@ -78,7 +78,9 @@ class SystemService:
         if not self._update_guard:
             return {
                 "checked": True,
-                "locked": False,
+                "checkSucceeded": False,
+                "hasUpdate": False,
+                "mandatoryDetected": False,
                 "currentVersion": "",
                 "latestVersion": "",
                 "requiredVersion": "",

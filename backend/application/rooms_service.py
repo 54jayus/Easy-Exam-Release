@@ -257,6 +257,37 @@ class RoomsService:
         config["gaokaoTimeSettings"] = normalize_gaokao_time_settings(config.get("gaokaoTimeSettings"))
         return {"settings": settings, "students": students, "results": results, "config": config, "studentPath": path}
 
+    def save_state(self, params: dict) -> Any:
+        if "settings" in params:
+            self._state.rooms.settings_data = list(params.get("settings") or [])
+
+        if "students" in params:
+            self._state.rooms.students_preview = list(params.get("students") or [])
+
+        if "results" in params:
+            self._state.rooms.results = list(params.get("results") or [])
+
+        if "studentPath" in params:
+            self._state.rooms.student_path = str(params.get("studentPath") or "")
+
+        if "config" in params:
+            config = params.get("config", {}) or {}
+            if isinstance(config, dict):
+                config = dict(config)
+                config["subjectPriorityOrder"] = _normalize_subject_priority_order(config.get("subjectPriorityOrder"))
+                config["gaokaoTimeSettings"] = normalize_gaokao_time_settings(config.get("gaokaoTimeSettings"))
+                self._state.rooms.config = config
+
+        self._state.exam_arrangement = None
+        self._repo.save(self._state)
+        return {
+            "settings": self._state.rooms.settings_data,
+            "students": self._state.rooms.students_preview,
+            "results": self._state.rooms.results,
+            "config": self._state.rooms.config,
+            "studentPath": self._state.rooms.student_path,
+        }
+
     def generate_template(self, params: dict) -> Any:
         return generate_rooms_template(params["type"], params["path"])
 

@@ -3,6 +3,26 @@
 """Validation helpers for proctoring scheduling."""
 
 
+def _gender_pair_capacity(male_count: int, female_count: int) -> int:
+    return min(max(0, female_count), max(0, male_count + female_count) // 2)
+
+
+def _gender_internal_pair_capacity(
+    internal_male: int,
+    internal_female: int,
+    external_male: int,
+    external_female: int,
+) -> int:
+    max_pairs = 0
+    max_internal_male_pairs = min(max(0, internal_male), max(0, external_female))
+    for internal_male_pairs in range(max_internal_male_pairs + 1):
+        remaining_external_female = max(0, external_female - internal_male_pairs)
+        remaining_external_pool = max(0, external_male) + remaining_external_female
+        pair_count = internal_male_pairs + min(max(0, internal_female), remaining_external_pool)
+        max_pairs = max(max_pairs, pair_count)
+    return max_pairs
+
+
 def check_feasibility(schedule):
     """Check whether the current configuration has a feasible assignment space."""
     mode = schedule.mode
@@ -68,7 +88,12 @@ def check_feasibility(schedule):
             external_female = sum(
                 1 for teacher in candidates if teacher.is_internal is False and teacher.gender == "F"
             )
-            pair_cap = min(internal_male, external_female) + min(internal_female, external_male)
+            pair_cap = _gender_internal_pair_capacity(
+                internal_male,
+                internal_female,
+                external_male,
+                external_female,
+            )
             if pair_cap < required_pairs:
                 return (
                     False,
@@ -92,7 +117,7 @@ def check_feasibility(schedule):
         elif gender_mix:
             male_count = sum(1 for teacher in candidates if teacher.gender == "M")
             female_count = sum(1 for teacher in candidates if teacher.gender == "F")
-            pair_cap = min(male_count, female_count)
+            pair_cap = _gender_pair_capacity(male_count, female_count)
             if pair_cap < required_pairs:
                 return (
                     False,

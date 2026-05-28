@@ -375,6 +375,12 @@ class ProctoringService:
             "config": self._state.proctoring.config,
         }
 
+    def save_config(self, params: dict) -> Any:
+        config = self._merge_config(params.get("config", {}))
+        self._state.proctoring.config = config
+        self._repo.save(self._state)
+        return {"config": config}
+
     def clear_state(self, params: dict) -> Any:
         from backend.domain.state import ProctoringState
         clear_teachers = params.get("clearTeachers", True)

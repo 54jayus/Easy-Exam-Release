@@ -8,6 +8,9 @@ from .core.entities import EXEMPT_SLOT_MARKER
 from .core.models import Schedule
 
 
+_INVALID_SHEET_CHARS = ["\\", "/", "*", "?", ":", "[", "]"]
+
+
 def _subject_name(subject_id: int, subject_names: Sequence[str]) -> str:
     if 0 <= subject_id - 1 < len(subject_names) and subject_names[subject_id - 1]:
         return str(subject_names[subject_id - 1])
@@ -259,6 +262,30 @@ def _autosize_sheet_columns(workbook, sheet_name: str, *, max_width: int = 50) -
         ws.column_dimensions[column_letter].width = min(max(10, max_length * 2), max_width)
 
 
+def _safe_sheet_name(name: str) -> str:
+    safe_name = str(name or "")
+    for char in _INVALID_SHEET_CHARS:
+        safe_name = safe_name.replace(char, " ")
+    safe_name = safe_name.strip() or "Sheet"
+    return safe_name[:31]
+
+
+def _unique_sheet_name(used_sheet_names: set[str], name: str) -> str:
+    base_name = _safe_sheet_name(name)
+    used_lower_names = {sheet_name.lower() for sheet_name in used_sheet_names}
+    if base_name.lower() not in used_lower_names:
+        return base_name
+
+    index = 2
+    while True:
+        suffix = f"({index})"
+        trimmed_base = base_name[: 31 - len(suffix)]
+        candidate = f"{trimmed_base}{suffix}"
+        if candidate.lower() not in used_lower_names:
+            return candidate
+        index += 1
+
+
 def export_schedule_to_excel(
     file_path: str,
     *,
@@ -302,19 +329,29 @@ def export_schedule_workbook_to_excel(
     )
     df_stats = _build_stats_dataframe(schedule=schedule, subject_names=subject_names)
     subject_sheets = _build_subject_sheet_dataframes(schedule=schedule)
+    written_subject_sheet_names: dict[int, str] = {}
+    reserved_sheet_names: set[str] = set()
 
     with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
         if not df_overview.empty:
             df_overview.to_excel(writer, sheet_name="监考总览表", index=False)
+            reserved_sheet_names.add("监考总览表")
         if not df_time_overview.empty:
             df_time_overview.to_excel(writer, sheet_name="按时段总览", index=False)
+            reserved_sheet_names.add("按时段总览")
         if not df_stats.empty:
             df_stats.to_excel(writer, sheet_name="监考统计", index=False)
+            reserved_sheet_names.add("监考统计")
         for exam in schedule.exams or []:
-            safe_name = _subject_name(exam.subject_id, subject_names)[:31] or f"科目{exam.subject_id}"
             df_subject = subject_sheets.get(f"科目{exam.subject_id}")
             if df_subject is not None:
-                df_subject.to_excel(writer, sheet_name=safe_name, index=False)
+                sheet_name = _unique_sheet_name(
+                    reserved_sheet_names,
+                    _subject_name(exam.subject_id, subject_names) or f"科目{exam.subject_id}",
+                )
+                df_subject.to_excel(writer, sheet_name=sheet_name, index=False)
+                reserved_sheet_names.add(sheet_name)
+                written_subject_sheet_names[exam.subject_id] = sheet_name
 
         workbook = writer.book
         if not df_overview.empty and "监考总览表" in workbook.sheetnames:
@@ -333,4 +370,6 @@ def export_schedule_workbook_to_excel(
         _autosize_sheet_columns(workbook, "按时段总览", max_width=28)
         _autosize_sheet_columns(workbook, "监考统计")
         for exam in schedule.exams or []:
-            _autosize_sheet_columns(workbook, _subject_name(exam.subject_id, subject_names)[:31] or f"科目{exam.subject_id}")
+            sheet_name = written_subject_sheet_names.get(exam.subject_id)
+            if sheet_name:
+                _autosize_sheet_columns(workbook, sheet_name)

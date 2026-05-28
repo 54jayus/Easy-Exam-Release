@@ -21,7 +21,9 @@ export type RpcMethods = {
     params: {}
     result: {
       checked: boolean
-      locked: boolean
+      checkSucceeded: boolean
+      hasUpdate: boolean
+      mandatoryDetected: boolean
       currentVersion: string
       latestVersion: string
       requiredVersion: string
@@ -40,7 +42,9 @@ export type RpcMethods = {
     params: {}
     result: {
       checked: boolean
-      locked: boolean
+      checkSucceeded: boolean
+      hasUpdate: boolean
+      mandatoryDetected: boolean
       currentVersion: string
       latestVersion: string
       requiredVersion: string
@@ -112,6 +116,10 @@ export type RpcMethods = {
     params: {}
     result: { teachers: any[]; schedule: any[]; config: any }
   }
+  "proctoring.saveConfig": {
+    params: { config: any }
+    result: { config: any }
+  }
   "proctoring.startSolverJob": {
     params: { operation: "generate" | "continue"; teachers?: any[]; subjects?: any[]; schedule?: any[]; config?: any }
     result: { jobId?: string; status?: string; operation?: string; error?: string; activeJobId?: string }
@@ -170,6 +178,10 @@ export type RpcMethods = {
     params: {}
     result: { settings: any[]; studentsPath: string; config: any; results: any[] }
   }
+  "rooms.saveState": {
+    params: { settings?: any[]; students?: any[]; results?: any[]; config?: any; studentPath?: string }
+    result: { settings: any[]; students: any[]; results: any[]; config: any; studentPath: string }
+  }
   "rooms.getSubjectPriority": {
     params: {}
     result: { priority: string[] }
@@ -214,10 +226,10 @@ export type RpcMethods = {
   // Printing
   "printing.getState": {
     params: {}
-    result: { sourceType: string; dataPath: string; headers: string[]; mapping: any; data: any[]; total: number; config?: any; commonConfig?: any }
+    result: { sourceType: string; dataPath: string; headers: string[]; mapping: any; data: any[]; total: number; config?: any; commonConfig?: any; subjectRows?: any[]; studentInfoTitles?: Record<string, string> }
   }
   "printing.saveConfig": {
-    params: { config: any; commonConfig?: any; totalCount?: number; sourceType?: string; dataPath?: string; headers?: string[]; mapping?: any; data?: any[]; previewTotal?: number }
+    params: { config: any; commonConfig?: any; totalCount?: number; sourceType?: string; dataPath?: string; headers?: string[]; mapping?: any; data?: any[]; previewTotal?: number; subjectRows?: any[]; studentInfoTitles?: Record<string, string> }
     result: {}
   }
   "printing.resetState": {
