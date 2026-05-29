@@ -193,6 +193,13 @@
       @open-release-page="openReleasePage"
     />
 
+    <TrayCloseDialog
+      v-if="showTrayCloseDialog"
+      :use-ipc="false"
+      @minimize="handleTrayDialogMinimize"
+      @exit="handleTrayDialogExit"
+    />
+
     <el-dialog
       v-model="showSettings"
       title="用户设置"
@@ -315,6 +322,22 @@
                 </div>
                 <el-switch v-model="showOptimizationDetails" size="small" />
               </div>
+
+              <!-- Reset tray close tip -->
+              <div class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-sky-50 flex items-center justify-center">
+                    <el-icon class="text-sky-500" :size="14"><Bell /></el-icon>
+                  </div>
+                  <div>
+                    <span class="text-sm text-slate-700 font-medium">重置托盘提示</span>
+                    <span class="block text-[11px] text-slate-400">恢复首次关闭窗口时的最小化到托盘提示</span>
+                  </div>
+                </div>
+                <el-button size="small" type="primary" plain @click="resetTrayCloseTip">
+                  重置
+                </el-button>
+              </div>
             </div>
           </transition>
 
@@ -408,7 +431,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, provide, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, provide, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -429,9 +452,11 @@ import {
   Monitor,
   Refresh,
   View,
+  Bell,
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
+import TrayCloseDialog from '@/components/TrayCloseDialog.vue'
 import BackgroundDownloadBar from '@/components/update/BackgroundDownloadBar.vue'
 import ForceUpdateOverlay from '@/components/update/ForceUpdateOverlay.vue'
 import UpdateDialog from '@/components/update/UpdateDialog.vue'
@@ -563,6 +588,7 @@ const handleBgBarDismiss = () => {
 
 const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 const showSettings = ref(false)
+const showTrayCloseDialog = ref(false)
 const avatarSeeds = ['Admin', 'Felix', 'Aneka', 'Zack', 'Milo', 'Bandit', 'Tinker', 'Cali', 'Coco', 'Bear']
 const showDevDialog = ref(false)
 const developerMode = ref(localStorage.getItem('developer_mode') === 'true')
@@ -674,6 +700,27 @@ const openDevTools = () => {
   window.electron?.ipcRenderer.invoke('open-devtools')
 }
 
+const resetTrayCloseTip = async () => {
+  await window.electron?.ipcRenderer.invoke('reset-tray-tip')
+  ElMessage.success('托盘关闭提示已重置，下次关闭窗口时将重新弹出')
+}
+
+const handleTrayDialogMinimize = ({ dontShowAgain }: { dontShowAgain: boolean }) => {
+  showTrayCloseDialog.value = false
+  window.electron?.ipcRenderer.send('tray-dialog-response', {
+    exitRequested: false,
+    dontShowAgain,
+  })
+}
+
+const handleTrayDialogExit = ({ dontShowAgain }: { dontShowAgain: boolean }) => {
+  showTrayCloseDialog.value = false
+  window.electron?.ipcRenderer.send('tray-dialog-response', {
+    exitRequested: true,
+    dontShowAgain,
+  })
+}
+
 const resetDevOptions = () => {
   developerMode.value = false
   showOptimizationDetails.value = false
@@ -721,16 +768,24 @@ watch(showOptimizationDetails, (value) => {
 watch(frontendResetEpoch, () => {
   Object.assign(userProfile, createDefaultUserProfile())
   showSettings.value = false
+  showTrayCloseDialog.value = false
   showDevDialog.value = false
   developerMode.value = false
   showOptimizationDetails.value = false
   resetUpdateUiState()
 })
 
+let clockTimer: ReturnType<typeof setInterval> | null = null
+let removeTrayDialogOpenListener: (() => void) | null = null
+
 onMounted(() => {
-  setInterval(() => {
+  clockTimer = setInterval(() => {
     currentDateTime.value = dayjs().format('YYYY年MM月DD日 dddd HH:mm')
   }, 60000)
+
+  removeTrayDialogOpenListener = window.electron?.ipcRenderer.on('tray-dialog-open', () => {
+    showTrayCloseDialog.value = true
+  }) ?? null
 
   const saved = localStorage.getItem('user_profile')
   if (saved) {
@@ -741,6 +796,15 @@ onMounted(() => {
       console.error('Failed to load profile', error)
     }
   }
+})
+
+onUnmounted(() => {
+  if (clockTimer) {
+    clearInterval(clockTimer)
+    clockTimer = null
+  }
+  removeTrayDialogOpenListener?.()
+  removeTrayDialogOpenListener = null
 })
 
 const navItems = [

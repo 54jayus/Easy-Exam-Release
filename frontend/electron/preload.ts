@@ -8,15 +8,17 @@ const ALLOWED_INVOKE_CHANNELS = [
   'open-devtools',
   'update:getCurrentVersion', 'update:getHistory', 'update:check',
   'update:startDownload', 'update:pauseDownload', 'update:installDownloaded',
+  'reset-tray-tip',
 ] as const
 
 const ALLOWED_ON_CHANNELS = [
   'python-stdout', 'python-stderr', 'python-exit', 'python-error',
   'main-process-message',
   'update-progress', 'update-downloaded', 'update-error',
+  'tray-dialog-open',
 ] as const
 
-const ALLOWED_SEND_CHANNELS = ['renderer-log'] as const
+const ALLOWED_SEND_CHANNELS = ['renderer-log', 'tray-dialog-response'] as const
 
 type InvokeChannel = typeof ALLOWED_INVOKE_CHANNELS[number]
 type OnChannel = typeof ALLOWED_ON_CHANNELS[number]

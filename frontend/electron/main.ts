@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog, Menu, globalShortcut } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog, Menu, Tray, globalShortcut, nativeImage } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -16,6 +16,7 @@ if (process.platform === 'win32') {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const APP_ID = 'com.easyexam.app'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -31,6 +32,10 @@ type RuntimeConfig = {
   EXAM_CONDA_ENV?: string
   EXAM_CONDA_EXE?: string
   EXAM_PYTHON_EXE?: string
+}
+
+type WindowBehaviorPreferences = {
+  trayCloseTipShown?: boolean
 }
 
 function getProjectRoot(): string {
@@ -110,6 +115,44 @@ function rotateLogsIfNeeded() {
       fs.renameSync(logPath, `${logPath}.1`)
     } catch {}
   } catch {}
+}
+
+function getWindowBehaviorPreferencesPath(): string {
+  return path.join(app.getPath('userData'), 'window-behavior.json')
+}
+
+let windowBehaviorPreferencesLoaded = false
+let windowBehaviorPreferences: WindowBehaviorPreferences = {}
+
+function loadWindowBehaviorPreferences() {
+  if (windowBehaviorPreferencesLoaded) return
+  windowBehaviorPreferencesLoaded = true
+
+  try {
+    const filePath = getWindowBehaviorPreferencesPath()
+    if (!fs.existsSync(filePath)) return
+    const payload = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+    if (payload && typeof payload === 'object') {
+      windowBehaviorPreferences = payload as WindowBehaviorPreferences
+    }
+  } catch (error) {
+    log('warn', 'window', '读取窗口行为配置失败，已回退到默认值', {
+      message: error instanceof Error ? error.message : String(error),
+    })
+    windowBehaviorPreferences = {}
+  }
+}
+
+function saveWindowBehaviorPreferences() {
+  try {
+    const filePath = getWindowBehaviorPreferencesPath()
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, JSON.stringify(windowBehaviorPreferences, null, 2), 'utf-8')
+  } catch (error) {
+    log('warn', 'window', '保存窗口行为配置失败', {
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
 }
 
 function safeJson(value: unknown): string {
@@ -224,10 +267,130 @@ process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
 let win: BrowserWindow | null
+let tray: Tray | null = null
 let pythonProcess: ChildProcess | null = null
+let isQuitting = false
+let isHandlingCloseToTray = false
 
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
+
+function showMainWindow() {
+  if (!win || win.isDestroyed()) return
+  if (win.isMinimized()) {
+    win.restore()
+  }
+  win.show()
+  win.focus()
+}
+
+function hideMainWindowToTray() {
+  if (!win || win.isDestroyed()) return
+  win.hide()
+}
+
+function exitApp() {
+  isQuitting = true
+  app.quit()
+}
+
+function getTrayIcon() {
+  const iconPath = path.join(process.env.VITE_PUBLIC, 'icon.png')
+  const iconImage = nativeImage.createFromPath(iconPath)
+  if (iconImage.isEmpty()) {
+    return iconPath
+  }
+  return iconImage.resize({ width: 16, height: 16 })
+}
+
+function createTray() {
+  if (tray) return
+
+  tray = new Tray(getTrayIcon())
+  tray.setToolTip('Easy Exam')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: '打开主界面',
+        click: () => {
+          showMainWindow()
+        },
+      },
+      {
+        label: '退出程序',
+        click: () => exitApp(),
+      },
+    ])
+  )
+
+  tray.on('double-click', () => {
+    showMainWindow()
+  })
+}
+
+async function maybeShowTrayCloseTip(parentWindow: BrowserWindow): Promise<{ exitRequested: boolean }> {
+  loadWindowBehaviorPreferences()
+  if (windowBehaviorPreferences.trayCloseTipShown) return { exitRequested: false }
+  if (parentWindow.isDestroyed()) return { exitRequested: false }
+
+  parentWindow.show()
+  parentWindow.focus()
+
+  return new Promise((resolve) => {
+    let settled = false
+
+    const cleanup = () => {
+      ipcMain.removeListener('tray-dialog-response', handleResponse)
+      parentWindow.removeListener('closed', handleClosed)
+    }
+
+    const finish = (result: { exitRequested: boolean }) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve(result)
+    }
+
+    const handleResponse = (_: Electron.IpcMainEvent, { exitRequested, dontShowAgain }: { exitRequested?: boolean; dontShowAgain?: boolean } = {}) => {
+      if (dontShowAgain) {
+        windowBehaviorPreferences.trayCloseTipShown = true
+        saveWindowBehaviorPreferences()
+      }
+      finish({ exitRequested: Boolean(exitRequested) })
+    }
+
+    const handleClosed = () => {
+      finish({ exitRequested: false })
+    }
+
+    ipcMain.on('tray-dialog-response', handleResponse)
+    parentWindow.once('closed', handleClosed)
+    parentWindow.webContents.send('tray-dialog-open')
+  })
+}
+
+async function handleCloseToTrayRequest() {
+  if (!win || win.isDestroyed() || isQuitting || isHandlingCloseToTray) return
+
+  isHandlingCloseToTray = true
+  try {
+    const { exitRequested } = await maybeShowTrayCloseTip(win)
+    if (exitRequested) {
+      log('info', 'window', '主窗口关闭按钮触发，用户选择退出程序')
+      exitApp()
+      return
+    }
+    log('info', 'window', '主窗口关闭按钮触发，已隐藏到系统托盘')
+    hideMainWindowToTray()
+  } finally {
+    isHandlingCloseToTray = false
+  }
+}
 
 function createWindow() {
   log('info', 'window', '开始创建主窗口', {
@@ -306,6 +469,12 @@ function createWindow() {
     win = null
   })
 
+  win.on('close', (event) => {
+    if (isQuitting) return
+    event.preventDefault()
+    void handleCloseToTrayRequest()
+  })
+
   // Enable right-click context menu
   win.webContents.on('context-menu', (event, params) => {
     const menu = Menu.buildFromTemplate([
@@ -363,33 +532,54 @@ app.on('window-all-closed', () => {
   }
 })
 
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
 app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
   }
+  showMainWindow()
 })
 
-app.whenReady().then(() => {
-  log('info', 'main', 'Electron 已 ready', {
-    isPackaged: app.isPackaged,
-    exePath: app.getPath('exe'),
-    userData: app.getPath('userData'),
-  })
-  Menu.setApplicationMenu(null)
-  createWindow()
-
-  globalShortcut.register('CommandOrControl+Shift+I', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    if (focused) focused.webContents.toggleDevTools()
-  })
-
-  ipcMain.handle('open-devtools', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    if (focused) focused.webContents.openDevTools()
-  })
+app.on('second-instance', () => {
+  log('info', 'main', '检测到第二个实例启动请求，已切换到现有窗口')
+  showMainWindow()
 })
+
+if (gotSingleInstanceLock) {
+  app.whenReady().then(() => {
+    log('info', 'main', 'Electron 已 ready', {
+      isPackaged: app.isPackaged,
+      exePath: app.getPath('exe'),
+      userData: app.getPath('userData'),
+    })
+    app.setAppUserModelId(APP_ID)
+    loadWindowBehaviorPreferences()
+    Menu.setApplicationMenu(null)
+    createWindow()
+    createTray()
+
+    globalShortcut.register('CommandOrControl+Shift+I', () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (focused) focused.webContents.toggleDevTools()
+    })
+
+    ipcMain.handle('open-devtools', () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (focused) focused.webContents.openDevTools()
+    })
+
+    ipcMain.handle('reset-tray-tip', () => {
+      windowBehaviorPreferences.trayCloseTipShown = false
+      saveWindowBehaviorPreferences()
+      log('info', 'main', '已重置托盘关闭提示状态')
+    })
+  })
+}
 
 // --- IPC Handlers ---
 
