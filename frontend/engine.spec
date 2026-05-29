@@ -22,6 +22,25 @@ except Exception:
     ortools_datas = []
     ortools_binaries = []
 
+# Collect pandas and numpy bundled DLLs (e.g. msvcp140-*.dll with hash suffix)
+# pandas.libs is at site-packages/pandas.libs/, not inside the pandas package
+pandas_binaries = []
+numpy_binaries = []
+try:
+    import pandas as pd
+    site_packages = os.path.dirname(os.path.dirname(pd.__file__))
+    pandas_libs_dir = os.path.join(site_packages, "pandas.libs")
+    if os.path.isdir(pandas_libs_dir):
+        for f in os.listdir(pandas_libs_dir):
+            if f.endswith(".dll"):
+                pandas_binaries.append((os.path.join(pandas_libs_dir, f), "."))
+except Exception:
+    pass
+try:
+    numpy_binaries = collect_dynamic_libs("numpy")
+except Exception:
+    pass
+
 
 def _build_env_binaries():
     env_bin_dir = os.path.join(sys.prefix, "Library", "bin")
@@ -30,6 +49,17 @@ def _build_env_binaries():
         "libcrypto-3-x64.dll",
         "libssl-3-x64.dll",
         "libexpat.dll",
+        # Visual C++ runtime (required by pandas C extensions)
+        "vcomp140.dll",
+        "vcruntime140_threads.dll",
+        "msvcp140.dll",
+        "msvcp140_1.dll",
+        "msvcp140_2.dll",
+        "msvcp140_atomic_wait.dll",
+        "msvcp140_codecvt_ids.dll",
+        "concrt140.dll",
+        "vccorlib140.dll",
+        "vcamp140.dll",
     ]
     binaries = []
     for dll_name in dll_names:
@@ -44,7 +74,7 @@ env_binaries = _build_env_binaries()
 a = Analysis(
     [os.path.join(project_root, "backend", "__main__.py")],
     pathex=[project_root],
-    binaries=env_binaries + ortools_binaries,
+    binaries=env_binaries + ortools_binaries + pandas_binaries + numpy_binaries,
     datas=[
         (os.path.join(project_root, "backend", "resources"), "backend/resources"),
         (os.path.join(project_root, "\u4f7f\u7528\u8bf4\u660e\u4e66.pdf"), "."),
