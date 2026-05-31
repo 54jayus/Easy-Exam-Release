@@ -209,8 +209,32 @@
       class="rounded-2xl"
     >
       <div class="flex flex-col gap-6 py-2">
+        <!-- 头像区域 -->
         <div class="flex flex-col gap-3">
-          <label class="text-sm font-bold text-slate-700">选择头像</label>
+          <label class="text-sm font-bold text-slate-700">头像</label>
+          <div class="flex flex-col items-center gap-4">
+            <!-- 当前头像预览 + 上传按钮 -->
+            <div class="relative group cursor-pointer" @click="handleSelectCustomAvatar">
+              <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-slate-200 bg-slate-100 shadow-sm">
+                <img :src="userProfile.avatar" class="w-full h-full object-cover" />
+              </div>
+              <!-- 悬浮遮罩 -->
+              <div class="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                <el-icon class="text-white" :size="24"><Upload /></el-icon>
+              </div>
+            </div>
+            <el-button text size="small" class="!text-primary-500 !text-xs" @click.stop="handleSelectCustomAvatar">
+              点击上传自定义头像
+            </el-button>
+            <el-button v-if="userProfile.customAvatarPath" text size="small" class="!text-slate-400 !text-xs" @click.stop="handleResetAvatar">
+              恢复默认头像
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 预设头像选择 -->
+        <div class="flex flex-col gap-3">
+          <label class="text-sm font-bold text-slate-700">选择预设头像</label>
           <div class="grid grid-cols-5 gap-3">
             <div
               v-for="seed in avatarSeeds"
@@ -226,6 +250,9 @@
             </div>
           </div>
         </div>
+
+        <!-- 分割线 -->
+        <div class="border-t border-slate-100"></div>
 
         <div class="space-y-4">
           <div class="space-y-1.5">
@@ -245,6 +272,13 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 头像裁剪对话框 -->
+    <AvatarCropper
+      v-model="showCropper"
+      :image-src="cropperImageSrc"
+      @crop="handleCrop"
+    />
 
     <el-dialog
       v-model="showDevDialog"
@@ -457,6 +491,7 @@ import {
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import TrayCloseDialog from '@/components/TrayCloseDialog.vue'
+import AvatarCropper from '@/components/AvatarCropper.vue'
 import BackgroundDownloadBar from '@/components/update/BackgroundDownloadBar.vue'
 import ForceUpdateOverlay from '@/components/update/ForceUpdateOverlay.vue'
 import UpdateDialog from '@/components/update/UpdateDialog.vue'
@@ -598,7 +633,8 @@ const createDefaultUserProfile = () => ({
   name: '管理员',
   email: '',
   avatarSeed: 'Cali',
-  avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Cali&backgroundColor=e1f5fe,ffecb3,ffe082,ffcdd2,f8bbd0,e1bee7,d1c4e9,c5cae9,bbdefb,b3e5fc,b2ebf2,b2dfdb,c8e6c9,dcedc8,f0f4c3,fff9c4'
+  avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Cali&backgroundColor=e1f5fe,ffecb3,ffe082,ffcdd2,f8bbd0,e1bee7,d1c4e9,c5cae9,bbdefb,b3e5fc,b2ebf2,b2dfdb,c8e6c9,dcedc8,f0f4c3,fff9c4',
+  customAvatarPath: ''
 })
 
 const userProfile = reactive(createDefaultUserProfile())
@@ -608,6 +644,53 @@ const getAvatarUrl = (seed: string) => `https://api.dicebear.com/9.x/notionists/
 const selectAvatar = (seed: string) => {
   userProfile.avatarSeed = seed
   userProfile.avatar = getAvatarUrl(seed)
+}
+
+const showCropper = ref(false)
+const cropperImageSrc = ref('')
+
+const handleSelectCustomAvatar = async () => {
+  const filePath = await open({
+    title: '选择头像图片',
+    filters: [
+      { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'] }
+    ]
+  })
+  if (!filePath || Array.isArray(filePath)) return
+
+  // 验证文件扩展名
+  const ext = filePath.split('.').pop()?.toLowerCase()
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+  if (!ext || !allowedExtensions.includes(ext)) {
+    ElMessage.error('请选择有效的图片文件')
+    return
+  }
+
+  try {
+    const base64 = await (window as any).electron.ipcRenderer.invoke('fs:readFile', filePath)
+    cropperImageSrc.value = base64
+    showCropper.value = true
+  } catch (error: any) {
+    ElMessage.error(error.message || '读取图片失败')
+  }
+}
+
+const handleCrop = async (data: string) => {
+  try {
+    const avatarPath = await (window as any).electron.ipcRenderer.invoke('avatar:save', data)
+    userProfile.customAvatarPath = avatarPath
+    userProfile.avatar = `file:///${avatarPath.replace(/\\/g, '/')}`
+    userProfile.avatarSeed = ''
+    ElMessage.success('自定义头像已保存')
+  } catch (error) {
+    ElMessage.error('保存头像失败')
+  }
+}
+
+const handleResetAvatar = () => {
+  userProfile.customAvatarPath = ''
+  userProfile.avatarSeed = 'Cali'
+  userProfile.avatar = getAvatarUrl('Cali')
 }
 
 const saveSettings = () => {
@@ -792,6 +875,10 @@ onMounted(() => {
     try {
       const profile = JSON.parse(saved)
       Object.assign(userProfile, profile)
+      // 如果有自定义头像路径，加载本地文件
+      if (profile.customAvatarPath) {
+        userProfile.avatar = `file:///${profile.customAvatarPath.replace(/\\/g, '/')}`
+      }
     } catch (error) {
       console.error('Failed to load profile', error)
     }

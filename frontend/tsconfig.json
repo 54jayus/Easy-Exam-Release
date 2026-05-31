@@ -14,9 +14,11 @@
     "types": ["vite/client", "vitest/globals"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "vue-cropper": ["./node_modules/vue-cropper/dist/vue-cropper.es.js"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts", "vitest.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts", "vitest.config.ts"],
+  "exclude": ["node_modules/vue-cropper/lib"]
 }
 

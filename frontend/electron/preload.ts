@@ -9,6 +9,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'update:getCurrentVersion', 'update:getHistory', 'update:check',
   'update:startDownload', 'update:pauseDownload', 'update:installDownloaded',
   'reset-tray-tip',
+  'fs:readFile', 'fs:writeFile', 'avatar:save',
 ] as const
 
 const ALLOWED_ON_CHANNELS = [

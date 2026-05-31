@@ -861,3 +861,66 @@ ipcMain.on('renderer-log', (_event, entry: any) => {
       throw error
     }
   })
+
+  // 读取文件为 Base64
+  ipcMain.handle('fs:readFile', async (_, filePath: string) => {
+    try {
+      // 验证文件扩展名
+      const ext = path.extname(filePath).toLowerCase()
+      const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+      if (!allowedExtensions.includes(ext)) {
+        throw new Error('不支持的文件格式')
+      }
+
+      // 检查文件大小（限制 10MB）
+      const stats = await fs.promises.stat(filePath)
+      if (stats.size > 10 * 1024 * 1024) {
+        throw new Error('图片文件过大，请选择小于 10MB 的图片')
+      }
+
+      const buffer = await fs.promises.readFile(filePath)
+      const mimeMap: Record<string, string> = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp'
+      }
+      const mime = mimeMap[ext] || 'image/png'
+      return `data:${mime};base64,${buffer.toString('base64')}`
+    } catch (error) {
+      log('error', 'fs', '读取文件失败', { error: error instanceof Error ? error.message : String(error) })
+      throw error
+    }
+  })
+
+  // 将 Base64 数据写入文件
+  ipcMain.handle('fs:writeFile', async (_, filePath: string, data: string) => {
+    try {
+      // 移除 data:image/xxx;base64, 前缀
+      const base64Data = data.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      await fs.promises.writeFile(filePath, buffer)
+      return true
+    } catch (error) {
+      log('error', 'fs', '写入文件失败', { error: error instanceof Error ? error.message : String(error) })
+      throw error
+    }
+  })
+
+  // 保存自定义头像
+  ipcMain.handle('avatar:save', async (_, data: string) => {
+    try {
+      const avatarsDir = path.join(app.getPath('userData'), 'avatars')
+      await fs.promises.mkdir(avatarsDir, { recursive: true })
+      const avatarPath = path.join(avatarsDir, 'custom_avatar.png')
+      const base64Data = data.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      await fs.promises.writeFile(avatarPath, buffer)
+      return avatarPath
+    } catch (error) {
+      log('error', 'avatar', '保存头像失败', { error: error instanceof Error ? error.message : String(error) })
+      throw error
+    }
+  })
