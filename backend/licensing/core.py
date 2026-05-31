@@ -82,7 +82,7 @@ class LicenseManager:
                             disk_serial = line.split("=")[1].strip().strip('"')
                             break
                 except Exception:
-                    disk_serial = ""
+                    disk_serial = str(uuid.getnode())
             else:
                 disk_serial = str(uuid.getnode())
 
