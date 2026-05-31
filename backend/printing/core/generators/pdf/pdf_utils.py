@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 
 from reportlab.lib.pagesizes import A4
@@ -7,6 +8,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 logger = logging.getLogger(__name__)
+
+_IS_MACOS = sys.platform == "darwin"
+_IS_WINDOWS = sys.platform == "win32"
 
 def register_fonts():
     """注册中文字体"""
@@ -38,9 +42,25 @@ def register_fonts():
             except Exception:
                 return False
 
-        simsun_ttf_paths = ["C:\\Windows\\Fonts\\simsun.ttf", "simsun.ttf"]
-        simsun_ttc_paths = ["C:\\Windows\\Fonts\\simsun.ttc", "simsun.ttc"]
-        simsunb_ttf_paths = ["C:\\Windows\\Fonts\\simsunb.ttf", "simsunb.ttf"]
+        if _IS_MACOS:
+            simsun_ttf_paths = []
+            simsun_ttc_paths = [
+                "/System/Library/Fonts/Supplemental/Songti.ttc",
+                "/Library/Fonts/Songti.ttc",
+                "Songti.ttc",
+            ]
+            simsunb_ttf_paths = [
+                "/System/Library/Fonts/Supplemental/Songti.ttc",
+                "/Library/Fonts/Songti.ttc",
+            ]
+        elif _IS_WINDOWS:
+            simsun_ttf_paths = ["C:\\Windows\\Fonts\\simsun.ttf", "simsun.ttf"]
+            simsun_ttc_paths = ["C:\\Windows\\Fonts\\simsun.ttc", "simsun.ttc"]
+            simsunb_ttf_paths = ["C:\\Windows\\Fonts\\simsunb.ttf", "simsunb.ttf"]
+        else:
+            simsun_ttf_paths = ["/usr/share/fonts/truetype/simsun.ttf", "simsun.ttf"]
+            simsun_ttc_paths = ["/usr/share/fonts/truetype/simsun.ttc", "simsun.ttc"]
+            simsunb_ttf_paths = ["/usr/share/fonts/truetype/simsunb.ttf", "simsunb.ttf"]
 
         for p in simsun_ttf_paths:
             if _try_register_ttf("SimSun", p):

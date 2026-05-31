@@ -1,5 +1,6 @@
 from collections import defaultdict
 import os
+import sys
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -64,11 +65,38 @@ class ExamBagLabelPDFGenerator:
             except Exception:
                 return False
 
-        simsun_ttf_paths = ["C:\\Windows\\Fonts\\simsun.ttf", "simsun.ttf"]
-        simsun_ttc_paths = ["C:\\Windows\\Fonts\\simsun.ttc", "simsun.ttc"]
-        simsunb_ttf_paths = ["C:\\Windows\\Fonts\\simsunb.ttf", "simsunb.ttf"]
-        simhei_ttf_paths = ["C:\\Windows\\Fonts\\simhei.ttf", "simhei.ttf"]
-        msyhbd_ttc_paths = ["C:\\Windows\\Fonts\\msyhbd.ttc", "msyhbd.ttc"]
+        if sys.platform == "darwin":
+            simsun_ttf_paths = []
+            simsun_ttc_paths = [
+                "/System/Library/Fonts/Supplemental/Songti.ttc",
+                "/Library/Fonts/Songti.ttc",
+                "Songti.ttc",
+            ]
+            simsunb_ttf_paths = [
+                "/System/Library/Fonts/Supplemental/Songti.ttc",
+                "/Library/Fonts/Songti.ttc",
+            ]
+            simhei_ttf_paths = [
+                "/System/Library/Fonts/STHeiti Medium.ttc",
+                "/System/Library/Fonts/STHeiti Light.ttc",
+                "/Library/Fonts/STHeiti Medium.ttc",
+            ]
+            msyhbd_ttc_paths = [
+                "/System/Library/Fonts/PingFang.ttc",
+                "/Library/Fonts/PingFang.ttc",
+            ]
+        elif sys.platform == "win32":
+            simsun_ttf_paths = ["C:\\Windows\\Fonts\\simsun.ttf", "simsun.ttf"]
+            simsun_ttc_paths = ["C:\\Windows\\Fonts\\simsun.ttc", "simsun.ttc"]
+            simsunb_ttf_paths = ["C:\\Windows\\Fonts\\simsunb.ttf", "simsunb.ttf"]
+            simhei_ttf_paths = ["C:\\Windows\\Fonts\\simhei.ttf", "simhei.ttf"]
+            msyhbd_ttc_paths = ["C:\\Windows\\Fonts\\msyhbd.ttc", "msyhbd.ttc"]
+        else:
+            simsun_ttf_paths = ["/usr/share/fonts/truetype/simsun.ttf", "simsun.ttf"]
+            simsun_ttc_paths = ["/usr/share/fonts/truetype/simsun.ttc", "simsun.ttc"]
+            simsunb_ttf_paths = ["/usr/share/fonts/truetype/simsunb.ttf", "simsunb.ttf"]
+            simhei_ttf_paths = ["/usr/share/fonts/truetype/simhei.ttf", "simhei.ttf"]
+            msyhbd_ttc_paths = ["/usr/share/fonts/truetype/msyhbd.ttc", "msyhbd.ttc"]
 
         exam_font = "SimSun-ExamBag"
         exam_font_bold = "SimSun-ExamBag-Bold"

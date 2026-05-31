@@ -150,8 +150,8 @@ Help：
 
 安装依赖：
 
-```powershell
-npm.cmd install
+```bash
+npm install
 ```
 
 Python 运行环境统一读取仓库根目录配置：
@@ -161,34 +161,34 @@ Python 运行环境统一读取仓库根目录配置：
 
 首次使用时，请在仓库根目录复制模板文件并按本机环境修改。
 
-```powershell
-Copy-Item ..\.env.runtime.example ..\.env.runtime.local
+```bash
+cp ../.env.runtime.example ../.env.runtime.local
 ```
 
 ## 7. 常用命令
 
 启动开发环境：
 
-```powershell
-npm.cmd run dev
+```bash
+npm run dev
 ```
 
 运行前端测试：
 
-```powershell
-npm.cmd run test
+```bash
+npm run test
 ```
 
 构建前端资源：
 
-```powershell
-npm.cmd run build
+```bash
+npm run build
 ```
 
 构建 Electron 安装包：
 
-```powershell
-npm.cmd run electron:build
+```bash
+npm run electron:build
 ```
 
 ## 8. 当前测试入口

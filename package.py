@@ -104,7 +104,8 @@ def package():
     run_command(pyinstaller_cmd, cwd=str(project_root))
 
     print("\n=== Step 2: Building Electron Frontend & Installer ===")
-    run_command(["npm.cmd", "run", "electron:build"], cwd=str(frontend_dir))
+    npm_cmd = "npm.cmd" if sys.platform == "win32" else "npm"
+    run_command([npm_cmd, "run", "electron:build"], cwd=str(frontend_dir))
 
     print("\n=== Packaging Complete! ===")
     print(f"Installer should be in: {release_dir}")

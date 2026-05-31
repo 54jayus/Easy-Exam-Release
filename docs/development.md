@@ -2,9 +2,9 @@
 
 ## 1. 开发环境
 
-当前项目主要面向 Windows 桌面环境开发，建议准备：
+当前项目支持跨平台开发（Windows / macOS / Linux），建议准备：
 
-- Windows 10 / Windows 11
+- Windows 10+ / macOS / Linux
 - Node.js 与 npm
 - Python 3
 - 可选：Conda
@@ -13,15 +13,15 @@
 
 ### 2.1 前端依赖
 
-```powershell
-Set-Location frontend
-npm.cmd install
+```bash
+cd frontend
+npm install
 ```
 
 ### 2.2 后端依赖
 
-```powershell
-Set-Location ..
+```bash
+cd ..
 conda run --no-capture-output -n exam_scheduler python -m pip install -r backend/requirements.txt
 ```
 
@@ -49,9 +49,9 @@ conda run --no-capture-output -n exam_scheduler python -m pip install -r backend
 
 ### 4.1 启动开发环境
 
-```powershell
-Set-Location frontend
-npm.cmd run dev
+```bash
+cd frontend
+npm run dev
 ```
 
 当前行为：
@@ -62,33 +62,42 @@ npm.cmd run dev
 
 ### 4.2 前端测试与构建
 
-```powershell
-Set-Location frontend
-npm.cmd run test
-npm.cmd run build
+```bash
+cd frontend
+npm run test
+npm run build
 ```
 
 ### 4.3 后端测试
 
-```powershell
+```bash
+# macOS / Linux
+./tools/test-backend.sh
+
+# Windows
 powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1
 ```
 
 定向执行示例：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_subjects_service.py backend/tests/test_subjects_excel.py
+```bash
+# macOS / Linux
+./tools/test-backend.sh backend/tests/test_subjects_service.py backend/tests/test_subjects_excel.py
 
-powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_proctoring_service.py backend/tests/test_proctoring_jobs.py backend/tests/test_proctoring_validators.py backend/tests/test_cp_sat_solver.py
+./tools/test-backend.sh backend/tests/test_proctoring_service.py backend/tests/test_proctoring_jobs.py backend/tests/test_proctoring_validators.py backend/tests/test_cp_sat_solver.py
 
-powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_rooms_service.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py
+./tools/test-backend.sh backend/tests/test_rooms_service.py backend/tests/test_rooms_arrange_flow.py backend/tests/test_rooms_export_flow.py backend/tests/test_exam_arrangement.py backend/tests/test_exam_arrangement_gaokao_exports.py
 
-powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_printing_service.py backend/tests/test_printing_excel_generators.py backend/tests/test_printing_examroom_adapter.py backend/tests/test_data_loader_and_desk_validator.py
+./tools/test-backend.sh backend/tests/test_printing_service.py backend/tests/test_printing_excel_generators.py backend/tests/test_printing_examroom_adapter.py backend/tests/test_data_loader_and_desk_validator.py
 ```
 
 ### 4.4 后端自检
 
-```powershell
+```bash
+# macOS / Linux
+./tools/selfcheck-backend.sh
+
+# Windows
 powershell -ExecutionPolicy Bypass -File .\tools\selfcheck-backend.ps1
 ```
 
@@ -96,8 +105,8 @@ powershell -ExecutionPolicy Bypass -File .\tools\selfcheck-backend.ps1
 
 ### 4.5 一键打包
 
-```powershell
-Set-Location ..
+```bash
+cd ..
 python package.py
 ```
 

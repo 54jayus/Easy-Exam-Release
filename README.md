@@ -67,15 +67,15 @@ Easy-Exam/
 
 ### 1. 安装前端依赖
 
-```powershell
-Set-Location frontend
-npm.cmd install
+```bash
+cd frontend
+npm install
 ```
 
 ### 2. 安装后端依赖
 
-```powershell
-Set-Location ..
+```bash
+cd ..
 conda run --no-capture-output -n exam_scheduler python -m pip install -r backend/requirements.txt
 ```
 
@@ -90,17 +90,17 @@ conda run --no-capture-output -n exam_scheduler python -m pip install -r backend
 
 首次使用时，请先在仓库根目录复制模板文件：
 
-```powershell
-Copy-Item .env.runtime.example .env.runtime.local
+```bash
+cp .env.runtime.example .env.runtime.local
 ```
 
 然后按本机环境修改 `.env.runtime.local`。推荐优先填写 Conda 环境名，而不是写死 Python 绝对路径。
 
 ### 4. 启动开发环境
 
-```powershell
-Set-Location frontend
-npm.cmd run dev
+```bash
+cd frontend
+npm run dev
 ```
 
 开发态固定使用 Vite `5173` 端口，Electron 主进程会拉起或复用 Python 后端，并在仓库根目录写入 `debug.log`。
@@ -109,42 +109,58 @@ npm.cmd run dev
 
 前端：
 
-```powershell
-Set-Location frontend
-npm.cmd run dev
-npm.cmd run test
-npm.cmd run build
-npm.cmd run electron:build
+```bash
+cd frontend
+npm run dev
+npm run test
+npm run build
+npm run electron:build
 ```
 
 后端测试：
 
-```powershell
+```bash
+# macOS / Linux
+./tools/test-backend.sh
+
+# Windows
 powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1
 ```
 
 定向测试示例：
 
-```powershell
+```bash
+# macOS / Linux
+./tools/test-backend.sh backend/tests/test_update_guard.py backend/tests/test_system_service.py
+
+# Windows
 powershell -ExecutionPolicy Bypass -File .\tools\test-backend.ps1 backend/tests/test_update_guard.py backend/tests/test_system_service.py
 ```
 
 后端调试：
 
-```powershell
+```bash
+# macOS / Linux
+./tools/run-backend.sh
+
+# Windows
 powershell -ExecutionPolicy Bypass -File .\tools\run-backend.ps1
 ```
 
 后端自检：
 
-```powershell
+```bash
+# macOS / Linux
+./tools/selfcheck-backend.sh
+
+# Windows
 powershell -ExecutionPolicy Bypass -File .\tools\selfcheck-backend.ps1
 ```
 
 一键打包：
 
-```powershell
-Set-Location ..
+```bash
+cd ..
 python package.py
 ```
 

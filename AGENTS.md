@@ -72,16 +72,26 @@ npm run electron:build
 Run the Python backend directly (for debugging without Electron):
 
 ```bash
+# macOS / Linux
+./tools/run-backend.sh
+
+# Windows
 powershell -ExecutionPolicy Bypass -File .\tools\run-backend.ps1
 ```
 
 ### Building the Python Engine (PyInstaller)
 
-The Python backend is bundled as `engine.exe` using PyInstaller. Use the spec file at `frontend/engine.spec`:
+The Python backend is bundled using PyInstaller. Use the spec file at `frontend/engine.spec`:
 
 ```bash
-# From project root
+# macOS / Linux
+./tools/build-engine.sh
+
+# Windows
 powershell -ExecutionPolicy Bypass -File .\tools\build-engine.ps1
+
+# Or directly with Python (ensure .env.runtime.local is configured)
+python -m PyInstaller --clean --noconfirm frontend/engine.spec
 # Output goes to frontend/python-dist/engine/
 ```
 
@@ -100,7 +110,7 @@ In Electron mode, the main process sets `EXAMDESK_APP_DIR` and `EXAMDESK_CERT_DI
 ## License Certificate Path
 
 - **Dev mode (via Electron)**: `frontend/node_modules/electron/dist/license.cert`
-- **Installed app**: same directory as `Easy Exam.exe`
+- **Installed app**: same directory as the application executable
 - **Direct Python run** (no env vars): `<project_root>/backend/license.cert`
 
 ## Runtime Environment

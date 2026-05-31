@@ -22,17 +22,18 @@ except Exception:
     ortools_datas = []
     ortools_binaries = []
 
-# Collect pandas and numpy bundled DLLs (e.g. msvcp140-*.dll with hash suffix)
+# Collect pandas and numpy bundled shared libraries
 # pandas.libs is at site-packages/pandas.libs/, not inside the pandas package
 pandas_binaries = []
 numpy_binaries = []
+_shared_lib_exts = (".dll",) if sys.platform == "win32" else (".dylib", ".so")
 try:
     import pandas as pd
     site_packages = os.path.dirname(os.path.dirname(pd.__file__))
     pandas_libs_dir = os.path.join(site_packages, "pandas.libs")
     if os.path.isdir(pandas_libs_dir):
         for f in os.listdir(pandas_libs_dir):
-            if f.endswith(".dll"):
+            if any(f.endswith(ext) for ext in _shared_lib_exts):
                 pandas_binaries.append((os.path.join(pandas_libs_dir, f), "."))
 except Exception:
     pass
@@ -43,29 +44,46 @@ except Exception:
 
 
 def _build_env_binaries():
-    env_bin_dir = os.path.join(sys.prefix, "Library", "bin")
-    dll_names = [
-        "ffi.dll",
-        "libcrypto-3-x64.dll",
-        "libssl-3-x64.dll",
-        "libexpat.dll",
-        # Visual C++ runtime (required by pandas C extensions)
-        "vcomp140.dll",
-        "vcruntime140_threads.dll",
-        "msvcp140.dll",
-        "msvcp140_1.dll",
-        "msvcp140_2.dll",
-        "msvcp140_atomic_wait.dll",
-        "msvcp140_codecvt_ids.dll",
-        "concrt140.dll",
-        "vccorlib140.dll",
-        "vcamp140.dll",
-    ]
+    if sys.platform == "win32":
+        env_bin_dir = os.path.join(sys.prefix, "Library", "bin")
+        dll_names = [
+            "ffi.dll",
+            "libcrypto-3-x64.dll",
+            "libssl-3-x64.dll",
+            "libexpat.dll",
+            # Visual C++ runtime (required by pandas C extensions)
+            "vcomp140.dll",
+            "vcruntime140_threads.dll",
+            "msvcp140.dll",
+            "msvcp140_1.dll",
+            "msvcp140_2.dll",
+            "msvcp140_atomic_wait.dll",
+            "msvcp140_codecvt_ids.dll",
+            "concrt140.dll",
+            "vccorlib140.dll",
+            "vcamp140.dll",
+        ]
+        binaries = []
+        for dll_name in dll_names:
+            candidate = os.path.join(env_bin_dir, dll_name)
+            if os.path.exists(candidate):
+                binaries.append((candidate, "."))
+        return binaries
+
+    # macOS / Linux: collect shared libraries from common locations
     binaries = []
-    for dll_name in dll_names:
-        candidate = os.path.join(env_bin_dir, dll_name)
-        if os.path.exists(candidate):
-            binaries.append((candidate, "."))
+    lib_dirs = [
+        os.path.join(sys.prefix, "lib"),
+        os.path.join(sys.prefix, "lib", "python" + ".".join(map(str, sys.version_info[:2])), "lib-dynload"),
+    ]
+    for lib_dir in lib_dirs:
+        if not os.path.isdir(lib_dir):
+            continue
+        for f in os.listdir(lib_dir):
+            if f.endswith(".dylib") or f.endswith(".so"):
+                candidate = os.path.join(lib_dir, f)
+                if os.path.isfile(candidate):
+                    binaries.append((candidate, "."))
     return binaries
 
 

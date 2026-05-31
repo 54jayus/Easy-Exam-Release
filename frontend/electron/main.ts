@@ -676,9 +676,10 @@ ipcMain.handle('spawn_python', (_, { command, args, options }) => {
       // In production, engine is at resources/engine/engine.exe
       // process.resourcesDir points to the resources folder (e.g. win-unpacked/resources)
       const resourcesPath = (process as any).resourcesPath || path.join(path.dirname(app.getPath('exe')), 'resources')
-      // Note: On Windows, the binary is engine.exe inside the engine folder
-      // Structure: resources/engine/engine.exe
-      finalCommand = path.join(resourcesPath, 'engine', 'engine.exe')
+      // Note: On Windows, the binary is engine.exe; on macOS/Linux it is engine
+      // Structure: resources/engine/engine(.exe)
+      const engineName = process.platform === 'win32' ? 'engine.exe' : 'engine'
+      finalCommand = path.join(resourcesPath, 'engine', engineName)
       const engineCwd = path.join(resourcesPath, 'engine')
       options = { ...(options || {}), cwd: engineCwd }
     } else {
