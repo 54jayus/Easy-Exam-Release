@@ -78,11 +78,11 @@
       <div class="p-4 bg-primary-950/30 border-t border-white/5">
         <div class="flex items-center gap-3 px-2">
           <div class="w-9 h-9 rounded-full bg-slate-200 border-2 border-primary-700 flex items-center justify-center overflow-hidden">
-            <img :src="userProfile.avatar" :alt="userProfile.name" class="w-full h-full" />
+            <img :src="userProfileStore.profile.avatar" :alt="userProfileStore.profile.name" class="w-full h-full" />
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-white truncate">{{ userProfile.name }}</p>
-            <p class="text-xs text-primary-400 truncate">{{ userProfile.email }}</p>
+            <p class="text-sm font-medium text-white truncate">{{ userProfileStore.profile.name }}</p>
+            <p class="text-xs text-primary-400 truncate">{{ userProfileStore.profile.email }}</p>
           </div>
           <div class="flex items-center gap-1">
             <el-tooltip :content="updateTooltip" placement="top" :show-after="200">
@@ -200,85 +200,8 @@
       @exit="handleTrayDialogExit"
     />
 
-    <el-dialog
-      v-model="showSettings"
-      title="用户设置"
-      width="480px"
-      align-center
-      destroy-on-close
-      class="rounded-2xl"
-    >
-      <div class="flex flex-col gap-6 py-2">
-        <!-- 头像区域 -->
-        <div class="flex flex-col gap-3">
-          <label class="text-sm font-bold text-slate-700">头像</label>
-          <div class="flex flex-col items-center gap-4">
-            <!-- 当前头像预览 + 上传按钮 -->
-            <div class="relative group cursor-pointer" @click="handleSelectCustomAvatar">
-              <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-slate-200 bg-slate-100 shadow-sm">
-                <img :src="userProfile.avatar" class="w-full h-full object-cover" />
-              </div>
-              <!-- 悬浮遮罩 -->
-              <div class="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                <el-icon class="text-white" :size="24"><Upload /></el-icon>
-              </div>
-            </div>
-            <el-button text size="small" class="!text-primary-500 !text-xs" @click.stop="handleSelectCustomAvatar">
-              点击上传自定义头像
-            </el-button>
-            <el-button v-if="userProfile.customAvatarPath" text size="small" class="!text-slate-400 !text-xs" @click.stop="handleResetAvatar">
-              恢复默认头像
-            </el-button>
-          </div>
-        </div>
-
-        <!-- 预设头像选择 -->
-        <div class="flex flex-col gap-3">
-          <label class="text-sm font-bold text-slate-700">选择预设头像</label>
-          <div class="grid grid-cols-5 gap-3">
-            <div
-              v-for="seed in avatarSeeds"
-              :key="seed"
-              class="aspect-square rounded-full border-2 cursor-pointer transition-[transform,border-color] duration-200 hover:scale-110 overflow-hidden relative"
-              :class="userProfile.avatarSeed === seed ? 'border-primary-500 ring-2 ring-primary-200 ring-offset-2' : 'border-slate-200 hover:border-primary-300'"
-              @click="selectAvatar(seed)"
-            >
-              <img :src="getAvatarUrl(seed)" class="w-full h-full bg-slate-50" />
-              <div v-if="userProfile.avatarSeed === seed" class="absolute inset-0 bg-primary-500/20 flex items-center justify-center">
-                <el-icon class="text-white drop-shadow-md"><Check /></el-icon>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 分割线 -->
-        <div class="border-t border-slate-100"></div>
-
-        <div class="space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-sm font-bold text-slate-700">用户名</label>
-            <el-input v-model="userProfile.name" placeholder="请输入用户名" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-sm font-bold text-slate-700">工作邮箱</label>
-            <el-input v-model="userProfile.email" placeholder="请输入工作邮箱" />
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <el-button @click="showSettings = false">关闭</el-button>
-          <el-button type="primary" @click="saveSettings">保存更改</el-button>
-        </div>
-      </template>
-    </el-dialog>
-
-    <!-- 头像裁剪对话框 -->
-    <AvatarCropper
-      v-model="showCropper"
-      :image-src="cropperImageSrc"
-      @crop="handleCrop"
-    />
+    <!-- 用户设置弹窗 -->
+    <SettingsDialog v-model="showSettings" />
 
     <el-dialog
       v-model="showDevDialog"
@@ -465,7 +388,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, provide, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -477,7 +400,6 @@ import {
   Setting,
   DataBoard,
   Key,
-  Check,
   Clock,
   Download,
   Upload,
@@ -491,7 +413,7 @@ import {
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import TrayCloseDialog from '@/components/TrayCloseDialog.vue'
-import AvatarCropper from '@/components/AvatarCropper.vue'
+import SettingsDialog from '@/components/SettingsDialog.vue'
 import BackgroundDownloadBar from '@/components/update/BackgroundDownloadBar.vue'
 import ForceUpdateOverlay from '@/components/update/ForceUpdateOverlay.vue'
 import UpdateDialog from '@/components/update/UpdateDialog.vue'
@@ -502,6 +424,7 @@ import { open, saveAndRun } from '@/lib/dialog'
 import { pythonBackend } from '@/lib/pythonBackend'
 import { createUiFeedback, formatActionError, formatActionSuccess } from '@/lib/uiFeedback'
 import { useLicenseStore } from '@/stores/license'
+import { useUserProfileStore } from '@/stores/userProfile'
 
 dayjs.locale('zh-cn')
 
@@ -624,80 +547,10 @@ const handleBgBarDismiss = () => {
 const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 const showSettings = ref(false)
 const showTrayCloseDialog = ref(false)
-const avatarSeeds = ['Admin', 'Felix', 'Aneka', 'Zack', 'Milo', 'Bandit', 'Tinker', 'Cali', 'Coco', 'Bear']
 const showDevDialog = ref(false)
 const developerMode = ref(localStorage.getItem('developer_mode') === 'true')
 const showOptimizationDetails = ref(localStorage.getItem('show_optimization_details') === 'true')
-
-const createDefaultUserProfile = () => ({
-  name: '管理员',
-  email: '',
-  avatarSeed: 'Cali',
-  avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Cali&backgroundColor=e1f5fe,ffecb3,ffe082,ffcdd2,f8bbd0,e1bee7,d1c4e9,c5cae9,bbdefb,b3e5fc,b2ebf2,b2dfdb,c8e6c9,dcedc8,f0f4c3,fff9c4',
-  customAvatarPath: ''
-})
-
-const userProfile = reactive(createDefaultUserProfile())
-
-const getAvatarUrl = (seed: string) => `https://api.dicebear.com/9.x/notionists/svg?seed=${seed}&backgroundColor=e1f5fe,ffecb3,ffe082,ffcdd2,f8bbd0,e1bee7,d1c4e9,c5cae9,bbdefb,b3e5fc,b2ebf2,b2dfdb,c8e6c9,dcedc8,f0f4c3,fff9c4`
-
-const selectAvatar = (seed: string) => {
-  userProfile.avatarSeed = seed
-  userProfile.avatar = getAvatarUrl(seed)
-}
-
-const showCropper = ref(false)
-const cropperImageSrc = ref('')
-
-const handleSelectCustomAvatar = async () => {
-  const filePath = await open({
-    title: '选择头像图片',
-    filters: [
-      { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'] }
-    ]
-  })
-  if (!filePath || Array.isArray(filePath)) return
-
-  // 验证文件扩展名
-  const ext = filePath.split('.').pop()?.toLowerCase()
-  const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
-  if (!ext || !allowedExtensions.includes(ext)) {
-    ElMessage.error('请选择有效的图片文件')
-    return
-  }
-
-  try {
-    const base64 = await (window as any).electron.ipcRenderer.invoke('fs:readFile', filePath)
-    cropperImageSrc.value = base64
-    showCropper.value = true
-  } catch (error: any) {
-    ElMessage.error(error.message || '读取图片失败')
-  }
-}
-
-const handleCrop = async (data: string) => {
-  try {
-    const avatarPath = await (window as any).electron.ipcRenderer.invoke('avatar:save', data)
-    userProfile.customAvatarPath = avatarPath
-    userProfile.avatar = `file:///${avatarPath.replace(/\\/g, '/')}`
-    userProfile.avatarSeed = ''
-    ElMessage.success('自定义头像已保存')
-  } catch (error) {
-    ElMessage.error('保存头像失败')
-  }
-}
-
-const handleResetAvatar = () => {
-  userProfile.customAvatarPath = ''
-  userProfile.avatarSeed = 'Cali'
-  userProfile.avatar = getAvatarUrl('Cali')
-}
-
-const saveSettings = () => {
-  localStorage.setItem('user_profile', JSON.stringify(userProfile))
-  showSettings.value = false
-  ElMessage.success('用户设置已保存')
-}
+const userProfileStore = useUserProfileStore()
 
 let devTapTimer: any = null
 const devTapCount = ref(0)
@@ -849,7 +702,7 @@ watch(showOptimizationDetails, (value) => {
 })
 
 watch(frontendResetEpoch, () => {
-  Object.assign(userProfile, createDefaultUserProfile())
+  userProfileStore.reset()
   showSettings.value = false
   showTrayCloseDialog.value = false
   showDevDialog.value = false
@@ -870,19 +723,7 @@ onMounted(() => {
     showTrayCloseDialog.value = true
   }) ?? null
 
-  const saved = localStorage.getItem('user_profile')
-  if (saved) {
-    try {
-      const profile = JSON.parse(saved)
-      Object.assign(userProfile, profile)
-      // 如果有自定义头像路径，加载本地文件
-      if (profile.customAvatarPath) {
-        userProfile.avatar = `file:///${profile.customAvatarPath.replace(/\\/g, '/')}`
-      }
-    } catch (error) {
-      console.error('Failed to load profile', error)
-    }
-  }
+  userProfileStore.load()
 })
 
 onUnmounted(() => {
