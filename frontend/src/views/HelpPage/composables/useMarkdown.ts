@@ -3,21 +3,17 @@ import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
 import { pythonBackend } from '@/lib/pythonBackend'
 
-// Configure marked options
-marked.setOptions({
-  gfm: true,
-  breaks: true
-})
-
 export function useMarkdown() {
   const manualMarkdown = ref('')
   const manualHtml = ref('')
   const loading = ref({
     manual: false
   })
+  const loadError = ref(false)
 
-  async function loadManual() {
+  async function loadManual(): Promise<string | null> {
     loading.value.manual = true
+    loadError.value = false
     try {
       const res = await pythonBackend.request('system.getHelpManual', {})
       const content = res.content || ''
@@ -27,13 +23,13 @@ export function useMarkdown() {
       }
 
       manualMarkdown.value = content
-      manualHtml.value = await marked(content)
+      manualHtml.value = await marked(content, { gfm: true, breaks: true })
 
       return content
     } catch (e) {
       console.error(e)
-      ElMessage.error('说明书加载失败')
-      throw e
+      loadError.value = true
+      return null
     } finally {
       loading.value.manual = false
     }
@@ -43,6 +39,7 @@ export function useMarkdown() {
     manualMarkdown,
     manualHtml,
     loading,
+    loadError,
     loadManual
   }
 }

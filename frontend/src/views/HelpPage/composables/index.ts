@@ -1,4 +1,6 @@
 export { type TocItem } from './useTocGeneration'
+export type { SearchResult } from './useFullTextSearch'
 export { useMarkdown } from './useMarkdown'
 export { useTocGeneration } from './useTocGeneration'
 export { useScrollSpy } from './useScrollSpy'
+export { useFullTextSearch } from './useFullTextSearch'

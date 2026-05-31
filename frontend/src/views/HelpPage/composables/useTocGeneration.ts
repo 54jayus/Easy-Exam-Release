@@ -1,10 +1,11 @@
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, type Ref } from 'vue'
 
 export interface TocItem {
   id: string
   label: string
   level: number
   anchor: string
+  sectionNum?: string
   children?: TocItem[]
 }
 
@@ -33,11 +34,13 @@ export function useTocGeneration() {
         // H1 is usually title, skip or add as root
       } else if (h2Match) {
         const anchorId = `header-${slugify(h2Match[1])}`
+        const numMatch = h2Match[1].match(/^(\d+)\./)
         const item: TocItem = {
           id: `h2-${index}`,
           label: h2Match[1],
           level: 1,
           anchor: anchorId,
+          sectionNum: numMatch?.[1],
           children: []
         }
         toc.push(item)
@@ -57,30 +60,29 @@ export function useTocGeneration() {
     tocData.value = toc
   }
 
-  function injectHeadingIds() {
+  async function injectHeadingIds(containerRef?: Ref<HTMLElement | undefined>) {
     // Wait for DOM to render
-    nextTick(() => {
-      const container = document.querySelector('.prose')
-      if (!container) return
+    await nextTick()
+    const container = containerRef?.value
+    if (!container) return
 
-      // Build anchor → tocId mapping
-      const anchorMap = new Map<string, string>()
-      const stack = [...tocData.value]
-      while (stack.length) {
-        const item = stack.shift()!
-        anchorMap.set(item.label, item.anchor)
-        if (item.children?.length) stack.push(...item.children)
+    // Build anchor → tocId mapping
+    const anchorMap = new Map<string, string>()
+    const stack = [...tocData.value]
+    while (stack.length) {
+      const item = stack.shift()!
+      anchorMap.set(item.label, item.anchor)
+      if (item.children?.length) stack.push(...item.children)
+    }
+
+    // One-pass traversal to set IDs
+    const headings = container.querySelectorAll('h2, h3')
+    headings.forEach(heading => {
+      const text = heading.textContent?.trim()
+      const anchor = text ? anchorMap.get(text) : undefined
+      if (anchor) {
+        heading.id = anchor
       }
-
-      // One-pass traversal to set IDs
-      const headings = container.querySelectorAll('h2, h3')
-      headings.forEach(heading => {
-        const text = heading.textContent?.trim()
-        const anchor = text ? anchorMap.get(text) : undefined
-        if (anchor) {
-          heading.id = anchor
-        }
-      })
     })
   }
 

@@ -10,7 +10,7 @@ export const router = createRouter({
     { path: "/proctoring", name: "proctoring", component: () => import("./views/ProctoringPage.vue") },
     { path: "/rooms", name: "rooms", component: () => import("./views/RoomsPage.vue") },
     { path: "/printing", name: "printing", component: () => import("./views/PrintingPage.vue"), meta: { keepAlive: true } },
-    { path: "/help", name: "help", component: () => import("./views/HelpPage.vue") },
+    { path: "/help", name: "help", component: () => import("./views/HelpPage.vue"), meta: { keepAlive: true } },
   ],
 })
 

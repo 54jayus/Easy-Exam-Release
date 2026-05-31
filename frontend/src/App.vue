@@ -920,7 +920,7 @@ const showWizard = computed(() =>
   workflowSteps.some((step) => route.path.startsWith(step.path))
 )
 
-const keepAliveInclude = ['PrintingPage', 'RegistrationPage']
+const keepAliveInclude = ['PrintingPage', 'RegistrationPage', 'HelpPage']
 
 function getKeepAliveKey(currentRoute: any) {
   const baseKey = String(currentRoute.name || currentRoute.path)

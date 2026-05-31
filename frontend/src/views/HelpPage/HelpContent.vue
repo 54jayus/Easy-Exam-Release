@@ -6,12 +6,12 @@
     @scroll="$emit('scroll')"
   >
     <!-- Scroll Progress Bar -->
-    <div class="sticky top-0 left-0 right-0 h-0.5 bg-slate-100 z-20">
-      <div class="h-full bg-primary-500 transition-all duration-150" :style="{ width: scrollProgress + '%' }"></div>
+    <div class="sticky top-0 left-0 right-0 h-[3px] bg-slate-100 z-20" role="progressbar" :aria-valuenow="Math.round(scrollProgress)" aria-valuemin="0" aria-valuemax="100" aria-label="阅读进度">
+      <div class="h-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-150 rounded-r-full" :style="{ width: scrollProgress + '%' }"></div>
     </div>
 
     <!-- 响应式内容包装容器 -->
-    <div class="w-full pt-4 pb-0 px-6 md:px-8 lg:px-12 max-w-full md:max-w-none lg:max-w-4xl xl:max-w-5xl mb-0">
+    <div class="w-full pt-6 pb-8 px-6 md:px-10 lg:px-16 max-w-full md:max-w-none lg:max-w-5xl xl:max-w-6xl mx-auto">
       <div
         v-if="html"
         class="prose prose-slate prose-lg max-w-none
@@ -29,42 +29,76 @@
       ></div>
 
       <div v-else class="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
-        <div v-if="loading" class="flex flex-col items-center animate-pulse">
-          <div class="w-16 h-16 bg-slate-100 rounded-full mb-4"></div>
-          <div class="h-4 w-48 bg-slate-100 rounded mb-2"></div>
-          <div class="h-4 w-32 bg-slate-100 rounded"></div>
+        <div v-if="loading" class="w-full max-w-2xl animate-pulse space-y-6 pt-8">
+          <div class="space-y-3">
+            <div class="h-7 w-64 bg-slate-100 rounded-md"></div>
+            <div class="h-4 w-40 bg-slate-50 rounded"></div>
+          </div>
+          <div class="space-y-3">
+            <div class="h-4 w-full bg-slate-50 rounded"></div>
+            <div class="h-4 w-5/6 bg-slate-50 rounded"></div>
+            <div class="h-4 w-4/6 bg-slate-50 rounded"></div>
+          </div>
+          <div class="h-5 w-48 bg-slate-100 rounded-md mt-6"></div>
+          <div class="space-y-3">
+            <div class="h-4 w-full bg-slate-50 rounded"></div>
+            <div class="h-4 w-3/4 bg-slate-50 rounded"></div>
+          </div>
+          <div class="space-y-3">
+            <div class="h-4 w-full bg-slate-50 rounded"></div>
+            <div class="h-4 w-5/6 bg-slate-50 rounded"></div>
+            <div class="h-4 w-2/3 bg-slate-50 rounded"></div>
+          </div>
+        </div>
+        <div v-else-if="error" class="flex flex-col items-center">
+          <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-4">
+            <el-icon :size="32" class="text-red-300"><WarningFilled /></el-icon>
+          </div>
+          <p class="text-slate-600 font-medium mb-1">说明书加载失败</p>
+          <p class="text-slate-400 text-sm mb-4">请检查网络连接后重试</p>
+          <button
+            @click="$emit('retry')"
+            class="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 active:scale-[0.98] transition-all text-sm font-medium shadow-sm"
+          >
+            重新加载
+          </button>
         </div>
         <div v-else class="flex flex-col items-center">
-          <el-icon :size="48" class="mb-4 text-slate-200"><Document /></el-icon>
-          <p>暂无说明书内容</p>
+          <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">
+            <el-icon :size="32" class="text-slate-200"><Document /></el-icon>
+          </div>
+          <p class="text-slate-500 font-medium">暂无说明书内容</p>
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="mt-3 pt-2 pb-0 border-t border-slate-100 text-center" v-if="html">
-        <p class="text-slate-400 text-xs mb-0 leading-none py-1">Powered by 智能考务系统 &copy; {{ new Date().getFullYear() }}</p>
+      <div class="mt-8 pt-4 pb-6 border-t border-slate-100 text-center" v-if="html">
+        <p class="text-slate-400 text-xs leading-relaxed">Powered by 智能考务系统 &copy; {{ new Date().getFullYear() }}</p>
       </div>
+    </div>
 
-      <!-- Back to Top -->
+    <!-- Back to Top (fixed position, stays visible while scrolling) -->
+    <transition name="fade-up">
       <button
+        v-if="showBackToTop"
         @click="$emit('scrollToTop')"
         aria-label="返回顶部"
-        class="absolute bottom-8 right-8 p-3 bg-white text-slate-600 rounded-full shadow-lg border border-slate-100 hover:text-primary-600 hover:border-primary-200 hover:-translate-y-1 transition-all duration-300 z-30 flex items-center justify-center"
-        :class="showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'"
+        class="fixed bottom-8 right-8 p-3 bg-white/90 backdrop-blur-sm text-slate-600 rounded-full shadow-lg shadow-slate-200/50 border border-slate-200/60 hover:text-primary-600 hover:border-primary-200 hover:shadow-primary-100/50 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 z-30 flex items-center justify-center"
       >
-        <el-icon :size="20"><ArrowUp /></el-icon>
+        <el-icon :size="18"><ArrowUp /></el-icon>
       </button>
-    </div>
+    </transition>
   </main>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Document, ArrowUp } from '@element-plus/icons-vue'
+import { Document, ArrowUp, WarningFilled } from '@element-plus/icons-vue'
 
 defineProps<{
   html: string
   loading: boolean
+  error: boolean
   scrollProgress: number
   showBackToTop: boolean
 }>()
@@ -72,6 +106,7 @@ defineProps<{
 defineEmits<{
   scroll: []
   scrollToTop: []
+  retry: []
 }>()
 
 const contentScrollRef = ref<HTMLElement>()
@@ -82,22 +117,6 @@ defineExpose({
 </script>
 
 <style scoped>
-/* Scrollbar Styling */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
-}
-
 /* Markdown Content Refinements */
 :deep(.prose) {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -115,5 +134,22 @@ defineExpose({
 main {
   padding-bottom: 0 !important;
   margin-bottom: 0 !important;
+}
+
+/* Anchor scroll offset — compensate for sticky progress bar */
+:deep(.prose h2[id]),
+:deep(.prose h3[id]) {
+  scroll-margin-top: 16px;
+}
+
+/* Back-to-top button transition */
+.fade-up-enter-active,
+.fade-up-leave-active {
+  transition: all 0.25s ease;
+}
+.fade-up-enter-from,
+.fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>
