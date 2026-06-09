@@ -51,12 +51,14 @@
                   label="下载模板"
                   :icon="Download"
                   tone="sky"
+                  tooltip="下载科目信息 Excel 模板，填写后用于导入"
                   @click="handleTemplate"
                 />
                 <SidebarActionButton
                   label="导入科目"
                   :icon="Upload"
                   tone="sky"
+                  tooltip="从已填写的 Excel 文件导入科目信息"
                   :active="importedFromFile"
                   clearable
                   @click="handleImport"
@@ -68,6 +70,7 @@
                label="导出科目"
                :icon="Download"
                tone="sky"
+               tooltip="将当前科目信息导出为 Excel 文件"
                :disabled="subjects.length === 0"
                @click="handleExport"
              />

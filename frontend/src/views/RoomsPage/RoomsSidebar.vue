@@ -37,6 +37,7 @@
             label="考场模板"
             :icon="Download"
             tone="blue"
+            tooltip="下载考场设置 Excel 模板，填写考场编号和人数"
             @click="$emit('generate-template', 'settings')"
           />
 
@@ -45,6 +46,7 @@
               label="考生模板"
               :icon="Download"
               tone="blue"
+              tooltip="下载考生名册 Excel 模板，选择通用版或新高考版"
             >
               <template #suffix>
                 <el-icon class="text-[10px] text-slate-400 transition-colors group-hover:text-blue-500"><ArrowDown /></el-icon>
@@ -87,6 +89,7 @@
             label="考场导入"
             :icon="Upload"
             tone="emerald"
+            tooltip="从已填写的 Excel 文件导入考场设置"
             :active="hasSettings"
             clearable
             @click="$emit('import-settings')"
@@ -96,6 +99,7 @@
             label="考生导入"
             :icon="Upload"
             tone="emerald"
+            tooltip="从已填写的 Excel 文件导入考生名册"
             :active="hasStudents"
             clearable
             @click="$emit('import-students')"

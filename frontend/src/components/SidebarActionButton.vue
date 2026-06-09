@@ -1,5 +1,45 @@
 <template>
+  <el-tooltip
+    v-if="tooltip"
+    :content="tooltip"
+    placement="right"
+    :show-after="300"
+  >
+    <button
+      type="button"
+      class="group flex min-h-10 w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 transition-[border-color,box-shadow] duration-200"
+      :class="[palette.button, active ? palette.active : '', disabled ? disabledClasses : '']"
+      :disabled="disabled"
+      @click="handleClick"
+    >
+      <span class="inline-flex items-center justify-center gap-1">
+        <el-icon
+          v-if="icon"
+          class="shrink-0 text-sm leading-none transition-colors duration-200"
+          :class="active ? palette.iconActive : palette.iconIdle"
+        >
+          <component :is="icon" />
+        </el-icon>
+        <span
+          class="whitespace-nowrap text-xs leading-none font-medium transition-colors duration-200"
+          :class="active ? palette.textActive : palette.textIdle"
+        >
+          {{ label }}
+        </span>
+        <span
+          v-if="active && clearable"
+          class="flex h-4 w-4 items-center justify-center rounded transition-colors duration-200"
+          :class="palette.clear"
+          @click.stop.prevent="handleClear"
+        >
+          <el-icon :size="10"><Close /></el-icon>
+        </span>
+        <slot name="suffix" />
+      </span>
+    </button>
+  </el-tooltip>
   <button
+    v-else
     type="button"
     class="group flex min-h-10 w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 transition-[border-color,box-shadow] duration-200"
     :class="[palette.button, active ? palette.active : '', disabled ? disabledClasses : '']"
@@ -46,12 +86,14 @@ const props = withDefaults(defineProps<{
   active?: boolean
   clearable?: boolean
   disabled?: boolean
+  tooltip?: string
 }>(), {
   icon: null,
   tone: 'sky',
   active: false,
   clearable: false,
   disabled: false,
+  tooltip: '',
 })
 
 const emit = defineEmits<{

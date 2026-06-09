@@ -4,6 +4,7 @@ from typing import Any, Sequence
 
 import pandas as pd
 
+from backend.shared.template_utils import write_instruction_sheet
 from .core import (
     Subject,
     SubjectImportResult,
@@ -15,8 +16,12 @@ from .core import (
 )
 
 
-ROOM_COUNT_COLUMN = "考场数量（可留空）"
-DURATION_COLUMN = "考试时长（分钟）-可留空"
+ROOM_COUNT_COLUMN = "考场数量"
+DURATION_COLUMN = "考试时长（分钟）"
+
+# Backward-compatible aliases for old template column names
+_ROOM_COUNT_COLUMN_LEGACY = "考场数量（可留空）"
+_DURATION_COLUMN_LEGACY = "考试时长（分钟）-可留空"
 
 
 def import_subjects_from_excel(file_path: str) -> SubjectImportResult:
@@ -24,6 +29,12 @@ def import_subjects_from_excel(file_path: str) -> SubjectImportResult:
     subjects: list[Subject] = []
 
     df = pd.read_excel(file_path)
+    # Normalize legacy column names to current names
+    if _DURATION_COLUMN_LEGACY in df.columns and DURATION_COLUMN not in df.columns:
+        df.rename(columns={_DURATION_COLUMN_LEGACY: DURATION_COLUMN}, inplace=True)
+    if _ROOM_COUNT_COLUMN_LEGACY in df.columns and ROOM_COUNT_COLUMN not in df.columns:
+        df.rename(columns={_ROOM_COUNT_COLUMN_LEGACY: ROOM_COUNT_COLUMN}, inplace=True)
+
     required_columns = ["科目名称", "考试日期", "考试时间"]
     missing = [c for c in required_columns if c not in df.columns]
     if missing:
@@ -37,10 +48,10 @@ def import_subjects_from_excel(file_path: str) -> SubjectImportResult:
         name = _normalize_subject_name(row.get("科目名称", ""))
         if not name:
             errors.append(f"第{row_no}行数据错误：科目名称不能为空")
-            break
+            continue
         if name in seen_names:
             errors.append(f"第{row_no}行数据错误：科目名称重复（{name}）")
-            break
+            continue
         seen_names.add(name)
 
         exam_date = _parse_date(row.get("考试日期"))
@@ -48,14 +59,14 @@ def import_subjects_from_excel(file_path: str) -> SubjectImportResult:
             errors.append(
                 f"第{row_no}行数据错误：考试日期格式不正确，支持 yyyy-MM-dd 或 yyyy/M/d（如：2025-10-15 或 2025/8/21）"
             )
-            break
+            continue
 
         parsed = _parse_time_range(row.get("考试时间"))
         if parsed is None:
             errors.append(
                 f"第{row_no}行数据错误：考试时间格式不正确，支持 HH:mm-HH:mm 或 H:mm-H:mm（如：9:00-11:30）"
             )
-            break
+            continue
         exam_time, start_min, end_min = parsed
 
         duration = _coerce_duration_minutes(row.get(DURATION_COLUMN))
@@ -67,7 +78,7 @@ def import_subjects_from_excel(file_path: str) -> SubjectImportResult:
         room_count_text = "" if room_count_raw is None else str(room_count_raw).strip()
         if room_count is None and room_count_text and room_count_text.lower() != "nan":
             errors.append(f"第{row_no}行数据错误：考场数量必须是非负整数")
-            break
+            continue
         room_count = room_count or 0
 
         remark = ""
@@ -125,31 +136,31 @@ def generate_subject_template_xlsx(file_path: str) -> None:
     template_data = [
         {
             "科目名称": "语文",
-            "考试日期": "2023-09-09",
-            "考试时间": "08:00-10:00",
-            DURATION_COLUMN: 120,
+            "考试日期": "2026-06-07",
+            "考试时间": "09:00-11:30",
+            DURATION_COLUMN: 150,
             ROOM_COUNT_COLUMN: 20,
             "备注": "",
         },
         {
             "科目名称": "数学",
-            "考试日期": "2023-09-09",
-            "考试时间": "14:30-16:30",
+            "考试日期": "2026-06-07",
+            "考试时间": "15:00-17:00",
             DURATION_COLUMN: 120,
             ROOM_COUNT_COLUMN: 18,
             "备注": "",
         },
         {
             "科目名称": "英语",
-            "考试日期": "2023-09-10",
-            "考试时间": "08:00-10:00",
+            "考试日期": "2026-06-08",
+            "考试时间": "09:00-11:00",
             DURATION_COLUMN: 120,
             ROOM_COUNT_COLUMN: "",
             "备注": "",
         },
         {
             "科目名称": "物理",
-            "考试日期": "2023-09-10",
+            "考试日期": "2026-06-08",
             "考试时间": "15:00-16:00",
             DURATION_COLUMN: 60,
             ROOM_COUNT_COLUMN: "",
@@ -174,43 +185,14 @@ def generate_subject_template_xlsx(file_path: str) -> None:
 
         instructions = {
             "科目名称": "必填。\n示例：语文、数学、英语等。",
-            "考试日期": "必填。\n支持：yyyy-MM-dd 或 yyyy/M/d（自动标准化）。\n示例：2025-10-14 或 2025/8/21。",
-            "考试时间": "必填。\n支持：HH:mm-HH:mm 或 H:mm-H:mm。\n示例：8:00-10:00 或 9:00-11:30。",
+            "考试日期": "必填。\n支持：yyyy-MM-dd 或 yyyy/M/d（自动标准化）。\n示例：2026-06-07 或 2026/6/7。",
+            "考试时间": "必填。\n支持：HH:mm-HH:mm 或 H:mm-H:mm。\n示例：9:00-11:30 或 15:00-17:00。",
             DURATION_COLUMN: "选填。\n整数分钟；留空时按考试时间段自动计算。",
             ROOM_COUNT_COLUMN: "选填。\n填写该科单独使用的考场数量；留空时可在监考编排页使用默认考场数量。",
             "备注": "选填。\n可填写特殊说明或补充信息。",
         }
 
-        instruction_row = [{col: instructions.get(col, "") for col in df.columns}]
-        df_desc = pd.DataFrame(instruction_row)
-        df_desc.to_excel(writer, sheet_name="填写说明", index=False)
-
-        desc_ws = writer.sheets["填写说明"]
-        wrap_left = workbook.add_format({"text_wrap": True, "align": "left", "valign": "top"})
-        required_cell = workbook.add_format(
-            {"text_wrap": True, "align": "left", "valign": "top", "bg_color": "#FFC7CE"}
+        write_instruction_sheet(
+            writer, df.columns, instructions,
+            required_cols={"科目名称", "考试日期", "考试时间"},
         )
-
-        desc_ws.set_column(0, 0, 16, wrap_left)
-        desc_ws.set_column(1, 2, 18, wrap_left)
-        desc_ws.set_column(3, 4, 18, wrap_left)
-        desc_ws.set_column(5, 5, 24, wrap_left)
-
-        required_cols = {"科目名称", "考试日期", "考试时间"}
-        for idx, col in enumerate(df.columns):
-            value = instructions.get(col, "")
-            if col in required_cols:
-                desc_ws.write(1, idx, value, required_cell)
-            else:
-                desc_ws.write(1, idx, value, wrap_left)
-        desc_ws.set_row(1, 110)
-
-        required_header = workbook.add_format(
-            {"text_wrap": True, "align": "center", "valign": "vcenter", "bg_color": "#FFC7CE", "bold": True, "border": 1}
-        )
-        normal_header = workbook.add_format(
-            {"text_wrap": True, "align": "center", "valign": "vcenter", "bold": True, "border": 1}
-        )
-        for idx, col in enumerate(df.columns):
-            fmt = required_header if col in required_cols else normal_header
-            desc_ws.write(0, idx, col, fmt)

@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import { reactive } from 'vue'
 import { applyPageReset } from '@/composables/useAppCacheControl'
 import type { UiLogEntry } from '@/composables/useUiLogs'
 import { open, saveAndRun } from '@/lib/dialog'
@@ -9,6 +10,14 @@ import {
   formatActionWarning,
 } from '@/lib/uiFeedback'
 import { pythonBackend } from '@/lib/pythonBackend'
+
+export type ImportResultState = {
+  visible: boolean
+  title: string
+  errors: string[]
+  warnings: string[]
+  successMessage: string
+}
 
 type Teacher = any
 type Subject = any
@@ -88,6 +97,23 @@ export function useProctoringDataManagement({
 }: UseProctoringDataManagementOptions) {
   const feedback = createUiFeedback({ logInfo, logSuccess, logWarning, logError })
 
+  // Shared import result drawer state
+  const importResult = reactive<ImportResultState>({
+    visible: false,
+    title: '',
+    errors: [],
+    warnings: [],
+    successMessage: '',
+  })
+
+  const showImportResult = (opts: { title: string; errors?: string[]; warnings?: string[]; successMessage?: string }) => {
+    importResult.title = opts.title
+    importResult.errors = opts.errors || []
+    importResult.warnings = opts.warnings || []
+    importResult.successMessage = opts.successMessage || ''
+    importResult.visible = true
+  }
+
   const resetTeacherViewFilters = () => {
     teacherViewKeyword.value = ''
     teacherViewGenderFilter.value = 'all'
@@ -130,21 +156,30 @@ export function useProctoringDataManagement({
         subjects: subjects.value
       })
       if (res?.errors?.length) {
-        await feedback.alertError('导入教师失败', res.errors.join('\n'), {
-          logMessage: formatActionError('导入教师', res.errors.join('；')),
+        logError(formatActionError('导入教师', res.errors.join('；')))
+        showImportResult({
+          title: '导入教师结果',
+          errors: res.errors,
+          warnings: res.warnings || [],
         })
         return
       }
       if (res?.warnings?.length) {
-        feedback.warning(res.warnings[0], {
-          logMessage: formatActionWarning('导入教师', res.warnings.join('；')),
-        })
+        logWarning(formatActionWarning('导入教师', res.warnings.join('；')))
       }
       if (res?.teachers?.length) {
         teachers.value = res.teachers
-        feedback.success(`导入成功，共 ${res.teachers.length} 人`, {
-          logMessage: formatActionSuccess('导入教师', `${res.teachers.length} 人`),
-        })
+        if (res.warnings?.length) {
+          showImportResult({
+            title: '导入教师结果',
+            warnings: res.warnings,
+            successMessage: `导入成功，共 ${res.teachers.length} 人`,
+          })
+        } else {
+          feedback.success(`导入成功，共 ${res.teachers.length} 人`, {
+            logMessage: formatActionSuccess('导入教师', `${res.teachers.length} 人`),
+          })
+        }
       } else {
         feedback.error('导入教师失败：未返回教师数据')
       }
@@ -385,5 +420,6 @@ export function useProctoringDataManagement({
     handleImportPreset,
     handleImportSchedule,
     handleExport,
+    importResult,
   }
 }

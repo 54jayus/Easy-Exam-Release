@@ -20,7 +20,7 @@ class DataImporter:
         从Excel文件导入教师信息
         
         Excel格式要求:
-        - 列名: 姓名, 性别, 是否本校, 最大监考段数, 不监考科目, 历次监考时长, 预设监考考场(可选)
+        - 列名: 姓名, 性别, 是否本校, 最大监考段数, 不监考科目, 历次监考时长, 预设监考考场(可选), 回避考场(可选)
         """
         try:
             # 读取Excel文件
@@ -124,7 +124,29 @@ class DataImporter:
                 except Exception:
                     # 解析异常则忽略，后续校验阶段给出警告
                     teacher.preset_room = None
-                
+
+                # 解析回避考场（可选列）
+                try:
+                    raw_avoid = None
+                    if '回避考场' in df.columns:
+                        raw_avoid = row.get('回避考场', None)
+                    if raw_avoid is not None:
+                        import re as _re
+                        s = str(raw_avoid).strip()
+                        if s and s.lower() != 'nan':
+                            parts = _re.split(r'[,，、;；|\s]+', s)
+                            for p in parts:
+                                t = p.strip()
+                                if not t:
+                                    continue
+                                t = _re.sub(r'^考场', '', t)
+                                if _re.match(r'^\d+(\.\d+)?$', t):
+                                    val = int(float(t))
+                                    if val >= 1 and val not in teacher.avoid_rooms:
+                                        teacher.avoid_rooms.append(val)
+                except Exception:
+                    teacher.avoid_rooms = []
+
                 teachers.append(teacher)
             
             return teachers
@@ -211,7 +233,55 @@ class DataImporter:
                 else:
                     warnings.append(f"教师 {t.name} 的预设监考考场包含无法识别的值：{raw_val}，已忽略该预设")
                     t.preset_room = None
-        
+
+        # 回避考场规范化与范围校验（可选）
+        if df is not None and '回避考场' in df.columns:
+            import re
+            for t in teachers:
+                raw_val = None
+                if t.name in name_to_row:
+                    raw_val = name_to_row[t.name].get('回避考场', None)
+                is_empty = raw_val is None or (str(raw_val).strip() == '' or str(raw_val).lower() == 'nan')
+                if is_empty:
+                    t.avoid_rooms = []
+                    continue
+                s = str(raw_val).strip()
+                parts = re.split(r'[,，、;；|\s]+', s)
+                parsed = []
+                invalid_tokens = []
+                out_of_range = []
+                for p in parts:
+                    token = p.strip()
+                    if not token:
+                        continue
+                    token = re.sub(r'^考场', '', token)
+                    if re.match(r'^\d+(\.\d+)?$', token):
+                        try:
+                            val = int(float(token))
+                            if num_rooms is not None and (val < 1 or val > int(num_rooms)):
+                                out_of_range.append(token)
+                            elif val >= 1:
+                                if val not in parsed:
+                                    parsed.append(val)
+                        except Exception:
+                            invalid_tokens.append(token)
+                    else:
+                        invalid_tokens.append(token)
+                if invalid_tokens:
+                    warnings.append(f"教师 {t.name} 的回避考场中存在无法识别的项: {invalid_tokens}，已忽略")
+                if out_of_range:
+                    warnings.append(f"教师 {t.name} 的回避考场中存在越界编号: {out_of_range}（有效范围1..{num_rooms}），已忽略")
+                t.avoid_rooms = sorted(parsed)
+
+        # 预设考场与回避考场交叉冲突校验
+        for t in teachers:
+            if t.preset_room and t.avoid_rooms and t.preset_room in t.avoid_rooms:
+                warnings.append(
+                    f"教师 {t.name} 的预设考场 {t.preset_room} 同时出现在回避考场中，"
+                    f"已从回避列表中移除该考场"
+                )
+                t.avoid_rooms = [r for r in t.avoid_rooms if r != t.preset_room]
+
         # 2) 最大监考段数校验与默认值
         if subject_count is not None and subject_count > 0:
             for t in teachers:

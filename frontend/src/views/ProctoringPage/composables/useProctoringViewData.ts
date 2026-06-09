@@ -35,6 +35,8 @@ export type TeacherViewRow = {
   unavailableSubjectsLabel: string
   previousSupervisionDuration: number
   presetRoom: number | null
+  avoidRooms: number[]
+  avoidRoomsLabel: string
   sessions: number
   supervisionDuration: number
   totalDuration: number
@@ -214,6 +216,10 @@ export function useProctoringViewData(options: {
       const supervisionDuration = normalizeCount(teacher?.supervisionDuration)
       const presetRoomValue = Number(teacher?.presetRoom ?? 0)
       const presetRoom = Number.isFinite(presetRoomValue) && presetRoomValue > 0 ? presetRoomValue : null
+      const avoidRooms: number[] = Array.isArray(teacher?.avoidRooms)
+        ? teacher.avoidRooms.filter((r: unknown) => Number.isFinite(Number(r)) && Number(r) > 0).map(Number)
+        : []
+      const avoidRoomsLabel = avoidRooms.length > 0 ? avoidRooms.map((r) => `考场${r}`).join('、') : ''
 
       return {
         name: String(teacher?.name || ''),
@@ -226,6 +232,8 @@ export function useProctoringViewData(options: {
         unavailableSubjectsLabel: getUnavailableNames(unavailableSubjects),
         previousSupervisionDuration,
         presetRoom,
+        avoidRooms,
+        avoidRoomsLabel,
         sessions: normalizeCount(teacher?.sessions),
         supervisionDuration,
         totalDuration: previousSupervisionDuration + supervisionDuration,

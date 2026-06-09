@@ -1,0 +1,17 @@
+{
+  "slug": "case17_avoid_rooms_respected",
+  "description": "Teachers with avoid_rooms should never be assigned to their avoided rooms after scheduling.",
+  "operation": "generate",
+  "expected": {
+    "kind": "success"
+  },
+  "config": {
+    "roomCount": 3,
+    "mode": "single",
+    "balanceMode": "duration",
+    "cpSatTimeLimitSeconds": 10,
+    "cpSatNumWorkers": 2
+  },
+  "subject_count": 3,
+  "teacher_count": 6
+}

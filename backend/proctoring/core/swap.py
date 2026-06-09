@@ -68,6 +68,16 @@ def swap_teachers(schedule, session1_info, session2_info):
             if preset_room2 is not None and int(room1) != preset_room2:
                 return False, f"教师 {original_teacher2.name} 预设房间为 {preset_room2}，不能交换到考场 {room1}"
 
+    # 回避考场校验
+    if original_teacher1:
+        avoid_rooms1 = getattr(original_teacher1, "avoid_rooms", []) or []
+        if avoid_rooms1 and int(room2) in avoid_rooms1:
+            return False, f"教师 {original_teacher1.name} 回避考场 {room2}，不能交换到该考场"
+    if original_teacher2:
+        avoid_rooms2 = getattr(original_teacher2, "avoid_rooms", []) or []
+        if avoid_rooms2 and int(room1) in avoid_rooms2:
+            return False, f"教师 {original_teacher2.name} 回避考场 {room1}，不能交换到该考场"
+
     if schedule.mode == "double":
         other_idx1 = 1 - teacher_index1
         other_idx2 = 1 - teacher_index2

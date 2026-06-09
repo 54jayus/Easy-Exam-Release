@@ -50,24 +50,27 @@
                   label="教师模板"
                   :icon="Download"
                   tone="blue"
+                  tooltip="下载教师信息 Excel 模板，填写后用于导入"
                   @click="handleTemplate"
                 />
                 <SidebarActionButton
                   label="导入教师"
                   :icon="Upload"
                   tone="blue"
+                  tooltip="从已填写的 Excel 文件导入教师信息"
                   :active="teachers.length > 0"
                   clearable
                   @click="handleAddTeacher"
                   @clear="handleClearTeachers"
                 />
              </div>
-             
+
              <div class="grid grid-cols-2 gap-2">
                 <SidebarActionButton
                   label="预设监考"
                   :icon="List"
                   tone="indigo"
+                  tooltip="下载预设模板或导入已填写的预设安排（需先导入科目和教师）"
                   :active="hasPreset"
                   clearable
                   @click="handlePresetDialog"
@@ -77,6 +80,7 @@
                   label="导入安排"
                   :icon="Upload"
                   tone="indigo"
+                  tooltip="导入之前导出的监考安排 Excel 文件"
                   @click="handleImportSchedule"
                 />
              </div>
@@ -427,6 +431,20 @@
                                  <span v-else class="text-slate-300">-</span>
                               </template>
                            </el-table-column>
+                           <el-table-column prop="avoidRoomsLabel" label="回避考场" min-width="120" align="center">
+                              <template #default="{ row }">
+                                 <el-tooltip
+                                    v-if="row.avoidRoomsLabel"
+                                    :content="row.avoidRoomsLabel"
+                                    placement="top"
+                                 >
+                                    <span class="block truncate text-slate-500 cursor-help">
+                                       {{ row.avoidRoomsLabel }}
+                                    </span>
+                                 </el-tooltip>
+                                 <span v-else class="text-slate-300">-</span>
+                              </template>
+                           </el-table-column>
                            <el-table-column prop="sessions" label="已排场次" min-width="90" align="center" />
                            <el-table-column prop="supervisionDuration" label="本次监考时长(分钟)" min-width="150" align="center" />
                            <el-table-column prop="totalDuration" label="总监考时长(分钟)" min-width="140" align="center" />
@@ -554,6 +572,14 @@
       v-model:visible="showLogs"
       :logs="logs"
       @clear-logs="clearLogs"
+    />
+
+    <ImportResultDrawer
+      v-model:visible="importResult.visible"
+      :title="importResult.title"
+      :errors="importResult.errors"
+      :warnings="importResult.warnings"
+      :success-message="importResult.successMessage"
     />
 
     <!-- Preset Dialog -->
@@ -930,6 +956,7 @@ import { computed, ref, reactive, watch, onMounted } from 'vue'
 import { Upload, Download, List, CollectionTag, Delete, InfoFilled, CircleCheck, Warning, Fold, Expand, Setting } from '@element-plus/icons-vue'
 import { usePageSessionState } from '@/composables/usePageSessionState'
 import { useUiLogs } from '@/composables/useUiLogs'
+import ImportResultDrawer from '@/components/ImportResultDrawer.vue'
 import OperationLogsDrawer from '@/components/OperationLogsDrawer.vue'
 import SidebarActionButton from '@/components/SidebarActionButton.vue'
 import {
@@ -1223,6 +1250,7 @@ const {
    handleImportPreset,
    handleImportSchedule,
    handleExport,
+   importResult,
 } = useProctoringDataManagement({
    config,
    subjects,

@@ -108,6 +108,10 @@ def _teacher_can_take_slot(
     if preset_room > 0 and preset_room != room:
         return False
 
+    avoid_rooms = getattr(teacher, "avoid_rooms", []) or []
+    if avoid_rooms and room in avoid_rooms:
+        return False
+
     if subject_context.subject_id in teacher_unavailable.get(teacher_index, set()):
         return False
 

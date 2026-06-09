@@ -365,6 +365,24 @@ def _validate_preset_rooms(teachers: Sequence[Any], room_count: int) -> str | No
                 "同一个考场只能预设给一位老师，请检查预设考场。"
             )
         preset_map[preset_room] = teacher.name
+
+    # 回避考场校验
+    for teacher in teachers:
+        avoid_rooms = getattr(teacher, "avoid_rooms", []) or []
+        if not avoid_rooms:
+            continue
+        for room in avoid_rooms:
+            if room > int(room_count):
+                return (
+                    f"回避考场设置无效：{teacher.name} 回避第 {room} 考场，"
+                    f"但当前最多只有 {room_count} 个考场。请检查回避考场或考场数量。"
+                )
+        preset_room = _safe_int(getattr(teacher, "preset_room", None), default=0)
+        if preset_room > 0 and preset_room in avoid_rooms:
+            return (
+                f"考场设置冲突：{teacher.name} 的预设考场 {preset_room} 同时出现在回避考场列表中。"
+                "预设考场与回避考场不能相同，请检查设置。"
+            )
     return None
 
 def _status_name(status: int) -> str:

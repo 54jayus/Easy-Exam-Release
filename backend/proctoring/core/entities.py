@@ -43,6 +43,8 @@ class Teacher:
         self.previous_supervision_duration = previous_supervision_duration or 0
         # Preset room number. ``None`` means no preset room is configured.
         self.preset_room = None
+        # List of room numbers this teacher should avoid.  Empty means no avoidance.
+        self.avoid_rooms: list[int] = []
 
     def can_supervise(self, subject_id):
         return subject_id not in self.unavailable_subjects

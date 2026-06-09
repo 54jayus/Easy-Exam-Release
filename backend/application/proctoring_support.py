@@ -52,6 +52,8 @@ def _teacher_from_dict(td: dict) -> Teacher:
     preset_room = _to_int(td.get("presetRoom"), 0)
     t.preset_room = preset_room if preset_room > 0 else None
     t.supervision_duration = _to_int(td.get("supervisionDuration"), 0)
+    avoid_rooms = td.get("avoidRooms", []) or []
+    t.avoid_rooms = sorted({_to_int(r, 0) for r in avoid_rooms if _to_int(r, 0) > 0})
     return t
 
 
@@ -491,6 +493,7 @@ def _format_schedule_result(schedule: Schedule, subjects_data: list) -> dict:
                         "isInternal": t.is_internal, "sessions": t.assigned_count(),
                         "maxSessions": t.max_sessions, "isLocked": is_locked,
                         "presetRoom": t.preset_room,
+                        "avoidRooms": getattr(t, "avoid_rooms", []) or [],
                     })
                 else:
                     assigned_data.append(None)
@@ -510,6 +513,7 @@ def _format_schedule_result(schedule: Schedule, subjects_data: list) -> dict:
         "supervisionDuration": t.supervision_duration,
         "previousSupervisionDuration": t.previous_supervision_duration,
         "unavailableSubjects": t.unavailable_subjects, "presetRoom": t.preset_room,
+        "avoidRooms": getattr(t, "avoid_rooms", []) or [],
     } for t in teachers_source]
     return {"schedule": result, "teachers": teachers_res}
 
