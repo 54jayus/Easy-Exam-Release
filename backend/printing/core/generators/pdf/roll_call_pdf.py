@@ -49,13 +49,14 @@ class RollCallPDFGenerator:
         students = group.get("students") or []
         by_seat = {int(item["seatNo"]): item for item in students}
 
-        pdf.setFont(self.font, 16)
+        pdf.setFont(self.font, 18)
         pdf.drawCentredString(page_width / 2, top - 6 * mm, self.config.exam_name)
-        pdf.setFont(self.font, 9)
+        pdf.setFont(self.font, 10)
         info = f"学校：{self.config.school_name}  科目：{subject}  考场：{room_name}  考场号：{room_no}  人数：{len(students)}"
         pdf.drawCentredString(page_width / 2, top - 14 * mm, info)
         header_bottom = top - 21 * mm
         if self.config.template_mode == "full":
+            pdf.setFont(self.font, 10)
             pdf.drawRightString(page_width - margin, header_bottom, "主监考（签名）：____________  副监考（签名）：____________")
             header_bottom -= 6 * mm
 

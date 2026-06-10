@@ -629,9 +629,9 @@
                       </div>
 
                       <div v-if="activeTab === 'roll_call'" class="absolute inset-0 p-[8mm] flex flex-col text-slate-900 bg-white">
-                        <div class="text-center text-lg font-bold">{{ config.rollCall.examName }}</div>
-                        <div class="mt-2 text-center text-[10px]">学校：{{ config.rollCall.schoolName }}　科目：{{ rollCallPreview?.subject || '--' }}　考场：{{ rollCallPreview?.roomName || '--' }}　考场号：{{ rollCallPreview?.roomNo || '--' }}　人数：{{ rollCallPreview?.students?.length || 0 }}</div>
-                        <div v-if="config.rollCall.templateMode === 'full'" class="mt-2 text-right text-[9px]">主监考（签名）：________　副监考（签名）：________</div>
+                        <div class="text-center text-xl font-bold">{{ config.rollCall.examName }}</div>
+                        <div class="mt-2 text-center text-[11px]">学校：{{ config.rollCall.schoolName }}　科目：{{ rollCallPreview?.subject || '--' }}　考场：{{ rollCallPreview?.roomName || '--' }}　考场号：{{ rollCallPreview?.roomNo || '--' }}　人数：{{ rollCallPreview?.students?.length || 0 }}</div>
+                        <div v-if="config.rollCall.templateMode === 'full'" class="mt-2 text-right text-[10px]">主监考（签名）：________　副监考（签名）：________</div>
                         <div class="mt-2 flex-1 min-h-0">
                           <div class="w-full h-full" :style="{ display: 'grid', gridTemplateColumns: `repeat(${rollCallLayout.layoutCols}, 1fr)`, gridTemplateRows: `repeat(${rollCallLayout.layoutRows}, 1fr)` }">
                             <div v-for="cell in rollCallPreviewCells" :key="cell.key" class="roll-call-cell" :class="cell.valid ? 'border-slate-600' : 'border-transparent'">
