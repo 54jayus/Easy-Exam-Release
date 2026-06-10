@@ -386,6 +386,7 @@
                   width: previewPageSizeMm.width,
                   height: previewPageSizeMm.height,
                   minHeight: previewPageSizeMm.height,
+                  margin: autoFit ? undefined : '0 auto',
                   zoom: autoFit ? 1 : previewScale,
                   transform: autoFit
                     ? `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`
