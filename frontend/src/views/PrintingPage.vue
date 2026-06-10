@@ -373,7 +373,7 @@
             class="flex-1 overflow-auto p-8 custom-scrollbar relative z-0"
             :class="[
               previewCursorClass,
-              autoFit ? 'flex items-center justify-center' : 'flex justify-center'
+              autoFit ? 'flex items-center justify-center' : ''
             ]"
             @wheel="handlePreviewWheel"
             @mousedown="handlePreviewMouseDown"
