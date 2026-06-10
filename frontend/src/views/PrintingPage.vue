@@ -977,6 +977,12 @@ watch(activeTab, async (val) => {
    await nextTick()
    _measurePreviewBaseSize()
    _updatePreviewScale()
+   // 切换 tab 时自动恢复自适应窗口状态
+   const viewportEl = previewViewportRef.value
+   if (viewportEl) {
+     viewportEl.scrollLeft = 0
+     viewportEl.scrollTop = 0
+   }
 }, { immediate: true })
 
 const tabs = [
