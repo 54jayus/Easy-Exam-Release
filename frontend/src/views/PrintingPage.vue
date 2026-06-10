@@ -644,7 +644,12 @@
                             </div>
                           </div>
                         </div>
-                        <div v-if="config.rollCall.templateMode === 'full'" class="mt-2 grid h-[25mm] grid-cols-3 gap-2 text-[8px]"><div class="col-span-2 border p-1">备注栏：</div><div class="whitespace-pre-line">{{ config.rollCall.instructions }}</div></div>
+                        <div v-if="config.rollCall.templateMode === 'full'" class="grid mt-1 grid-cols-3 gap-1 text-[8px]" style="height: calc(20% - 8mm);">
+                          <div class="col-span-2 border p-2 flex flex-col">
+                            <span class="font-bold">{{ config.rollCall.notesTitle }}</span>
+                          </div>
+                          <div class="whitespace-pre-line text-[7px] leading-relaxed">{{ config.rollCall.instructions }}</div>
+                        </div>
                       </div>
 
                       <!-- Table Preview -->

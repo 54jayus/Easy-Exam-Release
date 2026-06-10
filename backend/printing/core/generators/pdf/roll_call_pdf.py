@@ -120,23 +120,25 @@ class RollCallPDFGenerator:
                 line_y -= (font_size + 2)
 
         if self.config.template_mode == "full":
-            footer_top = grid_bottom - 5 * mm
             note_width = width * 0.62
             box_height = footer_height - 10 * mm
+
+            # 备注框顶部 Y 坐标
+            box_top = margin + box_height
 
             # 绘制备注栏边框
             pdf.setStrokeColorRGB(0, 0, 0)
             pdf.setLineWidth(0.5)
             pdf.rect(margin, margin, note_width, box_height)
 
-            # 备注栏标题
+            # 备注栏标题（与备注框顶部对齐）
             pdf.setFont(self.font, 9)
-            pdf.drawString(margin + 2 * mm, footer_top, self.config.notes_title)
+            pdf.drawString(margin + 2 * mm, box_top - 3 * mm, self.config.notes_title)
 
-            # 使用说明
+            # 使用说明（与备注框顶部对齐）
             instruction_x = margin + note_width + 4 * mm
-            pdf.setFont(self.font, 8)
-            line_y = footer_top
+            pdf.setFont(self.font, 7)
+            line_y = box_top - 3 * mm
             for raw_line in str(self.config.instructions or "").splitlines():
                 pdf.drawString(instruction_x, line_y, raw_line)
-                line_y -= 4 * mm
+                line_y -= 3.5 * mm
