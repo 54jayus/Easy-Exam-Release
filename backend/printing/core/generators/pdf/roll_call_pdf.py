@@ -86,8 +86,8 @@ class RollCallPDFGenerator:
             content_lines += 1
 
         # 动态计算字体大小
-        max_font_by_height = int((cell_height - 8 * mm) / (content_lines * 1.4))
-        font_size = max(8, min(11, min(max_font_by_height, int(min(cell_width / 7, cell_height / 4)))))
+        max_font_by_height = int((cell_height - 6 * mm) / (content_lines * 1.3))
+        font_size = max(10, min(12, min(max_font_by_height, int(min(cell_width / 6, cell_height / 3)))))
 
         for (row, col), seat in pos_to_seat.items():
             x = margin + col * cell_width

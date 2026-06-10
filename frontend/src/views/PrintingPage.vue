@@ -1664,14 +1664,14 @@ watch(subjectRows, async () => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 2mm;
+  padding: 1mm 2mm;
   text-align: center;
-  line-height: 1.3;
+  line-height: 1.2;
   overflow: hidden;
 }
 
 .roll-call-seat {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   color: #000;
   white-space: nowrap;
@@ -1681,19 +1681,19 @@ watch(subjectRows, async () => {
 }
 
 .roll-call-exam-no {
-  font-size: 8px;
+  font-size: 11px;
   color: #374151;
   white-space: nowrap;
 }
 
 .roll-call-class {
-  font-size: 8px;
+  font-size: 11px;
   color: #374151;
   white-space: nowrap;
 }
 
 .roll-call-checkbox {
-  font-size: 8px;
+  font-size: 11px;
   color: #6b7280;
 }
 </style>
