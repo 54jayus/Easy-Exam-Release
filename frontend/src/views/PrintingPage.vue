@@ -629,9 +629,9 @@
                       </div>
 
                       <div v-if="activeTab === 'roll_call'" class="absolute inset-0 p-[8mm] flex flex-col text-slate-900 bg-white">
-                        <div class="text-center font-bold" style="font-size: 18px;">{{ config.rollCall.examName }}</div>
-                        <div class="mt-2 text-center" style="font-size: 10px;">学校：{{ config.rollCall.schoolName }}　科目：{{ rollCallPreview?.subject || '--' }}　考场：{{ rollCallPreview?.roomName || '--' }}　考场号：{{ rollCallPreview?.roomNo || '--' }}　人数：{{ rollCallPreview?.students?.length || 0 }}</div>
-                        <div v-if="config.rollCall.templateMode === 'full'" class="mt-2 text-right" style="font-size: 10px;">主监考（签名）：________　副监考（签名）：________</div>
+                        <div class="text-center font-bold" style="font-size: 20px;">{{ config.rollCall.examName }}</div>
+                        <div class="mt-1 text-center" style="font-size: 11px;">学校：{{ config.rollCall.schoolName }}　科目：{{ rollCallPreview?.subject || '--' }}　考场：{{ rollCallPreview?.roomName || '--' }}　考场号：{{ rollCallPreview?.roomNo || '--' }}　人数：{{ rollCallPreview?.students?.length || 0 }}</div>
+                        <div v-if="config.rollCall.templateMode === 'full'" class="mt-1 text-right" style="font-size: 11px;">主监考（签名）：________　副监考（签名）：________</div>
                         <div class="flex-1 min-h-0">
                           <div class="w-full h-full" :style="{ display: 'grid', gridTemplateColumns: `repeat(${rollCallLayout.layoutCols}, 1fr)`, gridTemplateRows: `repeat(${rollCallLayout.layoutRows}, 1fr)` }">
                             <div v-for="cell in rollCallPreviewCells" :key="cell.key" class="roll-call-cell" :class="cell.valid ? 'border-slate-600' : 'border-transparent'">
@@ -644,11 +644,11 @@
                             </div>
                           </div>
                         </div>
-                        <div v-if="config.rollCall.templateMode === 'full'" class="grid grid-cols-3 gap-2" style="height: calc(20% - 8mm); margin-top: 4mm;">
-                          <div class="col-span-2 border p-2 flex flex-col" style="font-size: 10px;">
+                        <div v-if="config.rollCall.templateMode === 'full'" class="grid grid-cols-3 gap-2" style="height: calc(20% - 8mm); margin-top: 3mm;">
+                          <div class="col-span-2 border p-2 flex flex-col" style="font-size: 11px;">
                             <span class="font-bold">{{ config.rollCall.notesTitle }}</span>
                           </div>
-                          <div class="whitespace-pre-line" style="font-size: 9px; line-height: 1.5;">{{ config.rollCall.instructions }}</div>
+                          <div class="whitespace-pre-line" style="font-size: 10px; line-height: 1.5;">{{ config.rollCall.instructions }}</div>
                         </div>
                       </div>
 
@@ -1666,12 +1666,12 @@ watch(subjectRows, async () => {
   align-items: center;
   padding: 1mm;
   text-align: center;
-  line-height: 1.3;
+  line-height: 1.2;
   overflow: hidden;
 }
 
 .roll-call-seat {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #000;
   white-space: nowrap;
@@ -1681,19 +1681,19 @@ watch(subjectRows, async () => {
 }
 
 .roll-call-exam-no {
-  font-size: 13px;
+  font-size: 11px;
   color: #374151;
   white-space: nowrap;
 }
 
 .roll-call-class {
-  font-size: 13px;
+  font-size: 11px;
   color: #374151;
   white-space: nowrap;
 }
 
 .roll-call-checkbox {
-  font-size: 13px;
+  font-size: 11px;
   color: #6b7280;
 }
 </style>
