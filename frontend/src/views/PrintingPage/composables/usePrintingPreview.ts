@@ -86,37 +86,13 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
   }
 
   function handleZoomIn() {
-    const viewportEl = previewViewportRef.value
-    if (!viewportEl) return
-
-    const oldScale = previewScale.value
-    const centerX = viewportEl.scrollLeft + viewportEl.clientWidth / 2
-    const centerY = viewportEl.scrollTop + viewportEl.clientHeight / 2
-
     autoFit.value = false
-    previewScale.value = Math.min(2.0, oldScale + 0.1)
-
-    // 调整滚动位置使中心点保持不变
-    const ratio = previewScale.value / oldScale
-    viewportEl.scrollLeft = centerX * ratio - viewportEl.clientWidth / 2
-    viewportEl.scrollTop = centerY * ratio - viewportEl.clientHeight / 2
+    previewScale.value = Math.min(2.0, previewScale.value + 0.1)
   }
 
   function handleZoomOut() {
-    const viewportEl = previewViewportRef.value
-    if (!viewportEl) return
-
-    const oldScale = previewScale.value
-    const centerX = viewportEl.scrollLeft + viewportEl.clientWidth / 2
-    const centerY = viewportEl.scrollTop + viewportEl.clientHeight / 2
-
     autoFit.value = false
-    previewScale.value = Math.max(0.2, oldScale - 0.1)
-
-    // 调整滚动位置使中心点保持不变
-    const ratio = previewScale.value / oldScale
-    viewportEl.scrollLeft = centerX * ratio - viewportEl.clientWidth / 2
-    viewportEl.scrollTop = centerY * ratio - viewportEl.clientHeight / 2
+    previewScale.value = Math.max(0.2, previewScale.value - 0.1)
   }
 
   function updatePreviewScale() {
@@ -157,27 +133,12 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
     event.preventDefault()
     event.stopPropagation()
 
-    const viewportEl = previewViewportRef.value
-    if (!viewportEl) return
-
-    // 记录缩放前的滚动位置和鼠标在视口中的位置
-    const oldScale = previewScale.value
-    const mouseX = event.clientX - viewportEl.getBoundingClientRect().left + viewportEl.scrollLeft
-    const mouseY = event.clientY - viewportEl.getBoundingClientRect().top + viewportEl.scrollTop
-
     const factor = 0.001
     const delta = -event.deltaY * factor
-    const next = Math.min(3.0, Math.max(0.2, oldScale + delta))
-    if (next !== oldScale) {
+    const next = Math.min(3.0, Math.max(0.2, previewScale.value + delta))
+    if (next !== previewScale.value) {
       previewScale.value = next
       autoFit.value = false
-
-      // 计算缩放比例，调整滚动位置使鼠标位置保持不变
-      const ratio = next / oldScale
-      const newScrollX = mouseX * ratio - (event.clientX - viewportEl.getBoundingClientRect().left)
-      const newScrollY = mouseY * ratio - (event.clientY - viewportEl.getBoundingClientRect().top)
-      viewportEl.scrollLeft = newScrollX
-      viewportEl.scrollTop = newScrollY
     }
   }
 
