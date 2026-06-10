@@ -1671,7 +1671,7 @@ watch(subjectRows, async () => {
 }
 
 .roll-call-seat {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: #000;
   white-space: nowrap;
@@ -1681,19 +1681,19 @@ watch(subjectRows, async () => {
 }
 
 .roll-call-exam-no {
-  font-size: 11px;
+  font-size: 13px;
   color: #374151;
   white-space: nowrap;
 }
 
 .roll-call-class {
-  font-size: 11px;
+  font-size: 13px;
   color: #374151;
   white-space: nowrap;
 }
 
 .roll-call-checkbox {
-  font-size: 11px;
+  font-size: 13px;
   color: #6b7280;
 }
 </style>
