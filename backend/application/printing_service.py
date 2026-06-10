@@ -17,6 +17,7 @@ from backend.printing.core.config import (
     AdmissionTicketConfig,
     StudentInfoTableConfig,
     ExamBagLabelConfig,
+    RollCallConfig,
 )
 from backend.printing.core.adapters.examroom_adapter import (
     load_examroom_data_for_corner,
@@ -24,6 +25,8 @@ from backend.printing.core.adapters.examroom_adapter import (
     load_examroom_data_for_ticket,
     load_examroom_data_for_exam_bag,
 )
+from backend.printing.core.adapters.roll_call import build_roll_call_groups
+from backend.printing.core.seat_layout import layout_capacity, layout_for_room, normalize_seat_layout
 from backend.printing.core.validators import check_desk_data_sort
 
 
@@ -156,6 +159,9 @@ class PrintingService:
             elif type_ == "exam_bag_label":
                 # 试卷袋：传递 ea 对象，适配器会自动检测高考模式
                 data = load_examroom_data_for_exam_bag(ea, subjects or self._state.subjects) or []
+            elif type_ == "roll_call":
+                seat_layout = normalize_seat_layout((self._state.rooms.config or {}).get("seatLayout"))
+                data = build_roll_call_groups(ea, self._state.subjects, seat_layout)
             else:
                 # 考生信息表等其他类型：使用原有逻辑
                 df = ea.arranged_students.fillna("")
@@ -276,6 +282,9 @@ class PrintingService:
                     data_list = load_examroom_data_for_corner(ea) or []
                 elif type_ == "exam_bag_label":
                     data_list = load_examroom_data_for_exam_bag(ea, config_data.get("subjects") or self._state.subjects) or []
+                elif type_ == "roll_call":
+                    seat_layout = normalize_seat_layout((self._state.rooms.config or {}).get("seatLayout"))
+                    data_list = build_roll_call_groups(ea, self._state.subjects, seat_layout)
                 else:
                     data_list = load_examroom_data_for_ticket(ea) or []
             elif source_type == "empty":
@@ -292,19 +301,21 @@ class PrintingService:
                     ok, msg = check_desk_data_sort(data_list)
                     if not ok and not bool(confirm_flags.get("deskSort")):
                         return {"confirm": {"code": "deskSort", "level": "warning", "title": "排序警告", "message": f"数据存在乱序：{msg}\n是否继续生成？"}}
-                    layout_rows = int(config_data.get("layoutRows", 7) or 7)
-                    layout_cols = int(config_data.get("layoutCols", 6) or 6)
-                    capacity = max(1, layout_rows * layout_cols)
                     room_counts: dict[str, int] = {}
                     for item in data_list:
                         room = str(item.get("考场号", "Unknown"))
                         room_counts[room] = room_counts.get(room, 0) + 1
-                    overflow_rooms = [f"考场号 {k}: {c}人 (上限{capacity})" for k, c in room_counts.items() if c > capacity]
+                    shared_layout = normalize_seat_layout((self._state.rooms.config or {}).get("seatLayout"), config_data)
+                    overflow_rooms = []
+                    for room_no, count in room_counts.items():
+                        room_capacity = layout_capacity(layout_for_room(shared_layout, room_no))
+                        if count > room_capacity:
+                            overflow_rooms.append(f"考场号 {room_no}: {count}人 (上限{room_capacity})")
                     if overflow_rooms and not bool(confirm_flags.get("deskOverflow")):
                         msg_lines = overflow_rooms[:10]
                         msg_suffix = "\n..." if len(overflow_rooms) > 10 else ""
                         return {"confirm": {"code": "deskOverflow", "level": "question", "title": "人数超限提示", "message": "以下考场人数超过当前布局容量，将自动分两页打印：\n\n" + "\n".join(msg_lines) + msg_suffix + "\n\n是否继续生成？"}}
-                config_obj = DeskLabelConfig(output_path=output_path, export_xlsx=export_xlsx, export_pdf=export_pdf, total_count=config_data.get("totalCount", 0) if source_type == "empty" else len(data_list), layout_rows=config_data.get("layoutRows", 7), layout_cols=config_data.get("layoutCols", 6), layout_name=config_data.get("layoutName", ""), layout_pattern=config_data.get("layoutPattern", "S型横排"), start_pos=config_data.get("startPos", "left"), custom_col_counts=config_data.get("customColCounts"), student_data_list=data_list)
+                config_obj = DeskLabelConfig(output_path=output_path, export_xlsx=export_xlsx, export_pdf=export_pdf, total_count=config_data.get("totalCount", 0) if source_type == "empty" else len(data_list), layout_rows=config_data.get("layoutRows", 7), layout_cols=config_data.get("layoutCols", 6), layout_name=config_data.get("layoutName", ""), layout_pattern=config_data.get("layoutPattern", "S型横排"), start_pos=config_data.get("startPos", "left"), custom_col_counts=config_data.get("customColCounts"), student_data_list=data_list, seat_layout=normalize_seat_layout((self._state.rooms.config or {}).get("seatLayout")))
             elif type_ == "ticket":
                 config_obj = AdmissionTicketConfig(output_path=output_path, export_xlsx=export_xlsx, export_pdf=export_pdf, subjects=config_data.get("subjects", []), subject_times=config_data.get("subjectTimes", []), title=config_data.get("title", ""), num_templates=config_data.get("numTemplates", 0), student_data_list=data_list)
             elif type_ == "table":
@@ -312,6 +323,23 @@ class PrintingService:
             elif type_ == "exam_bag_label":
                 school_name = str(config_data.get("schoolName") or config_data.get("school_name") or "").strip() or "xxx学校"
                 config_obj = ExamBagLabelConfig(output_path=output_path, student_data_list=data_list, school_name=school_name, layout_rows=int(config_data.get("layoutRows", 3) or 3), layout_cols=int(config_data.get("layoutCols", 3) or 3))
+            elif type_ == "roll_call":
+                config_obj = RollCallConfig(
+                    output_path=output_path,
+                    export_xlsx=export_xlsx,
+                    export_pdf=export_pdf,
+                    exam_name=str(config_data.get("examName") or "xxx考试点名表"),
+                    school_name=str(config_data.get("schoolName") or "xxx学校"),
+                    template_mode="compact" if config_data.get("templateMode") == "compact" else "full",
+                    orientation=str(config_data.get("orientation") or "auto"),
+                    mirror_view=bool(config_data.get("mirrorView", False)),
+                    show_exam_no=bool(config_data.get("showExamNo", True)),
+                    show_class=bool(config_data.get("showClass", False)),
+                    show_checkbox=bool(config_data.get("showCheckbox", True)),
+                    notes_title=str(config_data.get("notesTitle") or "备注栏："),
+                    instructions=str(config_data.get("instructions") or ""),
+                    groups=data_list,
+                )
             else:
                 return {"error": "未知的打印类型"}
 

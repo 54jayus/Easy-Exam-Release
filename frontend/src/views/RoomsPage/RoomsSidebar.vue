@@ -183,6 +183,13 @@
               <el-option label="随机编排" value="random" />
             </el-select>
           </div>
+          <button class="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50/40" @click="$emit('open-seat-layout-dialog')">
+            <div>
+              <div class="text-xs font-bold text-slate-700">座位布局</div>
+              <div class="mt-0.5 text-[10px] text-slate-400">{{ config.seatLayout.defaultLayout.layoutName }} · {{ config.seatLayout.defaultLayout.layoutPattern }}</div>
+            </div>
+            <span class="text-xs font-bold text-blue-600">设置</span>
+          </button>
         </div>
       </section>
 
@@ -264,6 +271,7 @@ defineEmits<{
   'reset': []
   'open-priority-dialog': []
   'open-gaokao-time-dialog': []
+  'open-seat-layout-dialog': []
 }>()
 </script>
 

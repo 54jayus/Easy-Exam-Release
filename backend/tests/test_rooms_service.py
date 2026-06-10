@@ -123,6 +123,18 @@ def test_get_state_fills_missing_room_config_from_settings(recording_repo) -> No
     assert result["config"]["totalRooms"] == 2
     assert result["config"]["seatsPerRoom"] == 30
     assert result["config"]["subjectPriorityOrder"] == ["化学", "生物", "政治", "地理"]
+    assert result["config"]["seatLayout"]["defaultLayout"]["layoutName"] == "7行×6列"
+
+
+def test_get_seat_layout_migrates_legacy_printing_desk_config(recording_repo) -> None:
+    state = AppState()
+    state.printing.config = {"desk": {"layoutName": "5行×6列", "layoutRows": 5, "layoutCols": 6, "layoutPattern": "Z型横排", "startPos": "right"}}
+    service = RoomsService(state, recording_repo)
+
+    result = service.get_seat_layout({})
+
+    assert result["seatLayout"]["defaultLayout"]["layoutName"] == "5行×6列"
+    assert result["seatLayout"]["defaultLayout"]["layoutPattern"] == "Z型横排"
 
 
 def test_import_results_subject_mode_enriches_subject_columns(tmp_path, recording_repo) -> None:

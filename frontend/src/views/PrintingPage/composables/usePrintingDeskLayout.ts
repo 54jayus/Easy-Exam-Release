@@ -232,7 +232,7 @@ export function usePrintingDeskLayout({
     const grid = buildDeskGrid(() => ({ valid: true, student: null as any | null }))
     if (!hasPreviewData.value || sourceType.value === 'empty') return grid
 
-    const mapping = getSeatMapping(rows, cols, config.desk.layoutPattern, 'right', customColCounts)
+    const mapping = getSeatMapping(rows, cols, config.desk.layoutPattern, config.desk.startPos === 'right' ? 'right' : 'left', customColCounts)
     const students = firstRoomData.value.slice(0, capacity)
     for (let index = 0; index < students.length; index++) {
       const pos = mapping[index]

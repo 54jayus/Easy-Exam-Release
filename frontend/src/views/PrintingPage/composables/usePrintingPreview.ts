@@ -16,9 +16,10 @@ type PreviewTargetPx = {
 
 type UsePrintingPreviewOptions = {
   activeTab: Ref<string>
+  rollCallOrientation?: Ref<string>
 }
 
-export function usePrintingPreview({ activeTab }: UsePrintingPreviewOptions) {
+export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrintingPreviewOptions) {
   const previewViewportRef = ref<HTMLElement | null>(null)
   const previewPageRef = ref<HTMLElement | null>(null)
   const previewOverlayRef = ref<HTMLElement | null>(null)
@@ -52,6 +53,12 @@ export function usePrintingPreview({ activeTab }: UsePrintingPreviewOptions) {
     if (activeTab.value === 'exam_bag_label') {
       return { width: '210mm', height: '297mm' }
     }
+    if (activeTab.value === 'roll_call') {
+      const mode = rollCallOrientation?.value || 'auto'
+      if (mode === 'portrait') return { width: '210mm', height: '297mm' }
+      if (mode === 'landscape') return { width: '297mm', height: '210mm' }
+      return { width: '297mm', height: '210mm' }
+    }
     return { width: '297mm', height: '210mm' }
   })
 
@@ -59,6 +66,11 @@ export function usePrintingPreview({ activeTab }: UsePrintingPreviewOptions) {
     if (activeTab.value === 'desk' && deskPreviewMode.value === 'print') return { w: 794, h: 1122 }
     if (activeTab.value === 'table') return { w: 794, h: 1122 }
     if (activeTab.value === 'exam_bag_label') return { w: 794, h: 1122 }
+    if (activeTab.value === 'roll_call') {
+      const mode = rollCallOrientation?.value || 'auto'
+      if (mode === 'portrait') return { w: 794, h: 1122 }
+      return { w: 1122, h: 794 }
+    }
     return { w: 1122, h: 794 }
   })
 

@@ -23,6 +23,7 @@ from backend.application.rooms_input_importers import (
     import_students as import_room_students,
 )
 from backend.application.rooms_templates import generate_template as generate_rooms_template
+from backend.printing.core.seat_layout import normalize_seat_layout
 
 
 def _normalize_subject_priority_order(value: Any) -> list[str]:
@@ -147,6 +148,20 @@ class RoomsService:
         order = _normalize_subject_priority_order((self._state.rooms.config or {}).get("subjectPriorityOrder"))
         return {"order": order}
 
+    def get_seat_layout(self, _params: dict) -> Any:
+        printing_config = self._state.printing.config or {}
+        legacy_default = printing_config.get("desk") if isinstance(printing_config, dict) else None
+        normalized = normalize_seat_layout((self._state.rooms.config or {}).get("seatLayout"), legacy_default)
+        return {"seatLayout": normalized}
+
+    def set_seat_layout(self, params: dict) -> Any:
+        normalized = normalize_seat_layout(params.get("seatLayout"))
+        merged = dict(self._state.rooms.config or {})
+        merged["seatLayout"] = normalized
+        self._state.rooms.config = merged
+        self._repo.save(self._state)
+        return {"seatLayout": normalized}
+
     def set_subject_priority(self, params: dict) -> Any:
         order = _normalize_subject_priority_order(params.get("order"))
         merged = dict(self._state.rooms.config or {})
@@ -255,6 +270,9 @@ class RoomsService:
 
         config["subjectPriorityOrder"] = _normalize_subject_priority_order(config.get("subjectPriorityOrder"))
         config["gaokaoTimeSettings"] = normalize_gaokao_time_settings(config.get("gaokaoTimeSettings"))
+        printing_config = self._state.printing.config or {}
+        legacy_default = printing_config.get("desk") if isinstance(printing_config, dict) else None
+        config["seatLayout"] = normalize_seat_layout(config.get("seatLayout"), legacy_default)
         return {"settings": settings, "students": students, "results": results, "config": config, "studentPath": path}
 
     def save_state(self, params: dict) -> Any:
@@ -276,6 +294,7 @@ class RoomsService:
                 config = dict(config)
                 config["subjectPriorityOrder"] = _normalize_subject_priority_order(config.get("subjectPriorityOrder"))
                 config["gaokaoTimeSettings"] = normalize_gaokao_time_settings(config.get("gaokaoTimeSettings"))
+                config["seatLayout"] = normalize_seat_layout(config.get("seatLayout"))
                 self._state.rooms.config = config
 
         self._state.exam_arrangement = None

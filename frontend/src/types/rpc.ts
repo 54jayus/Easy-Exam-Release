@@ -222,6 +222,14 @@ export type RpcMethods = {
     params: { settings: any }
     result: {}
   }
+  "rooms.getSeatLayout": {
+    params: {}
+    result: { seatLayout: any }
+  }
+  "rooms.setSeatLayout": {
+    params: { seatLayout: any }
+    result: { seatLayout: any }
+  }
 
   // Printing
   "printing.getState": {

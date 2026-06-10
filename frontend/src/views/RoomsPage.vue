@@ -27,6 +27,7 @@
       @reset="handleResetPage"
       @open-priority-dialog="showSubjectPriorityDialog = true"
       @open-gaokao-time-dialog="showGaokaoTimeDialog = true"
+      @open-seat-layout-dialog="showSeatLayoutDialog = true"
       @update:mode="(mode: string) => config.mode = mode"
       @update:totalRooms="(val: number) => config.totalRooms = val"
       @update:seatsPerRoom="(val: number) => config.seatsPerRoom = val"
@@ -76,6 +77,13 @@
       @log-error="logError"
     />
 
+    <SeatLayoutSettingsDialog
+      v-model="showSeatLayoutDialog"
+      :seat-layout="config.seatLayout"
+      :rooms="roomSettings"
+      @save="saveSeatLayout"
+    />
+
     <!-- Logs Drawer -->
     <OperationLogsDrawer
       v-model:visible="showLogs"
@@ -104,6 +112,8 @@ import RoomsSidebar from './RoomsPage/RoomsSidebar.vue'
 import RoomsDataTabs from './RoomsPage/RoomsDataTabs.vue'
 import SubjectPriorityDialog from './RoomsPage/SubjectPriorityDialog.vue'
 import GaokaoTimeSettingsDialog from './RoomsPage/GaokaoTimeSettingsDialog.vue'
+import SeatLayoutSettingsDialog from './RoomsPage/SeatLayoutSettingsDialog.vue'
+import type { SeatLayoutConfig } from '@/types/seatLayout'
 import { buildGaokaoTimeDefaults, normalizeGaokaoTimeSettings } from '@/types/gaokao'
 import type { GaokaoTimeSettings } from '@/types/gaokao'
 import {
@@ -142,6 +152,7 @@ const {
 
 // Gaokao Time Settings State
 const showGaokaoTimeDialog = ref(false)
+const showSeatLayoutDialog = ref(false)
 const gaokaoTimeSettings = ref<GaokaoTimeSettings>(buildGaokaoTimeDefaults())
 
 const {
@@ -237,6 +248,16 @@ const scheduleSaveRoomsConfig = () => {
 }
 
 watch(config, scheduleSaveRoomsConfig, { deep: true })
+
+const saveSeatLayout = async (seatLayout: SeatLayoutConfig) => {
+  config.seatLayout = seatLayout
+  const result = await pythonBackend.request<any>('rooms.setSeatLayout', { seatLayout })
+  if (result?.error) {
+    feedback.error(formatActionError('保存座位布局', result.error))
+    return
+  }
+  feedback.success('座位布局已保存', { logMessage: formatActionSuccess('保存座位布局') })
+}
 
 // Reset page handler
 const handleResetPage = async () => {

@@ -2,7 +2,7 @@
   <div class="h-[calc(100vh-8rem)] flex flex-col animate-fade-in bg-slate-50">
     <div class="h-14 bg-white border-b border-slate-200 px-4 flex items-center shrink-0 shadow-sm z-20">
        <div class="flex-1 flex justify-center">
-          <div class="bg-slate-100 p-1 rounded-lg flex gap-1 w-full max-w-[560px]">
+          <div class="bg-slate-100 p-1 rounded-lg flex gap-1 w-full max-w-[680px]">
              <div 
                v-for="tab in tabs" 
                :key="tab.id"
@@ -59,7 +59,7 @@
                 
                 <div class="grid grid-cols-1 gap-2">
                    <!-- Empty Mode Card -->
-                   <div 
+                   <div v-if="activeTab !== 'roll_call'"
                       class="relative border rounded-lg p-3 cursor-pointer transition-all duration-200 group bg-white hover:shadow-md hover:shadow-slate-100"
                       :class="sourceType === 'empty' ? 'border-primary-500 bg-primary-50/30 ring-1 ring-primary-500/20' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'"
                       @click="sourceType = 'empty'"
@@ -79,7 +79,7 @@
                    </div>
 
                    <!-- File Mode Card -->
-                   <div 
+                   <div v-if="activeTab !== 'roll_call'"
                       class="relative border rounded-lg p-3 cursor-pointer transition-all duration-200 group bg-white hover:shadow-md hover:shadow-slate-100"
                       :class="sourceType === 'file' ? 'border-primary-500 bg-primary-50/30 ring-1 ring-primary-500/20' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'"
                       @click="sourceType = 'file'"
@@ -313,6 +313,25 @@
                       <span class="text-xs text-slate-600">包含选科列</span>
                       <el-switch v-model="config.table.includeSubjectFields" size="small" />
                    </div>
+                </div>
+
+                <div v-if="activeTab === 'roll_call'" class="space-y-3 animate-fade-in bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <div><label class="text-xs text-slate-500">考试名称</label><el-input v-model="config.rollCall.examName" size="small" /></div>
+                  <div><label class="text-xs text-slate-500">学校名称</label><el-input v-model="config.rollCall.schoolName" size="small" /></div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div><label class="text-xs text-slate-500">模板样式</label><el-select v-model="config.rollCall.templateMode" size="small" class="w-full"><el-option label="完整考务版" value="full" /><el-option label="精简点名版" value="compact" /></el-select></div>
+                    <div><label class="text-xs text-slate-500">纸张方向</label><el-select v-model="config.rollCall.orientation" size="small" class="w-full"><el-option label="自动" value="auto" /><el-option label="纵向" value="portrait" /><el-option label="横向" value="landscape" /></el-select></div>
+                  </div>
+                  <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+                    <el-checkbox v-model="config.rollCall.mirrorView">镜像为监考视角</el-checkbox>
+                    <el-checkbox v-model="config.rollCall.showExamNo">显示考号</el-checkbox>
+                    <el-checkbox v-model="config.rollCall.showClass">显示班级</el-checkbox>
+                    <el-checkbox v-model="config.rollCall.showCheckbox">显示缺考框</el-checkbox>
+                  </div>
+                  <div v-if="config.rollCall.templateMode === 'full'"><label class="text-xs text-slate-500">使用说明</label><el-input v-model="config.rollCall.instructions" type="textarea" :rows="3" size="small" /></div>
+                  <button class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-primary-300" @click="openDeskLayoutDialog">
+                    <div class="text-xs font-bold text-slate-700">公共座位布局</div><div class="text-[10px] text-slate-400">{{ deskLayoutSummary }}，特殊考场布局请在考场编排页设置</div>
+                  </button>
                 </div>
 
              </section>
@@ -603,6 +622,18 @@
                          </div>
                       </div>
 
+                      <div v-if="activeTab === 'roll_call'" class="absolute inset-0 p-[8mm] flex flex-col text-slate-900 bg-white">
+                        <div class="text-center text-lg font-bold">{{ config.rollCall.examName }}</div>
+                        <div class="mt-2 text-center text-[10px]">学校：{{ config.rollCall.schoolName }}　科目：{{ rollCallPreview?.subject || '--' }}　考场：{{ rollCallPreview?.roomName || '--' }}　考场号：{{ rollCallPreview?.roomNo || '--' }}　人数：{{ rollCallPreview?.students?.length || 0 }}</div>
+                        <div v-if="config.rollCall.templateMode === 'full'" class="mt-2 text-right text-[9px]">主监考（签名）：________　副监考（签名）：________</div>
+                        <div class="mt-2 grid flex-1 min-h-0 gap-1" :style="{ gridTemplateColumns: `repeat(${rollCallLayout.layoutCols}, 1fr)`, gridTemplateRows: `repeat(${rollCallLayout.layoutRows}, 1fr)` }">
+                          <div v-for="cell in rollCallPreviewCells" :key="cell.key" class="flex flex-col items-center justify-center border text-center leading-tight" :class="cell.valid ? 'border-slate-500' : 'border-transparent'">
+                            <template v-if="cell.valid"><span class="text-[9px] font-bold">{{ cell.seat }}. {{ cell.student?.name || '' }}</span><span v-if="config.rollCall.showExamNo" class="text-[7px]">{{ cell.student?.examNo || '' }}</span><span v-if="config.rollCall.showClass && cell.student?.className" class="text-[7px]">{{ cell.student.className }}</span><span v-if="config.rollCall.showCheckbox" class="text-[8px]">□ 缺考</span></template>
+                          </div>
+                        </div>
+                        <div v-if="config.rollCall.templateMode === 'full'" class="mt-2 grid h-[25mm] grid-cols-3 gap-2 text-[8px]"><div class="col-span-2 border p-1">备注栏：</div><div class="whitespace-pre-line">{{ config.rollCall.instructions }}</div></div>
+                      </div>
+
                       <!-- Table Preview -->
                       <div v-if="activeTab === 'table'" class="absolute inset-0 px-[10mm] py-[10mm] flex flex-col">
                          <table class="w-full border-collapse" :style="{ fontSize: studentInfoPrintLayout.fontSizePx }">
@@ -782,6 +813,7 @@ import { usePrintingSubjects } from './PrintingPage/composables/usePrintingSubje
 import PrintingMappingDialog from './PrintingPage/components/PrintingMappingDialog.vue'
 import PrintingSubjectsDialog from './PrintingPage/components/PrintingSubjectsDialog.vue'
 import PrintingDeskLayoutDialog from './PrintingPage/components/PrintingDeskLayoutDialog.vue'
+import { getSeatMapping, mirrorSeatLayout, normalizeSeatLayout } from '@/types/seatLayout'
 
 // --- State ---
 const storage = usePageSessionState('printing')
@@ -885,6 +917,7 @@ const {
    initPreviewAutoScale: _initPreviewAutoScale,
 } = usePrintingPreview({
    activeTab,
+   rollCallOrientation: computed(() => String(config.rollCall.orientation || 'auto')),
 })
 
 // Persistence Watchers
@@ -909,6 +942,7 @@ function _scheduleSaveConfig() {
 }
 
 watch(activeTab, async (val) => {
+   if (val === 'roll_call' && sourceType.value !== 'schedule') sourceType.value = 'schedule'
    if (val !== 'corner' && val !== 'ticket') previewMode.value = 'style'
    if (val === 'exam_bag_label') showMappingDialog.value = false
    resetPreviewTransform()
@@ -920,6 +954,7 @@ watch(activeTab, async (val) => {
    }
    // 如果数据来源是考场编排，切换标签时自动刷新数据
    if (sourceType.value === 'schedule') {
+      await nextTick()
       await handleLoadFromSchedule()
    }
    await nextTick()
@@ -932,7 +967,8 @@ const tabs = [
   { id: 'desk', name: '桌角标签' },
   { id: 'ticket', name: '准考证' },
   { id: 'table', name: '考生信息表' },
-  { id: 'exam_bag_label', name: '试卷袋' }
+  { id: 'exam_bag_label', name: '试卷袋' },
+  { id: 'roll_call', name: '点名表' }
 ]
 
 const commonConfig = reactive({
@@ -962,7 +998,34 @@ const config = reactive({
    },
    examBag: {
       schoolName: 'xxx学校'
+   },
+   rollCall: {
+      examName: 'xxx考试点名表',
+      schoolName: 'xxx学校',
+      templateMode: 'full',
+      orientation: 'auto',
+      mirrorView: false,
+      showExamNo: true,
+      showClass: false,
+      showCheckbox: true,
+      notesTitle: '备注栏：',
+      instructions: '1.学生缺考时，请在对应方框内打勾。\n2.学生出现异常行为，请在备注栏记录相关情况。\n3.请将本表张贴于答卷袋正面。'
    }
+})
+
+const rollCallPreview = computed(() => previewData.value[0] || null)
+const rollCallLayout = computed(() => mirrorSeatLayout(rollCallPreview.value?.seatLayout || config.desk, Boolean(config.rollCall.mirrorView)))
+const rollCallPreviewCells = computed(() => {
+   const layout = rollCallLayout.value
+   const mapping = getSeatMapping(layout)
+   const positionToSeat = new Map(Object.entries(mapping).map(([seat, pos]) => [`${pos[0]}-${pos[1]}`, Number(seat)]))
+   const students = new Map<number, any>((rollCallPreview.value?.students || []).map((student: any) => [Number(student.seatNo), student]))
+   return Array.from({ length: layout.layoutRows * layout.layoutCols }, (_, index) => {
+      const row = Math.floor(index / layout.layoutCols)
+      const col = index % layout.layoutCols
+      const seat = positionToSeat.get(`${row}-${col}`)
+      return { key: `${row}-${col}`, valid: Boolean(seat), seat, student: seat ? students.get(seat) : null }
+   })
 })
 
 const {
@@ -1101,6 +1164,7 @@ onMounted(async () => {
             if (c.table.groupMode != null) config.table.groupMode = c.table.groupMode
          }
          if (c.examBag?.schoolName != null) config.examBag.schoolName = c.examBag.schoolName
+         if (c.rollCall) Object.assign(config.rollCall, c.rollCall)
       }
       if (state && state.commonConfig && typeof state.commonConfig === 'object') {
          const cc = state.commonConfig
@@ -1118,6 +1182,14 @@ onMounted(async () => {
          if (nextTitles.class != null) studentInfoTitles.class = String(nextTitles.class)
          if (nextTitles.examroom != null) studentInfoTitles.examroom = String(nextTitles.examroom)
          storage.setJsonPref('studentInfoTitles_v1', { ...studentInfoTitles })
+      }
+
+      try {
+         const layoutState = await pythonBackend.request<any>('rooms.getSeatLayout', {})
+         const shared = layoutState?.seatLayout?.defaultLayout
+         if (shared) Object.assign(config.desk, normalizeSeatLayout(shared))
+      } catch (error) {
+         console.error('Failed to load shared seat layout:', error)
       }
 
       // Re-sync studentInfoTitles from restored config.table.title if sessionStorage had no saved value
@@ -1271,6 +1343,17 @@ const {
    hasPreviewData,
    sourceType,
    onAfterApply: async () => {
+      try {
+         const current = await pythonBackend.request<any>('rooms.getSeatLayout', {})
+         await pythonBackend.request('rooms.setSeatLayout', {
+            seatLayout: {
+               defaultLayout: normalizeSeatLayout({ ...config.desk, startPos: config.desk.startPos === 'right' ? 'right' : 'left' }),
+               roomOverrides: current?.seatLayout?.roomOverrides || {},
+            }
+         })
+      } catch (error) {
+         console.error('Failed to save shared seat layout:', error)
+      }
       await nextTick()
       _measurePreviewBaseSize()
       handleAutoFit()

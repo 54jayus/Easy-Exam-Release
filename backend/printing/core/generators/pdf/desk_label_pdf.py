@@ -10,6 +10,7 @@ from reportlab.platypus import Frame, PageTemplate, Paragraph, SimpleDocTemplate
 from xml.sax.saxutils import escape
 
 from .pdf_utils import PAGE_HEIGHT, PAGE_WIDTH, register_fonts
+from backend.printing.core.seat_layout import get_seat_mapping, layout_for_room, normalize_layout
 
 
 class DeskLabelPDFGenerator:
@@ -68,67 +69,14 @@ class DeskLabelPDFGenerator:
         这里简单复制一份，或者重构 shared logic。
         为简单起见，这里复制逻辑。
         """
-        mapping = {}
-        current_seat = 0
-        custom_counts = self.config.custom_col_counts
-
-        def is_valid_pos(r, c):
-            if custom_counts:
-                if c < len(custom_counts):
-                    return r < custom_counts[c]
-            return True
-        
-        # 无论 start_pos 是左手位还是右手位，生成文件时都强制以“右手位”（左上角）作为起始位
-        # 这样打印出来的纸张，座位1总是在左上角，符合剪裁习惯
-        def get_actual_col(logic_col):
-            # if start_pos == "left":
-            #     return cols - 1 - logic_col
-            return logic_col
-
-        if pattern == "Z型横排":
-            for r in range(rows):
-                for c in range(cols):
-                    actual_c = get_actual_col(c)
-                    if is_valid_pos(r, actual_c):
-                        mapping[current_seat] = (r, actual_c)
-                        current_seat += 1
-        elif pattern == "S型横排":
-            for r in range(rows):
-                is_even_row = r % 2 == 0
-                if is_even_row:
-                    for c in range(cols):
-                        actual_c = get_actual_col(c)
-                        if is_valid_pos(r, actual_c):
-                            mapping[current_seat] = (r, actual_c)
-                            current_seat += 1
-                else:
-                    for c in range(cols - 1, -1, -1):
-                        actual_c = get_actual_col(c)
-                        if is_valid_pos(r, actual_c):
-                            mapping[current_seat] = (r, actual_c)
-                            current_seat += 1
-        elif pattern == "Z型竖排":
-            for c in range(cols):
-                for r in range(rows):
-                    actual_c = get_actual_col(c)
-                    if is_valid_pos(r, actual_c):
-                        mapping[current_seat] = (r, actual_c)
-                        current_seat += 1
-        elif pattern == "S型竖排":
-            for c in range(cols):
-                is_even_col = c % 2 == 0
-                actual_c = get_actual_col(c)
-                if is_even_col:
-                    for r in range(rows):
-                        if is_valid_pos(r, actual_c):
-                            mapping[current_seat] = (r, actual_c)
-                            current_seat += 1
-                else:
-                    for r in range(rows - 1, -1, -1):
-                        if is_valid_pos(r, actual_c):
-                            mapping[current_seat] = (r, actual_c)
-                            current_seat += 1
-        return mapping
+        one_based = get_seat_mapping({
+            "layoutRows": rows,
+            "layoutCols": cols,
+            "layoutPattern": pattern,
+            "startPos": start_pos,
+            "customColCounts": self.config.custom_col_counts,
+        })
+        return {seat - 1: position for seat, position in one_based.items()}
 
     def generate(self, progress_callback=None):
         output_path = self.config.output_path.replace(".xlsx", ".pdf")
@@ -170,7 +118,9 @@ class DeskLabelPDFGenerator:
                     progress_callback(idx, total_rooms)
 
                 room_data = rooms_map[room]
-                self._generate_content(elements, room_data, None)
+                room_no = room_data[0].get("考场号", "") if room_data else ""
+                room_layout = layout_for_room(self.config.seat_layout, room_no) if self.config.seat_layout else None
+                self._generate_content(elements, room_data, None, room_layout)
 
                 # 每个考场之后添加分页符（除非是最后一个考场）
                 if idx < len(room_order) - 1:
@@ -188,14 +138,23 @@ class DeskLabelPDFGenerator:
                 raise Exception(f"无法保存文件，请关闭已打开的 PDF 文件: {output_path}")
             raise e
 
-    def _generate_content(self, elements, data_list, progress_callback):
+    def _generate_content(self, elements, data_list, progress_callback, layout=None):
         # 分页处理
-        capacity = self.rows * self.cols
+        effective = normalize_layout(layout or {
+            "layoutRows": self.rows,
+            "layoutCols": self.cols,
+            "layoutPattern": getattr(self.config, "layout_pattern", "S型横排"),
+            "startPos": getattr(self.config, "start_pos", "left"),
+            "customColCounts": self.config.custom_col_counts,
+        })
+        rows = effective["layoutRows"]
+        cols = effective["layoutCols"]
+        capacity = len(get_seat_mapping(effective))
         chunks = [data_list[i : i + capacity] for i in range(0, len(data_list), capacity)]
 
-        pattern = getattr(self.config, "layout_pattern", "S型横排")
-        start_pos = getattr(self.config, "start_pos", "left")
-        seat_mapping = self._get_seat_mapping(self.rows, self.cols, pattern, start_pos)
+        seat_mapping = {seat - 1: position for seat, position in get_seat_mapping(effective).items()}
+        cell_width = (self.content_width - (cols + 1) * self.grid_line_width - self.safe_gap) / cols
+        cell_height = (self.content_height - (rows + 1) * self.grid_line_width - self.safe_gap) / rows
 
         style = ParagraphStyle(
             name="DeskLabel",
@@ -209,7 +168,7 @@ class DeskLabelPDFGenerator:
         for chunk_idx, chunk in enumerate(chunks):
             # 准备表格数据
             # grid[row][col]
-            grid_data = [["" for _ in range(self.cols)] for _ in range(self.rows)]
+            grid_data = [["" for _ in range(cols)] for _ in range(rows)]
             
             pos_to_student = {}
             for idx, student in enumerate(chunk):
@@ -218,8 +177,8 @@ class DeskLabelPDFGenerator:
                     continue
                 pos_to_student[pos] = student
 
-            for r in range(self.rows):
-                for c in range(self.cols):
+            for r in range(rows):
+                for c in range(cols):
                     student = pos_to_student.get((r, c))
                     if student:
                         name = escape(str(student.get("考生姓名", "") or ""))
@@ -228,7 +187,7 @@ class DeskLabelPDFGenerator:
                         room_num = escape(str(student.get("考场号", "") or ""))
                         seat = escape(str(student.get("座位号", "") or ""))
 
-                        max_line_width = self.cell_width - self.cell_padding_left - self.cell_padding_right - 2
+                        max_line_width = cell_width - self.cell_padding_left - self.cell_padding_right - 2
                         num_line = f"考号：{num}"
                         num_size = self._fit_font_size(num_line, max_line_width, base_size=10, min_size=7)
                         num_line_html = f'<font size="{num_size}">{num_line}</font>'
@@ -248,8 +207,8 @@ class DeskLabelPDFGenerator:
 
             # 创建表格
             # 设置列宽和行高
-            col_widths = [self.cell_width] * self.cols
-            row_heights = [self.cell_height] * self.rows
+            col_widths = [cell_width] * cols
+            row_heights = [cell_height] * rows
 
             table = Table(grid_data, colWidths=col_widths, rowHeights=row_heights)
 

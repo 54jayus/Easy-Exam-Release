@@ -92,6 +92,7 @@ export function usePrintingGenerate({
     }
 
     if (activeTab.value === 'table') return config.table
+    if (activeTab.value === 'roll_call') return config.rollCall
     if (activeTab.value === 'exam_bag_label') {
       return {
         ...config.examBag,

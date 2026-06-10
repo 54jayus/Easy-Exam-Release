@@ -4,6 +4,7 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import Break
+from backend.printing.core.seat_layout import get_seat_mapping, layout_for_room, normalize_layout
 
 
 class DeskLabelGenerator:
@@ -40,77 +41,14 @@ class DeskLabelGenerator:
         计算座位号到坐标的映射
         返回: dict {seat_index_0_based: (r, c)}
         """
-        mapping = {}
-        current_seat = 0  # 0-based index
-
-        custom_counts = self.config.custom_col_counts
-
-        # 辅助函数：判断该位置是否有效
-        def is_valid_pos(r, c):
-            if custom_counts:
-                if c < len(custom_counts):
-                    return r < custom_counts[c]
-            return True
-
-        # 无论 start_pos 是左手位还是右手位，生成文件时都强制以“右手位”（左上角）作为起始位
-        # 这样打印出来的纸张，座位1总是在左上角，符合剪裁习惯
-        def get_actual_col(logic_col):
-            # if start_pos == "left":
-            #     return cols - 1 - logic_col
-            return logic_col
-
-        if pattern == "Z型横排":
-            for r in range(rows):
-                for c in range(cols):
-                    actual_c = get_actual_col(c)
-                    if is_valid_pos(r, actual_c):
-                        mapping[current_seat] = (r, actual_c)
-                        current_seat += 1
-
-        elif pattern == "S型横排":
-            for r in range(rows):
-                is_even_row = r % 2 == 0
-
-                if is_even_row:
-                    # L -> R
-                    for c in range(cols):
-                        actual_c = get_actual_col(c)
-                        if is_valid_pos(r, actual_c):
-                            mapping[current_seat] = (r, actual_c)
-                            current_seat += 1
-                else:
-                    # R -> L
-                    for c in range(cols - 1, -1, -1):
-                        actual_c = get_actual_col(c)
-                        if is_valid_pos(r, actual_c):
-                            mapping[current_seat] = (r, actual_c)
-                            current_seat += 1
-
-        elif pattern == "Z型竖排":
-            for c in range(cols):
-                for r in range(rows):
-                    actual_c = get_actual_col(c)
-                    if is_valid_pos(r, actual_c):
-                        mapping[current_seat] = (r, actual_c)
-                        current_seat += 1
-
-        elif pattern == "S型竖排":
-            for c in range(cols):
-                is_even_col = c % 2 == 0
-                if is_even_col:  # Down
-                    actual_c = get_actual_col(c)
-                    for r in range(rows):
-                        if is_valid_pos(r, actual_c):
-                            mapping[current_seat] = (r, actual_c)
-                            current_seat += 1
-                else:  # Up
-                    actual_c = get_actual_col(c)
-                    for r in range(rows - 1, -1, -1):
-                        if is_valid_pos(r, actual_c):
-                            mapping[current_seat] = (r, actual_c)
-                            current_seat += 1
-
-        return mapping
+        one_based = get_seat_mapping({
+            "layoutRows": rows,
+            "layoutCols": cols,
+            "layoutPattern": pattern,
+            "startPos": start_pos,
+            "customColCounts": self.config.custom_col_counts,
+        })
+        return {seat - 1: position for seat, position in one_based.items()}
 
     def generate(self, progress_callback=None):
         """
@@ -168,7 +106,9 @@ class DeskLabelGenerator:
                 ws_room = wb.create_sheet(title=safe_name)
 
                 # 分表不传 progress_callback，以免进度条乱跳，只在生成总表时更新进度
-                self._generate_sheet_content(ws_room, room_data, None)
+                room_no = room_data[0].get("考场号", "") if room_data else ""
+                room_layout = layout_for_room(self.config.seat_layout, room_no) if self.config.seat_layout else None
+                self._generate_sheet_content(ws_room, room_data, None, room_layout)
                 self._setup_page_settings(ws_room)
 
         else:
@@ -198,7 +138,7 @@ class DeskLabelGenerator:
         ws.print_options.horizontalCentered = True
         ws.print_options.verticalCentered = True
 
-    def _generate_sheet_content(self, ws, data_list, progress_callback):
+    def _generate_sheet_content(self, ws, data_list, progress_callback, layout=None):
         """根据数据生成单个Sheet的内容"""
         # 1. 按考场分组
         # 即使 data_list 只有一个考场的数据，这里逻辑也适用
@@ -219,17 +159,24 @@ class DeskLabelGenerator:
                 progress_callback(idx, total_rooms)
 
             # 计算该考场需要分几页
-            capacity = self.config.layout_rows * self.config.layout_cols
+            effective = normalize_layout(layout or {
+                "layoutRows": self.config.layout_rows,
+                "layoutCols": self.config.layout_cols,
+                "layoutPattern": self.config.layout_pattern,
+                "startPos": self.config.start_pos,
+                "customColCounts": self.config.custom_col_counts,
+            })
+            capacity = len(get_seat_mapping(effective))
 
             # 分块
             chunks = [students[i : i + capacity] for i in range(0, len(students), capacity)]
 
             for chunk_idx, chunk in enumerate(chunks):
                 # 生成这一页
-                self._fill_page_grid(ws, chunk, current_row_base)
+                self._fill_page_grid(ws, chunk, current_row_base, effective)
 
                 # 更新基准行
-                current_row_base += self.config.layout_rows
+                current_row_base += effective["layoutRows"]
 
                 # 插入分页符
                 # 逻辑：只要不是(最后一个房间 的 最后一页)，就加分页符
@@ -268,23 +215,27 @@ class DeskLabelGenerator:
             if i < total_chunks - 1:
                 ws.row_breaks.append(Break(id=current_row_base - 1))
 
-    def _fill_page_grid(self, ws, students, start_row):
+    def _fill_page_grid(self, ws, students, start_row, layout=None):
         """填充单页网格"""
-        layout_rows = self.config.layout_rows
-        layout_cols = self.config.layout_cols
-
-        pattern = getattr(self.config, "layout_pattern", "S型横排")
-        start_pos = getattr(self.config, "start_pos", "left")
-        seat_mapping = self._get_seat_mapping(layout_rows, layout_cols, pattern, start_pos)
+        effective = normalize_layout(layout or {
+            "layoutRows": self.config.layout_rows,
+            "layoutCols": self.config.layout_cols,
+            "layoutPattern": self.config.layout_pattern,
+            "startPos": self.config.start_pos,
+            "customColCounts": self.config.custom_col_counts,
+        })
+        layout_rows = effective["layoutRows"]
+        layout_cols = effective["layoutCols"]
+        seat_mapping = {seat - 1: position for seat, position in get_seat_mapping(effective).items()}
 
         # 设置行高 (整页)
         for r in range(layout_rows):
-            ws.row_dimensions[start_row + r].height = self.ROW_HEIGHT
+            ws.row_dimensions[start_row + r].height = 560 / layout_rows
 
         # 设置列宽 (只需设置一次，但重复设置也没事)
         for c in range(layout_cols):
             col_letter = get_column_letter(c + 1)
-            ws.column_dimensions[col_letter].width = self.COL_WIDTH
+            ws.column_dimensions[col_letter].width = 100 / layout_cols
 
         pos_to_student = {}
         for idx, student in enumerate(students):

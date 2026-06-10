@@ -116,6 +116,8 @@ def build_dispatcher() -> RpcDispatcher:
     dispatcher.register("rooms.saveState", rooms_svc.save_state)
     dispatcher.register("rooms.getSubjectPriority", rooms_svc.get_subject_priority)
     dispatcher.register("rooms.setSubjectPriority", rooms_svc.set_subject_priority)
+    dispatcher.register("rooms.getSeatLayout", rooms_svc.get_seat_layout)
+    dispatcher.register("rooms.setSeatLayout", rooms_svc.set_seat_layout)
     dispatcher.register("rooms.getGaokaoTimeSettings", rooms_svc.get_gaokao_time_settings)
     dispatcher.register("rooms.setGaokaoTimeSettings", rooms_svc.set_gaokao_time_settings)
     dispatcher.register("rooms.generateTemplate", rooms_svc.generate_template)

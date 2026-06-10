@@ -1,10 +1,12 @@
 import { ref, reactive, computed } from 'vue'
+import { normalizeSeatLayoutConfig, type SeatLayoutConfig } from '@/types/seatLayout'
 
 export interface RoomsConfig {
   totalRooms: number
   seatsPerRoom: number
   mode: string
   subjectPriorityOrder: string[]
+  seatLayout: SeatLayoutConfig
 }
 
 export interface LoadingStates {
@@ -33,7 +35,8 @@ export function useRoomsState() {
     totalRooms: 30,
     seatsPerRoom: 30,
     mode: 'normal',
-    subjectPriorityOrder: [...SUBJECT_PRIORITY_DEFAULT]
+    subjectPriorityOrder: [...SUBJECT_PRIORITY_DEFAULT],
+    seatLayout: normalizeSeatLayoutConfig()
   })
 
   // Pagination State - Results
@@ -150,6 +153,7 @@ export function useRoomsState() {
     config.seatsPerRoom = 30
     config.mode = 'normal'
     config.subjectPriorityOrder = [...SUBJECT_PRIORITY_DEFAULT]
+    config.seatLayout = normalizeSeatLayoutConfig()
 
     sidebarCollapsed.value = false
     activeTab.value = 'settings'

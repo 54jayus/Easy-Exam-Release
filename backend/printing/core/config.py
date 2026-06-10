@@ -36,6 +36,23 @@ class DeskLabelConfig(BaseConfig):
     start_pos: str = "left" # "left" or "right"
     custom_col_counts: Optional[List[int]] = None
     student_data_list: Optional[List[dict]] = None
+    seat_layout: Optional[dict] = None
+
+
+@dataclass
+class RollCallConfig(BaseConfig):
+    """考场点名表生成配置"""
+    exam_name: str = "xxx考试点名表"
+    school_name: str = "xxx学校"
+    template_mode: str = "full"
+    orientation: str = "auto"
+    mirror_view: bool = False
+    show_exam_no: bool = True
+    show_class: bool = False
+    show_checkbox: bool = True
+    notes_title: str = "备注栏："
+    instructions: str = "1.学生缺考时，请在对应方框内打勾。\n2.学生出现异常行为，请在备注栏记录相关情况。\n3.请将本表张贴于答卷袋正面。"
+    groups: Optional[List[dict]] = None
 
 
 @dataclass
@@ -54,4 +71,3 @@ class ExamBagLabelConfig(BaseConfig):
     school_name: str = "xxx学校"
     layout_rows: int = 3
     layout_cols: int = 3
-

@@ -110,7 +110,7 @@ def test_desk_label_blank_generation_adds_page_breaks(tmp_path) -> None:
     assert "座位号：" in ws["B1"].value
 
 
-def test_desk_label_seat_mapping_respects_custom_column_counts() -> None:
+def test_desk_label_seat_mapping_respects_start_position_and_custom_column_counts() -> None:
     default_generator = DeskLabelGenerator(
         DeskLabelConfig(output_path="unused.xlsx", layout_rows=2, layout_cols=2)
     )
@@ -121,16 +121,16 @@ def test_desk_label_seat_mapping_respects_custom_column_counts() -> None:
     assert default_generator._get_seat_mapping(
         2, 2, default_generator.config.layout_pattern, default_generator.config.start_pos
     ) == {
-        0: (0, 0),
-        1: (0, 1),
-        2: (1, 1),
-        3: (1, 0),
+        0: (0, 1),
+        1: (0, 0),
+        2: (1, 0),
+        3: (1, 1),
     }
     assert custom_generator._get_seat_mapping(
         3, 2, custom_generator.config.layout_pattern, custom_generator.config.start_pos
     ) == {
-        0: (0, 0),
-        1: (0, 1),
+        0: (0, 1),
+        1: (0, 0),
         2: (1, 0),
         3: (2, 0),
     }

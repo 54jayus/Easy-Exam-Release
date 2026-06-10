@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from .config import BaseConfig, CornerPaperConfig, DeskLabelConfig, AdmissionTicketConfig, StudentInfoTableConfig, ExamBagLabelConfig
+from .config import BaseConfig, CornerPaperConfig, DeskLabelConfig, RollCallConfig, AdmissionTicketConfig, StudentInfoTableConfig, ExamBagLabelConfig
 from .generators.excel.corner_paper import CornerPaperGenerator
 from .generators.excel.desk_label import DeskLabelGenerator
 from .generators.excel.admission_ticket import AdmissionTicketGenerator
@@ -9,6 +9,8 @@ from .generators.pdf.desk_label_pdf import DeskLabelPDFGenerator
 from .generators.pdf.pdf_generators import CornerPaperPDFGenerator, AdmissionTicketPDFGenerator
 from .generators.pdf.student_info_pdf import StudentInfoTablePDFGenerator
 from .generators.pdf.exam_bag_label_pdf import ExamBagLabelPDFGenerator
+from .generators.excel.roll_call import RollCallGenerator
+from .generators.pdf.roll_call_pdf import RollCallPDFGenerator
 
 class GeneratorType(Enum):
     CORNER_PAPER = auto()
@@ -37,6 +39,10 @@ class GeneratorFactory:
             if export_pdf and not export_xlsx:
                 return AdmissionTicketPDFGenerator(config)
             return AdmissionTicketGenerator(config)
+        elif isinstance(config, RollCallConfig):
+            if export_pdf and not export_xlsx:
+                return RollCallPDFGenerator(config)
+            return RollCallGenerator(config)
         elif isinstance(config, StudentInfoTableConfig):
             if export_pdf and not export_xlsx:
                 return StudentInfoTablePDFGenerator(config)
