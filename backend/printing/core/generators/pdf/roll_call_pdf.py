@@ -71,11 +71,29 @@ class RollCallPDFGenerator:
 
         mapping = get_seat_mapping(layout)
         pos_to_seat = {position: seat for seat, position in mapping.items()}
-        font_size = max(7, min(10, int(min(cell_width / 9, cell_height / 5))))
+
+        # 计算内容行数，用于动态调整字体大小
+        content_lines = 1  # 至少有座位号+姓名
+        if self.config.show_exam_no:
+            content_lines += 1
+        if self.config.show_class:
+            content_lines += 1
+        if self.config.show_checkbox:
+            content_lines += 1
+
+        # 动态计算字体大小
+        max_font_by_height = int((cell_height - 8 * mm) / (content_lines * 1.4))
+        font_size = max(8, min(11, min(max_font_by_height, int(min(cell_width / 7, cell_height / 4)))))
+
         for (row, col), seat in pos_to_seat.items():
             x = margin + col * cell_width
             y = grid_top - (row + 1) * cell_height
+
+            # 绘制单元格边框
+            pdf.setStrokeColorRGB(0, 0, 0)
+            pdf.setLineWidth(0.5)
             pdf.rect(x, y, cell_width, cell_height)
+
             student = by_seat.get(seat)
             name = str((student or {}).get("name") or "")
             exam_no = str((student or {}).get("examNo") or "")
@@ -87,8 +105,12 @@ class RollCallPDFGenerator:
                 lines.append(class_name)
             if self.config.show_checkbox:
                 lines.append("□ 缺考")
+
+            # 垂直居中绘制内容
             pdf.setFont(self.font, font_size)
-            line_y = y + cell_height - 5 * mm
+            total_text_height = len(lines) * (font_size + 2)
+            line_y = y + (cell_height + total_text_height) / 2 - font_size
+
             for line in lines:
                 pdf.drawCentredString(x + cell_width / 2, line_y, line)
                 line_y -= (font_size + 2)
@@ -97,9 +119,17 @@ class RollCallPDFGenerator:
             footer_top = grid_bottom - 5 * mm
             note_width = width * 0.62
             box_height = footer_height - 8 * mm
+
+            # 绘制备注栏边框
+            pdf.setStrokeColorRGB(0, 0, 0)
+            pdf.setLineWidth(0.5)
             pdf.rect(margin, margin, note_width, box_height)
+
+            # 备注栏标题
             pdf.setFont(self.font, 9)
             pdf.drawString(margin + 2 * mm, footer_top, self.config.notes_title)
+
+            # 使用说明
             instruction_x = margin + note_width + 4 * mm
             pdf.setFont(self.font, 8)
             line_y = footer_top

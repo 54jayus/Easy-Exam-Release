@@ -632,9 +632,16 @@
                         <div class="text-center text-lg font-bold">{{ config.rollCall.examName }}</div>
                         <div class="mt-2 text-center text-[10px]">学校：{{ config.rollCall.schoolName }}　科目：{{ rollCallPreview?.subject || '--' }}　考场：{{ rollCallPreview?.roomName || '--' }}　考场号：{{ rollCallPreview?.roomNo || '--' }}　人数：{{ rollCallPreview?.students?.length || 0 }}</div>
                         <div v-if="config.rollCall.templateMode === 'full'" class="mt-2 text-right text-[9px]">主监考（签名）：________　副监考（签名）：________</div>
-                        <div class="mt-2 grid flex-1 min-h-0 gap-1" :style="{ gridTemplateColumns: `repeat(${rollCallLayout.layoutCols}, 1fr)`, gridTemplateRows: `repeat(${rollCallLayout.layoutRows}, 1fr)` }">
-                          <div v-for="cell in rollCallPreviewCells" :key="cell.key" class="flex flex-col items-center justify-center border text-center leading-tight" :class="cell.valid ? 'border-slate-500' : 'border-transparent'">
-                            <template v-if="cell.valid"><span class="text-[9px] font-bold">{{ cell.seat }}. {{ cell.student?.name || '' }}</span><span v-if="config.rollCall.showExamNo" class="text-[7px]">{{ cell.student?.examNo || '' }}</span><span v-if="config.rollCall.showClass && cell.student?.className" class="text-[7px]">{{ cell.student.className }}</span><span v-if="config.rollCall.showCheckbox" class="text-[8px]">□ 缺考</span></template>
+                        <div class="mt-2 flex-1 min-h-0">
+                          <div class="w-full h-full" :style="{ display: 'grid', gridTemplateColumns: `repeat(${rollCallLayout.layoutCols}, 1fr)`, gridTemplateRows: `repeat(${rollCallLayout.layoutRows}, 1fr)` }">
+                            <div v-for="cell in rollCallPreviewCells" :key="cell.key" class="roll-call-cell" :class="cell.valid ? 'border-slate-600' : 'border-transparent'">
+                              <template v-if="cell.valid">
+                                <span class="roll-call-seat">{{ cell.seat }}. {{ cell.student?.name || '' }}</span>
+                                <span v-if="config.rollCall.showExamNo" class="roll-call-exam-no">{{ cell.student?.examNo || '' }}</span>
+                                <span v-if="config.rollCall.showClass && cell.student?.className" class="roll-call-class">{{ cell.student.className }}</span>
+                                <span v-if="config.rollCall.showCheckbox" class="roll-call-checkbox">□ 缺考</span>
+                              </template>
+                            </div>
                           </div>
                         </div>
                         <div v-if="config.rollCall.templateMode === 'full'" class="mt-2 grid h-[25mm] grid-cols-3 gap-2 text-[8px]"><div class="col-span-2 border p-1">备注栏：</div><div class="whitespace-pre-line">{{ config.rollCall.instructions }}</div></div>
@@ -1643,5 +1650,45 @@ watch(subjectRows, async () => {
   text-align: left;
   white-space: pre-line;
   line-height: 1.15;
+}
+
+/* 点名表单元格样式 */
+.roll-call-cell {
+  border: 0.5pt solid #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2mm;
+  text-align: center;
+  line-height: 1.3;
+  overflow: hidden;
+}
+
+.roll-call-seat {
+  font-size: 10px;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.roll-call-exam-no {
+  font-size: 8px;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.roll-call-class {
+  font-size: 8px;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.roll-call-checkbox {
+  font-size: 8px;
+  color: #6b7280;
 }
 </style>
