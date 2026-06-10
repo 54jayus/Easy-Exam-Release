@@ -125,6 +125,12 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
   function handleAutoFit() {
     resetPreviewTransform()
     updatePreviewScale()
+    // 重置滚动位置到顶部
+    const viewportEl = previewViewportRef.value
+    if (viewportEl) {
+      viewportEl.scrollLeft = 0
+      viewportEl.scrollTop = 0
+    }
   }
 
   function handlePreviewWheel(event: WheelEvent) {
