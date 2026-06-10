@@ -368,22 +368,28 @@
       <!-- Right: Preview Area -->
        <div class="flex-1 bg-slate-200/50 relative flex flex-col overflow-hidden">
           <!-- Canvas -->
-          <div 
-            ref="previewViewportRef" 
-            class="flex-1 overflow-auto p-8 flex items-center justify-center custom-scrollbar relative z-0"
-            :class="previewCursorClass"
+          <div
+            ref="previewViewportRef"
+            class="flex-1 overflow-auto p-8 custom-scrollbar relative z-0"
+            :class="[
+              previewCursorClass,
+              autoFit ? 'flex items-center justify-center' : 'flex justify-center'
+            ]"
             @wheel="handlePreviewWheel"
             @mousedown="handlePreviewMouseDown"
           >
-             <div 
-               ref="previewPageRef" 
+             <div
+               ref="previewPageRef"
                class="bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] origin-center flex-shrink-0 border border-slate-100"
-               :class="isPanningPreview ? '' : 'transition-transform duration-200 ease-out'"
-               :style="{ 
-                  width: previewPageSizeMm.width, 
+               :class="isPanningPreview ? '' : 'transition-all duration-200 ease-out'"
+               :style="{
+                  width: previewPageSizeMm.width,
                   height: previewPageSizeMm.height,
                   minHeight: previewPageSizeMm.height,
-                  transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`
+                  zoom: autoFit ? 1 : previewScale,
+                  transform: autoFit
+                    ? `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`
+                    : `translate(${previewOffset.x}px, ${previewOffset.y}px)`
                }"
             >
                <div class="relative w-full h-full" :style="{ height: previewPageSizeMm.height, minHeight: previewPageSizeMm.height }">

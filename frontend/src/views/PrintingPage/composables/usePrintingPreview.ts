@@ -182,11 +182,12 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
     const pageEl = previewPageRef.value
     if (!pageEl) return
 
-    const rect = pageEl.getBoundingClientRect()
-    const scale = previewScale.value || 1
-    if (rect.width > 0 && rect.height > 0 && scale > 0) {
-      previewBaseWidth.value = rect.width / scale
-      previewBaseHeight.value = rect.height / scale
+    // 使用 offsetWidth/offsetHeight，这些属性不受 zoom 和 transform 的影响
+    const width = pageEl.offsetWidth
+    const height = pageEl.offsetHeight
+    if (width > 0 && height > 0) {
+      previewBaseWidth.value = width
+      previewBaseHeight.value = height
     }
   }
 
