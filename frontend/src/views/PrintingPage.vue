@@ -644,11 +644,11 @@
                             </div>
                           </div>
                         </div>
-                        <div v-if="config.rollCall.templateMode === 'full'" class="grid mt-1 grid-cols-3 gap-1 text-[8px]" style="height: calc(20% - 8mm);">
+                        <div v-if="config.rollCall.templateMode === 'full'" class="grid mt-1 grid-cols-3 gap-1 text-[9px]" style="height: calc(20% - 8mm);">
                           <div class="col-span-2 border p-2 flex flex-col">
                             <span class="font-bold">{{ config.rollCall.notesTitle }}</span>
                           </div>
-                          <div class="whitespace-pre-line text-[7px] leading-relaxed">{{ config.rollCall.instructions }}</div>
+                          <div class="whitespace-pre-line text-[8px] leading-relaxed">{{ config.rollCall.instructions }}</div>
                         </div>
                       </div>
 

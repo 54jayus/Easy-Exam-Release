@@ -133,13 +133,13 @@ class RollCallPDFGenerator:
             pdf.rect(margin, margin, note_width, box_height)
 
             # 备注栏标题（与备注框顶部对齐）
-            pdf.setFont(self.font, 9)
+            pdf.setFont(self.font, 10)
             pdf.drawString(margin + 2 * mm, box_top - 3 * mm, self.config.notes_title)
 
             # 使用说明（与备注框顶部对齐）
             instruction_x = margin + note_width + 4 * mm
-            pdf.setFont(self.font, 7)
+            pdf.setFont(self.font, 9)
             line_y = box_top - 3 * mm
             for raw_line in str(self.config.instructions or "").splitlines():
                 pdf.drawString(instruction_x, line_y, raw_line)
-                line_y -= 3.5 * mm
+                line_y -= 4 * mm
