@@ -59,7 +59,11 @@ class RollCallPDFGenerator:
             pdf.drawRightString(page_width - margin, header_bottom, "主监考（签名）：____________  副监考（签名）：____________")
             header_bottom -= 6 * mm
 
-        footer_height = 38 * mm if self.config.template_mode == "full" else 4 * mm
+        # 根据页面方向计算页脚高度（完整版占页面高度 20%）
+        if self.config.template_mode == "full":
+            footer_height = page_height * 0.20
+        else:
+            footer_height = 4 * mm
         grid_bottom = margin + footer_height
         grid_top = header_bottom
         rows = layout["layoutRows"]
@@ -118,7 +122,7 @@ class RollCallPDFGenerator:
         if self.config.template_mode == "full":
             footer_top = grid_bottom - 5 * mm
             note_width = width * 0.62
-            box_height = footer_height - 8 * mm
+            box_height = footer_height - 10 * mm
 
             # 绘制备注栏边框
             pdf.setStrokeColorRGB(0, 0, 0)
