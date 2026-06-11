@@ -373,7 +373,7 @@
             class="flex-1 overflow-auto p-8 custom-scrollbar relative z-0"
             :class="[
               previewCursorClass,
-              autoFit ? 'flex items-center justify-center' : ''
+              'flex items-center justify-center'
             ]"
             @wheel="handlePreviewWheel"
             @mousedown="handlePreviewMouseDown"
@@ -386,9 +386,8 @@
                   width: previewPageSizeMm.width,
                   height: previewPageSizeMm.height,
                   minHeight: previewPageSizeMm.height,
-                  margin: autoFit ? undefined : '0 auto',
-                  zoom: autoFit ? 1 : previewScale,
-                  transform: autoFit ? `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})` : `translate(${previewOffset.x}px, ${previewOffset.y}px)`
+                  transformOrigin: 'center center',
+                  transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`
                }"
             >
                <div class="relative w-full h-full" :style="{ height: previewPageSizeMm.height, minHeight: previewPageSizeMm.height }">
