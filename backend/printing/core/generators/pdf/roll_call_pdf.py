@@ -6,6 +6,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfgen import canvas
 
 from backend.printing.core.generators.pdf.pdf_utils import register_fonts
+from backend.printing.core.generators.roll_call_text import format_class_name
 from backend.printing.core.seat_layout import get_seat_mapping, mirror_layout_start_pos, normalize_layout
 
 
@@ -107,7 +108,7 @@ class RollCallPDFGenerator:
             if self.config.show_exam_no:
                 lines.append(exam_no)
             if self.config.show_class and class_name:
-                lines.append(class_name)
+                lines.append(format_class_name(class_name))
             if self.config.show_checkbox:
                 lines.append("□ 缺考")
 

@@ -7,13 +7,22 @@ from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import Break
 
+from backend.printing.core.generators.roll_call_text import format_class_name
 from backend.printing.core.seat_layout import get_seat_mapping, mirror_layout_start_pos, normalize_layout
 
 
 class RollCallGenerator:
+    A4_WIDTH_PT = 595.28
+    A4_HEIGHT_PT = 841.89
+    PAGE_MARGIN_IN = 12 / 25.4
+    HEADER_HEIGHT_PT = 77
+    FULL_FOOTER_RATIO = 0.20
+    FOOTER_GAP_PT = 28
+
     def __init__(self, config):
         self.config = config
         thin = Side(style="thin", color="666666")
+        self.thin = thin
         self.border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     @staticmethod
@@ -44,10 +53,11 @@ class RollCallGenerator:
         for subject, subject_groups in by_subject.items():
             ws = wb.create_sheet(self._sheet_name(subject, used))
             max_cols = max(normalize_layout(group.get("seatLayout"))["layoutCols"] for group in subject_groups)
+            landscape = self._is_landscape(max_cols)
             max_end_row = 1
             current_row = 1
             for index, group in enumerate(subject_groups):
-                end_row = self._draw_page(ws, current_row, group, max_cols)
+                end_row = self._draw_page(ws, current_row, group, max_cols, landscape)
                 max_end_row = max(max_end_row, end_row)
                 done += 1
                 if progress_callback:
@@ -56,16 +66,21 @@ class RollCallGenerator:
                     ws.row_breaks.append(Break(id=end_row))
                 current_row = end_row + 1
 
-            landscape = self._is_landscape(max_cols)
             ws.page_setup.orientation = "landscape" if landscape else "portrait"
             ws.page_setup.paperSize = ws.PAPERSIZE_A4
             ws.page_setup.fitToWidth = 1
-            ws.page_setup.fitToHeight = 1
+            ws.page_setup.fitToHeight = 0
+            ws.page_setup.scale = None
             ws.sheet_properties.pageSetUpPr.fitToPage = True
-            ws.page_margins.left = 0.2
-            ws.page_margins.right = 0.2
-            ws.page_margins.top = 0.25
-            ws.page_margins.bottom = 0.25
+            ws.page_margins.left = self.PAGE_MARGIN_IN
+            ws.page_margins.right = self.PAGE_MARGIN_IN
+            ws.page_margins.top = self.PAGE_MARGIN_IN
+            ws.page_margins.bottom = self.PAGE_MARGIN_IN
+            ws.page_margins.header = 0
+            ws.page_margins.footer = 0
+            ws.print_options.horizontalCentered = True
+            ws.print_options.verticalCentered = False
+            ws.sheet_view.showGridLines = False
             ws.print_area = f"A1:{get_column_letter(max_cols)}{max_end_row}"
 
         wb.save(self.config.output_path)
@@ -79,7 +94,23 @@ class RollCallGenerator:
             return False
         return max_cols >= 8
 
-    def _draw_page(self, ws, start_row: int, group: dict, sheet_cols: int) -> int:
+    def _page_content_size(self, landscape: bool) -> tuple[float, float]:
+        page_width = self.A4_HEIGHT_PT if landscape else self.A4_WIDTH_PT
+        page_height = self.A4_WIDTH_PT if landscape else self.A4_HEIGHT_PT
+        margin_points = self.PAGE_MARGIN_IN * 72
+        return page_width - margin_points * 2, page_height - margin_points * 2
+
+    def _apply_box_border(self, ws, min_row: int, max_row: int, min_col: int, max_col: int) -> None:
+        for row in range(min_row, max_row + 1):
+            for col in range(min_col, max_col + 1):
+                ws.cell(row, col).border = Border(
+                    left=self.thin if col == min_col else None,
+                    right=self.thin if col == max_col else None,
+                    top=self.thin if row == min_row else None,
+                    bottom=self.thin if row == max_row else None,
+                )
+
+    def _draw_page(self, ws, start_row: int, group: dict, sheet_cols: int, landscape: bool) -> int:
         layout = normalize_layout(mirror_layout_start_pos(group.get("seatLayout"), self.config.mirror_view))
         rows = layout["layoutRows"]
         cols = layout["layoutCols"]
@@ -91,11 +122,15 @@ class RollCallGenerator:
         by_seat = {int(item["seatNo"]): item for item in students}
         font_size = max(7, min(11, 12 - max(0, cols - 6) - max(0, rows - 7) // 2))
 
+        usable_width, usable_height = self._page_content_size(landscape)
+        footer_region_height = usable_height * self.FULL_FOOTER_RATIO if self.config.template_mode == "full" else 12
+        grid_height = max(rows * 38, usable_height - self.HEADER_HEIGHT_PT - footer_region_height)
+
         title_row = start_row
         ws.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=sheet_cols)
-        ws.cell(title_row, 1, self.config.exam_name).font = Font(name="宋体", size=16, bold=True)
+        ws.cell(title_row, 1, self.config.exam_name).font = Font(name="宋体", size=18, bold=True)
         ws.cell(title_row, 1).alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[title_row].height = 28
+        ws.row_dimensions[title_row].height = 30
 
         info_row = title_row + 1
         ws.merge_cells(start_row=info_row, start_column=1, end_row=info_row, end_column=sheet_cols)
@@ -110,11 +145,11 @@ class RollCallGenerator:
         ws.cell(sign_row, 1, sign_text)
         ws.cell(sign_row, 1).alignment = Alignment(horizontal="right", vertical="center")
         ws.cell(sign_row, 1).font = Font(name="宋体", size=10)
-        ws.row_dimensions[sign_row].height = 22 if sign_text else 8
+        ws.row_dimensions[sign_row].height = 25 if sign_text else 8
 
         grid_start = sign_row + 1
-        row_height = max(38, min(62, 360 / max(1, rows)))
-        col_width = max(11, min(22, 95 / max(1, cols)))
+        row_height = grid_height / max(1, rows)
+        col_width = max(8, min(24, usable_width / max(1, sheet_cols) / 5.25))
         valid_positions = set(mapping.values())
         pos_to_seat = {position: seat for seat, position in mapping.items()}
         for col in range(1, sheet_cols + 1):
@@ -133,7 +168,7 @@ class RollCallGenerator:
                     if self.config.show_exam_no:
                         lines.append(str(student.get("examNo") or ""))
                     if self.config.show_class and student.get("className"):
-                        lines.append(str(student.get("className")))
+                        lines.append(format_class_name(student.get("className")))
                     if self.config.show_checkbox:
                         lines.append("□ 缺考")
                     cell.value = "\n".join(lines)
@@ -145,18 +180,23 @@ class RollCallGenerator:
 
         footer_row = grid_start + rows
         if self.config.template_mode == "full":
-            ws.merge_cells(start_row=footer_row, start_column=1, end_row=footer_row + 2, end_column=max(1, sheet_cols * 2 // 3))
-            note = ws.cell(footer_row, 1, self.config.notes_title)
+            ws.row_dimensions[footer_row].height = self.FOOTER_GAP_PT
+            box_start = footer_row + 1
+            box_end = box_start + 2
+            box_height = max(72, footer_region_height - self.FOOTER_GAP_PT)
+            ws.merge_cells(start_row=box_start, start_column=1, end_row=box_end, end_column=max(1, sheet_cols * 2 // 3))
+            note_end = max(1, sheet_cols * 2 // 3)
+            self._apply_box_border(ws, box_start, box_end, 1, note_end)
+            note = ws.cell(box_start, 1, self.config.notes_title)
             note.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-            note.font = Font(name="宋体", size=9)
-            note.border = self.border
+            note.font = Font(name="宋体", size=10)
             instruction_start = max(2, sheet_cols * 2 // 3 + 1)
-            ws.merge_cells(start_row=footer_row, start_column=instruction_start, end_row=footer_row + 2, end_column=sheet_cols)
-            instruction = ws.cell(footer_row, instruction_start, self.config.instructions)
+            ws.merge_cells(start_row=box_start, start_column=instruction_start, end_row=box_end, end_column=sheet_cols)
+            instruction = ws.cell(box_start, instruction_start, self.config.instructions)
             instruction.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-            instruction.font = Font(name="宋体", size=8)
-            instruction.border = self.border
-            for row in range(footer_row, footer_row + 3):
-                ws.row_dimensions[row].height = 28
-            return footer_row + 2
+            instruction.font = Font(name="宋体", size=9)
+            for row in range(box_start, box_end + 1):
+                ws.row_dimensions[row].height = box_height / 3
+            return box_end
+        ws.row_dimensions[footer_row].height = footer_region_height
         return footer_row

@@ -633,7 +633,7 @@
                               <template v-if="cell.valid">
                                 <span class="roll-call-seat">{{ cell.seat }}. {{ cell.student?.name || '' }}</span>
                                 <span v-if="config.rollCall.showExamNo" class="roll-call-exam-no">{{ cell.student?.examNo || '' }}</span>
-                                <span v-if="config.rollCall.showClass && cell.student?.className" class="roll-call-class">{{ cell.student.className }}</span>
+                                <span v-if="config.rollCall.showClass && cell.student?.className" class="roll-call-class">班级：{{ cell.student.className }}</span>
                                 <span v-if="config.rollCall.showCheckbox" class="roll-call-checkbox">□ 缺考</span>
                               </template>
                             </div>

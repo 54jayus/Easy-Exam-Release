@@ -10,6 +10,7 @@ from backend.printing.core.adapters.roll_call import build_roll_call_groups
 from backend.printing.core.config import RollCallConfig
 from backend.printing.core.generators.excel.roll_call import RollCallGenerator
 from backend.printing.core.generators.pdf.roll_call_pdf import RollCallPDFGenerator
+from backend.printing.core.generators.roll_call_text import format_class_name
 from backend.printing.core.seat_layout import (
     get_seat_mapping,
     layout_capacity,
@@ -31,6 +32,12 @@ from backend.printing.core.seat_layout import (
 def test_seat_mapping_supports_all_patterns(pattern, expected) -> None:
     layout = {"layoutRows": 2, "layoutCols": 2, "layoutPattern": pattern, "startPos": "right"}
     assert get_seat_mapping(layout) == expected
+
+
+def test_roll_call_class_name_has_label() -> None:
+    assert format_class_name("1班") == "班级：1班"
+    assert format_class_name(3) == "班级：3"
+    assert format_class_name("") == ""
 
 
 def test_seat_mapping_honors_left_start_and_custom_columns() -> None:
@@ -123,14 +130,45 @@ def test_roll_call_generators_create_valid_files(tmp_path) -> None:
     }]
     xlsx_path = tmp_path / "点名表.xlsx"
     pdf_path = tmp_path / "点名表.pdf"
-    base = dict(exam_name="期末考试点名表", school_name="第一中学", groups=groups, instructions="1.缺考打勾")
+    base = dict(
+        exam_name="期末考试点名表",
+        school_name="第一中学",
+        groups=groups,
+        instructions="1.缺考打勾",
+        show_class=True,
+    )
 
     RollCallGenerator(RollCallConfig(output_path=str(xlsx_path), export_xlsx=True, **base)).generate()
     RollCallPDFGenerator(RollCallConfig(output_path=str(pdf_path), export_xlsx=False, export_pdf=True, **base)).generate()
 
     wb = openpyxl.load_workbook(xlsx_path)
     assert wb.sheetnames == ["语文"]
-    assert wb["语文"]["A1"].value == "期末考试点名表"
+    ws = wb["语文"]
+    assert ws["A1"].value == "期末考试点名表"
+    assert ws["A1"].font.sz == 18
+    assert ws.row_dimensions[4].height > 70
+    footer_gap_row = 4 + groups[0]["seatLayout"]["layoutRows"]
+    box_start_row = footer_gap_row + 1
+    box_end_row = box_start_row + 2
+    assert ws.row_dimensions[footer_gap_row].height == 28
+    assert ws.page_setup.fitToWidth == 1
+    assert ws.page_setup.fitToHeight == 0
+    assert ws.page_margins.left == pytest.approx(12 / 25.4)
+    assert ws.sheet_view.showGridLines is False
+    assert ws.cell(box_start_row, 1).border.left.style == "thin"
+    assert ws.cell(box_end_row, 4).border.right.style == "thin"
+    assert ws.cell(box_end_row, 4).border.bottom.style == "thin"
+    assert ws.cell(box_start_row, 5).border.left.style is None
+    assert ws.cell(box_start_row, 5).border.top.style is None
+    assert ws.cell(box_end_row, 6).border.right.style is None
+    assert ws.cell(box_end_row, 6).border.bottom.style is None
+    student_cells = [
+        str(cell.value)
+        for row in ws.iter_rows(min_row=4, max_row=10, min_col=1, max_col=6)
+        for cell in row
+        if cell.value and "张三" in str(cell.value)
+    ]
+    assert student_cells == ["1. 张三\n240001\n班级：1班\n□ 缺考"]
     assert xlsx_path.read_bytes()[:2] == b"PK"
     assert pdf_path.read_bytes()[:5] == b"%PDF-"
 
@@ -151,6 +189,28 @@ def test_roll_call_generator_can_mirror_view(tmp_path) -> None:
 
     wb = openpyxl.load_workbook(xlsx_path)
     assert "张三" in str(wb["语文"]["A4"].value)
+
+
+def test_roll_call_excel_keeps_each_room_on_its_own_print_page(tmp_path) -> None:
+    groups = [
+        {
+            "subject": "语文",
+            "roomName": f"第{room_no}考场",
+            "roomNo": f"{room_no:03d}",
+            "students": [{"name": f"学生{room_no}", "examNo": f"24000{room_no}", "seatNo": 1}],
+            "seatLayout": {"layoutRows": 7, "layoutCols": 6, "layoutPattern": "S型竖排", "startPos": "left"},
+        }
+        for room_no in (1, 2)
+    ]
+    xlsx_path = tmp_path / "点名表-多考场.xlsx"
+
+    RollCallGenerator(RollCallConfig(output_path=str(xlsx_path), groups=groups)).generate()
+
+    ws = openpyxl.load_workbook(xlsx_path)["语文"]
+    assert len(ws.row_breaks.brk) == 1
+    assert ws.page_setup.fitToWidth == 1
+    assert ws.page_setup.fitToHeight == 0
+    assert ws.print_area == "'语文'!$A$1:$F$28"
 
 
 def test_roll_call_generator_honors_portrait_orientation(tmp_path) -> None:
