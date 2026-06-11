@@ -1,17 +1,17 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { computed, reactive, ref } from 'vue'
 import { usePrintingDeskLayout } from '@/views/PrintingPage/composables/usePrintingDeskLayout'
 
 describe('usePrintingDeskLayout', () => {
-  it('applies custom layout config while preserving downstream callbacks', async () => {
+  it('reads the shared layout for summaries and seat previews without exposing edit actions', () => {
     const config = reactive({
       desk: {
-        layoutName: '7行×6列',
-        layoutRows: 7,
-        layoutCols: 6,
+        layoutName: '自定义',
+        layoutRows: 2,
+        layoutCols: 2,
         layoutPattern: 'S型竖排',
         startPos: 'left',
-        customColCounts: null as number[] | null,
+        customColCounts: [2, 1] as number[] | null,
       },
     })
 
@@ -26,27 +26,16 @@ describe('usePrintingDeskLayout', () => {
     ])
     const hasPreviewData = computed(() => true)
     const sourceType = ref('schedule')
-    const onAfterApply = vi.fn()
-
     const layoutApi = usePrintingDeskLayout({
       config,
       displayData,
       hasPreviewData,
       sourceType,
-      onAfterApply,
     })
 
-    expect(layoutApi.deskLayoutSummary.value).toContain('7行×6列')
-
-    layoutApi.openDeskLayoutDialog()
-    layoutApi.deskLayoutDraft.layoutName = '自定义'
-    layoutApi.deskLayoutDraft.customCountsText = '2,1'
-
-    await layoutApi.applyDeskLayoutDraft()
-
-    expect(config.desk.customColCounts).toEqual([2, 1])
-    expect(config.desk.layoutRows).toBe(2)
-    expect(config.desk.layoutCols).toBe(2)
-    expect(onAfterApply).toHaveBeenCalledTimes(1)
+    expect(layoutApi.deskLayoutSummary.value).toContain('2行×2列')
+    expect(layoutApi.deskSeatNumberGrid.value.flat().filter((cell) => cell.valid).map((cell) => cell.seatNo)).toEqual([3, 1, 2])
+    expect('openDeskLayoutDialog' in layoutApi).toBe(false)
+    expect('applyDeskLayoutDraft' in layoutApi).toBe(false)
   })
 })

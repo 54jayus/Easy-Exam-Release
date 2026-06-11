@@ -170,21 +170,18 @@
                    <div class="w-1 h-3 bg-primary-500 rounded-full"></div>
                    <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">布局设置</span>
                 </div>
-                <button
-                  class="group flex items-center justify-between w-full p-2.5 bg-white border border-slate-200 rounded-lg hover:border-primary-400 hover:shadow-md hover:shadow-primary-500/5 transition-all duration-200 text-left"
-                  @click="openDeskLayoutDialog"
-                >
+                <div class="flex items-center justify-between w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-left">
                    <div class="flex items-center min-w-0">
-                      <div class="w-8 h-8 rounded bg-slate-50 group-hover:bg-primary-50 flex items-center justify-center text-slate-500 group-hover:text-primary-600 transition-colors mr-3 border border-slate-100">
+                      <div class="w-8 h-8 rounded bg-white flex items-center justify-center text-slate-500 mr-3 border border-slate-100">
                          <el-icon><Grid /></el-icon>
                       </div>
                       <div class="flex flex-col min-w-0">
-                          <span class="text-sm font-medium text-slate-700 group-hover:text-slate-900">座位布局</span>
+                         <span class="text-sm font-medium text-slate-700">座位布局</span>
                          <span class="text-[10px] text-slate-400 truncate">{{ deskLayoutSummary }}</span>
                       </div>
                    </div>
-                   <span class="text-xs font-bold text-primary-600 group-hover:text-primary-700 shrink-0">设置...</span>
-                </button>
+                   <span class="text-[10px] text-slate-400 shrink-0">请在考场编排中设置</span>
+                </div>
              </section>
 
              <!-- 3. Specific Settings (Other Tabs) -->
@@ -329,9 +326,9 @@
                     <el-checkbox v-model="config.rollCall.showCheckbox">显示缺考框</el-checkbox>
                   </div>
                   <div v-if="config.rollCall.templateMode === 'full'"><label class="text-xs text-slate-500">使用说明</label><el-input v-model="config.rollCall.instructions" type="textarea" :rows="3" size="small" /></div>
-                  <button class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-primary-300" @click="openDeskLayoutDialog">
-                    <div class="text-xs font-bold text-slate-700">公共座位布局</div><div class="text-[10px] text-slate-400">{{ deskLayoutSummary }}，特殊考场布局请在考场编排页设置</div>
-                  </button>
+                  <div class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left">
+                    <div class="text-xs font-bold text-slate-700">座位布局（只读）</div><div class="text-[10px] text-slate-400">{{ deskLayoutSummary }}，统一在考场编排页设置</div>
+                  </div>
                 </div>
 
              </section>
@@ -798,12 +795,6 @@
       @save-subjects="handleSaveSubjects"
     />
 
-    <PrintingDeskLayoutDialog
-      v-model="showDeskLayoutDialog"
-      :desk-layout-options="deskLayoutOptions"
-      :desk-layout-draft="deskLayoutDraft"
-      @apply="applyDeskLayoutDraft"
-    />
   </div>
 </template>
 
@@ -828,7 +819,6 @@ import { usePrintingScheduleSource } from './PrintingPage/composables/usePrintin
 import { usePrintingSubjects } from './PrintingPage/composables/usePrintingSubjects'
 import PrintingMappingDialog from './PrintingPage/components/PrintingMappingDialog.vue'
 import PrintingSubjectsDialog from './PrintingPage/components/PrintingSubjectsDialog.vue'
-import PrintingDeskLayoutDialog from './PrintingPage/components/PrintingDeskLayoutDialog.vue'
 import { getSeatMapping, mirrorSeatLayout, normalizeSeatLayout } from '@/types/seatLayout'
 
 // --- State ---
@@ -1349,37 +1339,16 @@ const {
    subjectRows,
 })
 const {
-   deskLayoutOptions,
    deskEffectiveLayout,
    deskSeatGrid,
    deskSeatNumberGrid,
    deskPrintCellText,
    deskLayoutSummary,
-   showDeskLayoutDialog,
-   deskLayoutDraft,
-   openDeskLayoutDialog,
-   applyDeskLayoutDraft,
 } = usePrintingDeskLayout({
    config,
    displayData,
    hasPreviewData,
    sourceType,
-   onAfterApply: async () => {
-      try {
-         const current = await pythonBackend.request<any>('rooms.getSeatLayout', {})
-         await pythonBackend.request('rooms.setSeatLayout', {
-            seatLayout: {
-               defaultLayout: normalizeSeatLayout({ ...config.desk, startPos: config.desk.startPos === 'right' ? 'right' : 'left' }),
-               roomOverrides: current?.seatLayout?.roomOverrides || {},
-            }
-         })
-      } catch (error) {
-         console.error('Failed to save shared seat layout:', error)
-      }
-      await nextTick()
-      _measurePreviewBaseSize()
-      handleAutoFit()
-   },
 })
 const {
    generating,
