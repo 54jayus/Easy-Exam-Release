@@ -59,7 +59,7 @@
                 
                 <div class="grid grid-cols-1 gap-2">
                    <!-- Empty Mode Card -->
-                   <div v-if="activeTab !== 'roll_call'"
+                   <div
                       class="relative border rounded-lg p-3 cursor-pointer transition-all duration-200 group bg-white hover:shadow-md hover:shadow-slate-100"
                       :class="sourceType === 'empty' ? 'border-primary-500 bg-primary-50/30 ring-1 ring-primary-500/20' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'"
                       @click="sourceType = 'empty'"
@@ -79,7 +79,7 @@
                    </div>
 
                    <!-- File Mode Card -->
-                   <div v-if="activeTab !== 'roll_call'"
+                   <div
                       class="relative border rounded-lg p-3 cursor-pointer transition-all duration-200 group bg-white hover:shadow-md hover:shadow-slate-100"
                       :class="sourceType === 'file' ? 'border-primary-500 bg-primary-50/30 ring-1 ring-primary-500/20' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'"
                       @click="sourceType = 'file'"
@@ -625,7 +625,7 @@
 
                       <div v-if="activeTab === 'roll_call'" class="absolute inset-0 p-[8mm] flex flex-col text-slate-900 bg-white">
                         <div class="text-center font-bold" style="font-size: 20px;">{{ config.rollCall.examName }}</div>
-                        <div class="mt-1 text-center" style="font-size: 11px;">学校：{{ config.rollCall.schoolName }}　科目：{{ rollCallPreview?.subject || '--' }}　考场：{{ rollCallPreview?.roomName || '--' }}　考场号：{{ rollCallPreview?.roomNo || '--' }}　人数：{{ rollCallPreview?.students?.length || 0 }}</div>
+                        <div class="mt-1 text-center" style="font-size: 11px;">学校：{{ config.rollCall.schoolName }}　{{ rollCallPreview?.subjectLabel || '科目' }}：{{ rollCallPreview?.subject || '--' }}　考场：{{ rollCallPreview?.roomName || '--' }}　考场号：{{ rollCallPreview?.roomNo || '--' }}　人数：{{ rollCallPreview?.students?.length || 0 }}</div>
                         <div v-if="config.rollCall.templateMode === 'full'" class="mt-1 text-right" style="font-size: 11px;">主监考（签名）：________　副监考（签名）：________</div>
                         <div class="flex-1 min-h-0">
                           <div class="w-full h-full" :style="{ display: 'grid', gridTemplateColumns: `repeat(${rollCallLayout.layoutCols}, 1fr)`, gridTemplateRows: `repeat(${rollCallLayout.layoutRows}, 1fr)` }">
@@ -634,6 +634,7 @@
                                 <span class="roll-call-seat">{{ cell.seat }}. {{ cell.student?.name || '' }}</span>
                                 <span v-if="config.rollCall.showExamNo" class="roll-call-exam-no">{{ cell.student?.examNo || '' }}</span>
                                 <span v-if="config.rollCall.showClass && cell.student?.className" class="roll-call-class">班级：{{ cell.student.className }}</span>
+                                <span v-if="cell.student?.examSubject" class="roll-call-subject">科目：{{ cell.student.examSubject }}</span>
                                 <span v-if="config.rollCall.showCheckbox" class="roll-call-checkbox">□ 缺考</span>
                               </template>
                             </div>
@@ -948,7 +949,6 @@ function _scheduleSaveConfig() {
 }
 
 watch(activeTab, async (val) => {
-   if (val === 'roll_call' && sourceType.value !== 'schedule') sourceType.value = 'schedule'
    if (val !== 'corner' && val !== 'ticket') previewMode.value = 'style'
    if (val === 'exam_bag_label') showMappingDialog.value = false
    resetPreviewTransform()

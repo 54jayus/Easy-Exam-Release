@@ -6,7 +6,11 @@ import openpyxl
 import pandas as pd
 import pytest
 
-from backend.printing.core.adapters.roll_call import build_roll_call_groups
+from backend.printing.core.adapters.roll_call import (
+    build_blank_roll_call_groups,
+    build_roll_call_groups,
+    build_roll_call_groups_from_students,
+)
 from backend.printing.core.config import RollCallConfig
 from backend.printing.core.generators.excel.roll_call import RollCallGenerator
 from backend.printing.core.generators.pdf.roll_call_pdf import RollCallPDFGenerator
@@ -89,7 +93,7 @@ def test_roll_call_regular_builds_one_group_per_subject_and_room() -> None:
     ]
 
 
-def test_roll_call_subject_mode_filters_electives() -> None:
+def test_roll_call_subject_mode_groups_mixed_rooms_by_exam_session() -> None:
     arrangement = SimpleNamespace(
         arrangement_mode="subject_mode",
         arranged_students=pd.DataFrame([
@@ -99,12 +103,17 @@ def test_roll_call_subject_mode_filters_electives() -> None:
     )
 
     groups = build_roll_call_groups(arrangement, [], {"defaultLayout": {"layoutRows": 5, "layoutCols": 6}})
-    by_subject = {item["subject"]: [student["name"] for student in item["students"]] for item in groups}
-
-    assert by_subject["语文"] == ["张三", "李四"]
-    assert by_subject["物理"] == ["张三"]
-    assert by_subject["历史"] == ["李四"]
-    assert by_subject["化学"] == ["张三"]
+    assert [item["subject"] for item in groups] == [
+        "语文", "数学", "英语", "首选科目场次", "再选科目一场次", "再选科目二场次",
+    ]
+    first_choice = groups[3]
+    assert first_choice["subjectLabel"] == "场次"
+    assert [(student["name"], student["examSubject"]) for student in first_choice["students"]] == [
+        ("张三", "物理"), ("李四", "历史"),
+    ]
+    assert [(student["name"], student["examSubject"]) for student in groups[4]["students"]] == [
+        ("张三", "化学"), ("李四", "政治"),
+    ]
 
 
 def test_roll_call_rejects_duplicate_and_out_of_range_seats() -> None:
@@ -118,6 +127,32 @@ def test_roll_call_rejects_duplicate_and_out_of_range_seats() -> None:
 
     with pytest.raises(ValueError, match="重复"):
         build_roll_call_groups(arrangement, [{"name": "语文"}], {"defaultLayout": {"layoutRows": 1, "layoutCols": 1}})
+
+
+def test_roll_call_import_groups_students_by_room() -> None:
+    groups = build_roll_call_groups_from_students(
+        [
+            {"考生姓名": "张三", "考生考号": "240001", "班级": 1, "考场": "第一考场", "考场号": "001", "座位号": "2"},
+            {"考生姓名": "李四", "考生考号": "240002", "班级": 2, "考场": "第一考场", "考场号": "001", "座位号": "1"},
+            {"考生姓名": "王五", "考生考号": "240003", "班级": 3, "考场": "第二考场", "考场号": "002", "座位号": "1"},
+        ],
+        {"defaultLayout": {"layoutRows": 5, "layoutCols": 6}},
+    )
+
+    assert [group["roomNo"] for group in groups] == ["001", "002"]
+    assert [student["name"] for student in groups[0]["students"]] == ["李四", "张三"]
+    assert groups[0]["students"][0]["examNo"] == "240002"
+
+
+def test_blank_roll_call_groups_use_current_layout() -> None:
+    groups = build_blank_roll_call_groups(
+        2,
+        {"defaultLayout": {"layoutRows": 7, "layoutCols": 6, "layoutPattern": "S型竖排", "startPos": "left"}},
+    )
+
+    assert len(groups) == 2
+    assert groups[0]["students"] == []
+    assert groups[0]["seatLayout"]["layoutRows"] == 7
 
 
 def test_roll_call_generators_create_valid_files(tmp_path) -> None:
@@ -189,6 +224,29 @@ def test_roll_call_generator_can_mirror_view(tmp_path) -> None:
 
     wb = openpyxl.load_workbook(xlsx_path)
     assert "张三" in str(wb["语文"]["A4"].value)
+
+
+def test_roll_call_generator_prints_session_and_student_subjects(tmp_path) -> None:
+    groups = [{
+        "subject": "首选科目场次",
+        "subjectLabel": "场次",
+        "roomName": "第一考场",
+        "roomNo": "001",
+        "students": [
+            {"name": "张三", "examNo": "240001", "className": "1班", "examSubject": "物理", "seatNo": 1},
+            {"name": "李四", "examNo": "240002", "className": "2班", "examSubject": "历史", "seatNo": 2},
+        ],
+        "seatLayout": {"layoutRows": 7, "layoutCols": 6, "layoutPattern": "Z型横排", "startPos": "right"},
+    }]
+    xlsx_path = tmp_path / "点名表-混合考场.xlsx"
+
+    RollCallGenerator(RollCallConfig(output_path=str(xlsx_path), groups=groups, show_class=True)).generate()
+
+    ws = openpyxl.load_workbook(xlsx_path)["首选科目场次"]
+    assert "场次：首选科目场次" in str(ws["A2"].value)
+    assert "科目：物理" in str(ws["A4"].value)
+    assert "科目：历史" in str(ws["B4"].value)
+    assert ws["A4"].font.sz <= 9
 
 
 def test_roll_call_excel_keeps_each_room_on_its_own_print_page(tmp_path) -> None:

@@ -53,7 +53,8 @@ class RollCallPDFGenerator:
         pdf.setFont(self.font, 18)
         pdf.drawCentredString(page_width / 2, top - 6 * mm, self.config.exam_name)
         pdf.setFont(self.font, 10)
-        info = f"学校：{self.config.school_name}  科目：{subject}  考场：{room_name}  考场号：{room_no}  人数：{len(students)}"
+        subject_label = str(group.get("subjectLabel") or "科目")
+        info = f"学校：{self.config.school_name}  {subject_label}：{subject}  考场：{room_name}  考场号：{room_no}  人数：{len(students)}"
         pdf.drawCentredString(page_width / 2, top - 14 * mm, info)
         header_bottom = top - 21 * mm
         if self.config.template_mode == "full":
@@ -84,12 +85,14 @@ class RollCallPDFGenerator:
             content_lines += 1
         if self.config.show_class:
             content_lines += 1
+        if any(item.get("examSubject") for item in students):
+            content_lines += 1
         if self.config.show_checkbox:
             content_lines += 1
 
         # 动态计算字体大小
         max_font_by_height = int((cell_height - 6 * mm) / (content_lines * 1.3))
-        font_size = max(10, min(12, min(max_font_by_height, int(min(cell_width / 6, cell_height / 3)))))
+        font_size = max(8, min(12, min(max_font_by_height, int(min(cell_width / 6, cell_height / 3)))))
 
         for (row, col), seat in pos_to_seat.items():
             x = margin + col * cell_width
@@ -109,6 +112,8 @@ class RollCallPDFGenerator:
                 lines.append(exam_no)
             if self.config.show_class and class_name:
                 lines.append(format_class_name(class_name))
+            if (student or {}).get("examSubject"):
+                lines.append(f"科目：{student.get('examSubject')}")
             if self.config.show_checkbox:
                 lines.append("□ 缺考")
 

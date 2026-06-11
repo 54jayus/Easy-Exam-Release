@@ -25,7 +25,11 @@ from backend.printing.core.adapters.examroom_adapter import (
     load_examroom_data_for_ticket,
     load_examroom_data_for_exam_bag,
 )
-from backend.printing.core.adapters.roll_call import build_roll_call_groups
+from backend.printing.core.adapters.roll_call import (
+    build_blank_roll_call_groups,
+    build_roll_call_groups,
+    build_roll_call_groups_from_students,
+)
 from backend.printing.core.seat_layout import layout_capacity, layout_for_room, normalize_seat_layout
 from backend.printing.core.validators import check_desk_data_sort
 
@@ -125,6 +129,9 @@ class PrintingService:
                 data = DataLoader.load_student_info_data(path, mapping)
             else:
                 data = DataLoader.load_data(path, mapping)
+                if type_ == "roll_call":
+                    seat_layout = normalize_seat_layout((self._state.rooms.config or {}).get("seatLayout"))
+                    data = build_roll_call_groups_from_students(data, seat_layout)
 
             self._state.printing.source_type = "file"
             self._state.printing.data_path = path
@@ -266,6 +273,9 @@ class PrintingService:
                     data_list = DataLoader.load_student_info_data(data_path, mapping)
                 else:
                     data_list = DataLoader.load_data(data_path, mapping)
+                    if type_ == "roll_call":
+                        seat_layout = normalize_seat_layout((self._state.rooms.config or {}).get("seatLayout"))
+                        data_list = build_roll_call_groups_from_students(data_list, seat_layout)
             elif source_type == "schedule":
                 ea = self._get_exam_arrangement()
                 if not ea or ea.arranged_students is None:
@@ -288,7 +298,11 @@ class PrintingService:
                 else:
                     data_list = load_examroom_data_for_ticket(ea) or []
             elif source_type == "empty":
-                data_list = []
+                if type_ == "roll_call":
+                    seat_layout = normalize_seat_layout((self._state.rooms.config or {}).get("seatLayout"))
+                    data_list = build_blank_roll_call_groups(config_data.get("totalCount", 1), seat_layout)
+                else:
+                    data_list = []
         except Exception as e:
             return {"error": f"读取数据失败: {str(e)}"}
 

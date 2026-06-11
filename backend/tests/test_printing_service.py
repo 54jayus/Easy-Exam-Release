@@ -107,6 +107,27 @@ def test_preview_data_stores_state_and_truncates_non_table_results(monkeypatch, 
     assert recording_repo.save_calls == 1
 
 
+def test_preview_data_groups_imported_roll_call_students(monkeypatch, recording_repo) -> None:
+    state = AppState()
+    state.rooms.config = {
+        "seatLayout": {"defaultLayout": {"layoutRows": 5, "layoutCols": 6}}
+    }
+    service = PrintingService(state, recording_repo)
+    monkeypatch.setattr(
+        "backend.application.printing_service.DataLoader.load_data",
+        lambda path, mapping: [
+            {"考生姓名": "张三", "考生考号": "240001", "班级": 1, "考场": "第一考场", "考场号": "001", "座位号": "1"},
+            {"考生姓名": "李四", "考生考号": "240002", "班级": 2, "考场": "第二考场", "考场号": "002", "座位号": "1"},
+        ],
+    )
+
+    result = service.preview_data({"path": "data.xlsx", "mapping": {}, "type": "roll_call"})
+
+    assert result["total"] == 2
+    assert [group["roomNo"] for group in result["data"]] == ["001", "002"]
+    assert result["data"][0]["students"][0]["name"] == "张三"
+
+
 def test_save_config_can_clear_persisted_file_selection(recording_repo) -> None:
     state = AppState()
     state.printing.source_type = "file"
@@ -293,6 +314,39 @@ def test_generate_writes_requested_formats(monkeypatch, tmp_path, recording_repo
 
     assert sorted(Path(path).suffix for path in result["paths"]) == [".pdf", ".xlsx"]
     assert len(generated_paths) == 2
+
+
+def test_generate_blank_roll_call_uses_requested_template_count(monkeypatch, tmp_path, recording_repo) -> None:
+    state = AppState()
+    state.rooms.config = {
+        "seatLayout": {"defaultLayout": {"layoutRows": 7, "layoutCols": 6}}
+    }
+    service = PrintingService(state, recording_repo)
+    captured = {}
+
+    class FakeGenerator:
+        def __init__(self, cfg):
+            captured["cfg"] = cfg
+
+        def generate(self):
+            out = Path(captured["cfg"].output_path)
+            out.write_bytes(b"PK\x03\x04xlsx")
+            return str(out)
+
+    monkeypatch.setattr("backend.application.printing_service.GeneratorFactory.create_generator", lambda cfg: FakeGenerator(cfg))
+
+    result = service.generate(
+        {
+            "type": "roll_call",
+            "sourceType": "empty",
+            "outputPath": str(tmp_path / "roll-call.xlsx"),
+            "config": {"exportXlsx": True, "exportPdf": False, "totalCount": 3},
+        }
+    )
+
+    assert result["paths"] == [str(tmp_path / "roll-call.xlsx")]
+    assert len(captured["cfg"].groups) == 3
+    assert captured["cfg"].groups[0]["seatLayout"]["layoutRows"] == 7
 
 
 def test_generate_exam_bag_uses_filtered_schedule_subjects(monkeypatch, tmp_path, recording_repo) -> None:

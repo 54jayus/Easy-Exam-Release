@@ -120,7 +120,6 @@ class RollCallGenerator:
         room_no = str(group.get("roomNo") or "")
         students = group.get("students") or []
         by_seat = {int(item["seatNo"]): item for item in students}
-        font_size = max(7, min(11, 12 - max(0, cols - 6) - max(0, rows - 7) // 2))
 
         usable_width, usable_height = self._page_content_size(landscape)
         footer_region_height = usable_height * self.FULL_FOOTER_RATIO if self.config.template_mode == "full" else 12
@@ -134,7 +133,8 @@ class RollCallGenerator:
 
         info_row = title_row + 1
         ws.merge_cells(start_row=info_row, start_column=1, end_row=info_row, end_column=sheet_cols)
-        ws.cell(info_row, 1, f"学校：{self.config.school_name}    科目：{subject}    考场：{room_name}    考场号：{room_no}    人数：{len(students)}")
+        subject_label = str(group.get("subjectLabel") or "科目")
+        ws.cell(info_row, 1, f"学校：{self.config.school_name}    {subject_label}：{subject}    考场：{room_name}    考场号：{room_no}    人数：{len(students)}")
         ws.cell(info_row, 1).font = Font(name="宋体", size=10)
         ws.cell(info_row, 1).alignment = Alignment(horizontal="center", vertical="center")
         ws.row_dimensions[info_row].height = 22
@@ -149,7 +149,30 @@ class RollCallGenerator:
 
         grid_start = sign_row + 1
         row_height = grid_height / max(1, rows)
-        col_width = max(8, min(24, usable_width / max(1, sheet_cols) / 5.25))
+        # WPS 对列宽的实际打印宽度比 openpyxl 的字符宽度模型更“宽”，
+        # 这里保守一点，避免预览被整体缩到 93% 左右后在页底留下过多空白。
+        col_width = max(8, min(24, usable_width / max(1, sheet_cols) / 5.65))
+        max_content_lines = max(
+            [
+                1
+                + int(bool(self.config.show_exam_no))
+                + int(bool(self.config.show_class and student.get("className")))
+                + int(bool(student.get("examSubject")))
+                + int(bool(self.config.show_checkbox))
+                for student in students
+            ]
+            or [2 if self.config.show_checkbox else 1]
+        )
+        # WPS 的换行行距比字号本身更高，预留 1.5 倍行距避免最后一行被裁切。
+        max_font_by_height = int((row_height - 8) / max(1, max_content_lines * 1.5))
+        font_size = max(
+            7,
+            min(
+                11,
+                max_font_by_height,
+                12 - max(0, cols - 6) - max(0, rows - 7) // 2,
+            ),
+        )
         valid_positions = set(mapping.values())
         pos_to_seat = {position: seat for seat, position in mapping.items()}
         for col in range(1, sheet_cols + 1):
@@ -169,6 +192,8 @@ class RollCallGenerator:
                         lines.append(str(student.get("examNo") or ""))
                     if self.config.show_class and student.get("className"):
                         lines.append(format_class_name(student.get("className")))
+                    if student.get("examSubject"):
+                        lines.append(f"科目：{student.get('examSubject')}")
                     if self.config.show_checkbox:
                         lines.append("□ 缺考")
                     cell.value = "\n".join(lines)
