@@ -1,19 +1,12 @@
 {
   "enabled": true,
-  "version": "3.6.0612",
+  "version": "3.7.0612",
   "releaseDate": "2026-06-12",
   "notes": [
-    "全新点名表功能：资料打印页面新增点名表标签页，用于考场点名和缺考记录",
-    "双模板样式：完整考务版（含签名栏和监考须知）和精简点名版",
-    "灵活配置：支持镜像监考视角、显示考号/班级/缺考框等选项",
-    "打印模块优化：重新设计缩放策略，预览体验更流畅",
-    "监考编排增强：新增回避考场功能，优化模板体系",
-    "自定义头像：支持上传和裁剪自定义头像",
-    "帮助中心优化：提升搜索和阅读体验",
-    "系统瘦身：删除无用文件，减小安装包体积"
+    "测试版本，用于验证更新下载功能"
   ],
   "mandatory": false,
-  "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.6.0612/EasyExam-Setup-3.6.612.exe",
+  "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.7.0612/EasyExam-Setup-3.6.612.exe",
   "sha256": "4e273959db15f999521d368ad2b148733f646ca26662b8723e52655129b4f490",
   "size": 276718599
 }
