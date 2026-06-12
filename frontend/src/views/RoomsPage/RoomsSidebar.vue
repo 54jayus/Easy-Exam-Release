@@ -46,7 +46,6 @@
               label="考生模板"
               :icon="Download"
               tone="blue"
-              tooltip="下载考生名册 Excel 模板，选择通用版或新高考版"
             >
               <template #suffix>
                 <el-icon class="text-[10px] text-slate-400 transition-colors group-hover:text-blue-500"><ArrowDown /></el-icon>
