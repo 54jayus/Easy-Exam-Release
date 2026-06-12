@@ -98,7 +98,7 @@ class StudentInfoTablePDFGenerator:
 
     def _headers(self):
         if self.include_subject_fields:
-            return ["班级", "学号", "姓名", "考号", "首选", "选科1", "选科2", "考场", "考场号", "座位"]
+            return ["班级", "学号", "姓名", "考号", "首选", "再选1", "再选2", "考场", "考场号", "座位"]
         return ["班级", "学号", "姓名", "考号", "考场", "考场号", "座位"]
 
     def _group_data(self, data_list):
@@ -135,8 +135,8 @@ class StudentInfoTablePDFGenerator:
                 str(item.get("考生姓名", item.get("姓名", ""))),
                 str(item.get("考生考号", item.get("考号", ""))),
                 str(item.get("首选", item.get("类别", ""))),
-                str(item.get("选科1", item.get("选1", ""))),
-                str(item.get("选科2", item.get("选2", ""))),
+                str(item.get("再选1", item.get("选科1", item.get("选1", "")))),
+                str(item.get("再选2", item.get("选科2", item.get("选2", "")))),
                 str(item.get("考场", "")),
                 str(item.get("考场号", "")),
                 str(item.get("座位号", item.get("座位", ""))),

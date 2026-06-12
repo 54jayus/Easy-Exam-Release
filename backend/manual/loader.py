@@ -26,7 +26,6 @@ def load_manual_markdown() -> str:
     candidates = [
         base / "backend" / "resources" / "使用说明书.md",
         base / "resources" / "使用说明书.md",
-        base / "使用说明书.md",
     ]
     for p in candidates:
         raw = _try_read_text(p)

@@ -16,12 +16,13 @@ def save_results(arrangement, output_file: str = "考场编排结果.xlsx"):
                 parsed_subjects = arrangement.arranged_students[arrangement.subject_column].apply(
                     arrangement.parse_subject_combination
                 )
-                arrangement.arranged_students[["首选", "选科1", "选科2"]] = pd.DataFrame(
+                arrangement.arranged_students[["首选", "再选1", "再选2"]] = pd.DataFrame(
                     parsed_subjects.tolist(),
                     index=arrangement.arranged_students.index,
                 )
 
             export_df = arrangement.arranged_students.copy()
+            export_df = export_df.drop(columns=["选科1", "选科2"], errors="ignore")
             text_columns = ["班级", "学号", "考号", "考场号", "座位号"]
             for col in text_columns:
                 if col in export_df.columns:
@@ -34,8 +35,8 @@ def save_results(arrangement, output_file: str = "考场编排结果.xlsx"):
                 "考号",
                 "选科",
                 "首选",
-                "选科1",
-                "选科2",
+                "再选1",
+                "再选2",
                 "考场",
                 "考场号",
                 "座位号",

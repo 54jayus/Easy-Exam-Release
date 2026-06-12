@@ -3,7 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { usePrintingDeskLayout } from '@/views/PrintingPage/composables/usePrintingDeskLayout'
 
 describe('usePrintingDeskLayout', () => {
-  it('reads the shared layout for summaries and seat previews without exposing edit actions', () => {
+  it('uses the shared layout for desk-label printing without exposing edit actions', () => {
     const config = reactive({
       desk: {
         layoutName: '自定义',
@@ -34,7 +34,8 @@ describe('usePrintingDeskLayout', () => {
     })
 
     expect(layoutApi.deskLayoutSummary.value).toContain('2行×2列')
-    expect(layoutApi.deskSeatNumberGrid.value.flat().filter((cell) => cell.valid).map((cell) => cell.seatNo)).toEqual([3, 1, 2])
+    expect(layoutApi.deskPrintCellText(0, 1)).toContain('姓名：张三')
+    expect(layoutApi.deskPrintCellText(1, 1)).toBe('')
     expect('openDeskLayoutDialog' in layoutApi).toBe(false)
     expect('applyDeskLayoutDraft' in layoutApi).toBe(false)
   })

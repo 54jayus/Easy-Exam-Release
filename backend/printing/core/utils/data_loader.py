@@ -189,6 +189,12 @@ class DataLoader:
 
     @staticmethod
     def load_student_info_data(file_path, mapping):
+        mapping = dict(mapping or {})
+        if "再选1" not in mapping and "选科1" in mapping:
+            mapping["再选1"] = mapping.pop("选科1")
+        if "再选2" not in mapping and "选科2" in mapping:
+            mapping["再选2"] = mapping.pop("选科2")
+
         required_fields = [
             "考场号",
             "考场",
@@ -198,7 +204,7 @@ class DataLoader:
             "班级",
             "学号",
         ]
-        optional_fields = ["首选", "选科1", "选科2"]
+        optional_fields = ["首选", "再选1", "再选2"]
 
         field_config = {
             "考场号": "str",
@@ -209,8 +215,8 @@ class DataLoader:
             "班级": "int",
             "学号": "int",
             "首选": "str",
-            "选科1": "str",
-            "选科2": "str",
+            "再选1": "str",
+            "再选2": "str",
         }
 
         try:

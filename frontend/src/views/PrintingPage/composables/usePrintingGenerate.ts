@@ -122,7 +122,7 @@ export function usePrintingGenerate({
     if (sourceType.value !== 'file') return true
     if (!config.table.includeSubjectFields) return true
 
-    const missing = ['首选', '选科1', '选科2'].filter((key) => !mapping[key])
+    const missing = ['首选', '再选1', '再选2'].filter((key) => !mapping[key])
     if (!missing.length) return true
 
     try {

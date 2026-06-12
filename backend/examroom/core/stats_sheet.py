@@ -11,8 +11,8 @@ def create_stats_sheet_with_formulas(arrangement, writer, export_df=None):
         try:
             room_col_idx = columns.index("考场") + 1
             first_choice_col_idx = columns.index("首选") + 1
-            sub1_col_idx = columns.index("选科1") + 1
-            sub2_col_idx = columns.index("选科2") + 1
+            sub1_col_idx = columns.index("再选1") + 1
+            sub2_col_idx = columns.index("再选2") + 1
 
             room_col_letter = get_column_letter(room_col_idx)
             first_choice_col_letter = get_column_letter(first_choice_col_idx)
@@ -99,7 +99,7 @@ def create_stats_sheet_with_formulas(arrangement, writer, export_df=None):
             if subject in ["物理", "历史"]:
                 seats_series = df_room.loc[df_room["首选"] == subject, "座位号"]
             else:
-                seats_series = df_room.loc[(df_room["选科1"] == subject) | (df_room["选科2"] == subject), "座位号"]
+                seats_series = df_room.loc[(df_room["再选1"] == subject) | (df_room["再选2"] == subject), "座位号"]
             seat_numbers = []
             for s in seats_series.tolist():
                 try:

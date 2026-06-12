@@ -615,7 +615,7 @@ def generate_results(arrangement, rooms):
     arrangement._apply_room_names()
 
     parsed_subjects = arrangement.arranged_students[arrangement.subject_column].apply(arrangement.parse_subject_combination)
-    arrangement.arranged_students[["首选", "选科1", "选科2"]] = pd.DataFrame(
+    arrangement.arranged_students[["首选", "再选1", "再选2"]] = pd.DataFrame(
         parsed_subjects.tolist(),
         index=arrangement.arranged_students.index,
     )

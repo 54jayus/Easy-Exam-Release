@@ -274,7 +274,7 @@ data/state.json
 1. `adapters/`
    用于衔接考场编排结果与打印数据
 2. `generators/excel/` 与 `generators/pdf/`
-   负责生成台角纸、桌角标签、准考证、考生信息表、试卷袋
+   负责生成台角纸、桌角纸、准考证、考生信息表、试卷袋
 3. `validators/` 与 `utils/`
    负责字段校验、排序检查和数据加载
 
@@ -305,7 +305,7 @@ data/state.json
 
 - `backend/__main__.py`
 - `backend/resources/`
-- 根目录下的 `使用说明书.md` 与 `使用说明书.pdf`
+- `backend/resources/使用说明书.md` 与根目录下的 `使用说明书.pdf`
 - `ortools` 相关隐藏导入与动态库
 
 该 spec 会根据当前运行环境自动收集所需 DLL，不再依赖仓库内写死的本机路径。

@@ -120,7 +120,7 @@ class StudentInfoTableGenerator:
         # 设置表头行 (Row 2)
         headers = ["班级", "学号", "考生姓名", "考生考号"]
         if self.include_subject_fields:
-            headers.extend(["首选", "选科1", "选科2", "考场", "考场号", "座位号"])
+            headers.extend(["首选", "再选1", "再选2", "考场", "考场号", "座位号"])
         else:
             headers.extend(["考场", "考场号", "座位号"])
 
@@ -215,8 +215,8 @@ class StudentInfoTableGenerator:
 
         if self.include_subject_fields:
             ws.cell(row=row_idx, column=5).value = item.get("首选", item.get("类别", ""))
-            ws.cell(row=row_idx, column=6).value = item.get("选科1", item.get("选1", ""))
-            ws.cell(row=row_idx, column=7).value = item.get("选科2", item.get("选2", ""))
+            ws.cell(row=row_idx, column=6).value = item.get("再选1", item.get("选科1", item.get("选1", "")))
+            ws.cell(row=row_idx, column=7).value = item.get("再选2", item.get("选科2", item.get("选2", "")))
             ws.cell(row=row_idx, column=8).value = item.get("考场", "")
             ws.cell(row=row_idx, column=9).value = item.get("考场号", "")
             ws.cell(row=row_idx, column=10).value = item.get("座位号", item.get("座位", ""))

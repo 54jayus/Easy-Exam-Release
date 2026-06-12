@@ -237,8 +237,12 @@
               <el-table-column prop="考号" label="考号" min-width="120" align="center" sortable />
               <el-table-column prop="选科" label="选科" min-width="100" show-overflow-tooltip />
               <el-table-column prop="首选" label="首选" min-width="80" align="center" />
-              <el-table-column prop="选科1" label="选科1" min-width="80" align="center" />
-              <el-table-column prop="选科2" label="选科2" min-width="80" align="center" />
+              <el-table-column prop="再选1" label="再选1" min-width="80" align="center">
+                <template #default="{ row }">{{ row['再选1'] || row['选科1'] }}</template>
+              </el-table-column>
+              <el-table-column prop="再选2" label="再选2" min-width="80" align="center">
+                <template #default="{ row }">{{ row['再选2'] || row['选科2'] }}</template>
+              </el-table-column>
 
               <el-table-column prop="考场" label="考场" min-width="120" align="center" show-overflow-tooltip />
               <el-table-column prop="考场号" label="考场号" min-width="90" align="center" sortable>

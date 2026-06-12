@@ -164,28 +164,8 @@
                 </div>
              </section>
 
-             <!-- 1. Layout Settings (Desk Tab Only) -->
-             <section v-if="activeTab === 'desk'" class="space-y-3 animate-fade-in">
-                <div class="flex items-center gap-2 mb-2">
-                   <div class="w-1 h-3 bg-primary-500 rounded-full"></div>
-                   <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">布局设置</span>
-                </div>
-                <div class="flex items-center justify-between w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-left">
-                   <div class="flex items-center min-w-0">
-                      <div class="w-8 h-8 rounded bg-white flex items-center justify-center text-slate-500 mr-3 border border-slate-100">
-                         <el-icon><Grid /></el-icon>
-                      </div>
-                      <div class="flex flex-col min-w-0">
-                         <span class="text-sm font-medium text-slate-700">座位布局</span>
-                         <span class="text-[10px] text-slate-400 truncate">{{ deskLayoutSummary }}</span>
-                      </div>
-                   </div>
-                   <span class="text-[10px] text-slate-400 shrink-0">请在考场编排中设置</span>
-                </div>
-             </section>
-
              <!-- 3. Specific Settings (Other Tabs) -->
-             <section class="space-y-4">
+             <section v-if="activeTab !== 'desk'" class="space-y-4">
                 <div class="flex items-center gap-2 mb-2">
                    <div class="w-1 h-3 bg-indigo-500 rounded-full"></div>
                     <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">参数配置</span>
@@ -580,36 +560,7 @@
                             </table>
                          </div>
                       </div>
-                      <div v-if="activeTab === 'desk' && deskPreviewMode === 'seat'" class="p-8 flex flex-col items-center h-full box-border">
-                         <div class="w-full h-full flex flex-col">
-                            <div class="w-full flex justify-center mb-4 shrink-0">
-                               <div class="w-full h-12 border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-500 text-sm font-bold tracking-wider">
-                                   讲台
-                               </div>
-                            </div>
-                            <div 
-                              class="grid gap-3 p-2 bg-white flex-1 min-h-0"
-                              :style="{ 
-                                 gridTemplateColumns: `repeat(${deskEffectiveLayout.cols}, 1fr)`,
-                                 gridTemplateRows: `repeat(${deskEffectiveLayout.rows}, 1fr)`,
-                                 width: '100%'
-                              }"
-                            >
-                               <template v-for="(row, rIndex) in deskSeatNumberGrid" :key="rIndex">
-                                  <div 
-                                    v-for="(cell, cIndex) in row" 
-                                    :key="`${rIndex}-${cIndex}`"
-                                    class="border border-slate-200 bg-white flex items-center justify-center text-slate-500 text-sm w-full h-full"
-                                    :class="cell.valid ? 'opacity-100' : 'opacity-0'"
-                                  >
-                                     {{ cell.seatNo || '' }}
-                                  </div>
-                               </template>
-                            </div>
-                         </div>
-                      </div>
-
-                      <div v-if="activeTab === 'desk' && deskPreviewMode === 'print'" class="absolute inset-0 p-[5mm]">
+                      <div v-if="activeTab === 'desk'" class="absolute inset-0 p-[5mm]">
                          <div class="w-full h-full p-[3.2mm]">
                             <table class="desk-label-table">
                                <tbody>
@@ -728,21 +679,7 @@
                     >打印预览</button>
                  </div>
                  
-                 <div v-if="activeTab === 'desk'" class="flex bg-slate-100 rounded-lg p-1">
-                    <button
-                      class="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
-                      :class="deskPreviewMode === 'seat' ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
-                      @click="deskPreviewMode = 'seat'"
-                    >座位布局</button>
-                    <button
-                      class="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
-                      :class="deskPreviewMode === 'print' ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
-                      @click="deskPreviewMode = 'print'"
-                    >桌角纸打印</button>
-                 </div>
-
                  <div v-if="activeTab === 'corner' || activeTab === 'ticket'" class="w-px h-4 bg-slate-200"></div>
-                 <div v-if="activeTab === 'desk'" class="w-px h-4 bg-slate-200"></div>
 
                  <div class="flex items-center gap-1">
                     <el-tooltip content="缩小" placement="top">
@@ -803,7 +740,7 @@
 import { ref, reactive, computed, watch, onMounted, onActivated, nextTick } from 'vue'
 import { 
   Printer, VideoPlay, DocumentChecked, Close, 
-  Document, Minus, Plus, FullScreen, Grid, DataLine, Select, 
+  Document, Minus, Plus, FullScreen, DataLine, Select,
   Calendar, CircleCheckFilled, Download, Upload, Setting, Fold, Expand, Delete, School,
   Refresh, Back, Right
 } from '@element-plus/icons-vue'
@@ -909,7 +846,6 @@ const {
    previewOffset,
    isPanningPreview,
    previewMode,
-   deskPreviewMode,
    previewCursorClass,
    previewPageSizeMm,
    previewTargetPx,
@@ -976,7 +912,7 @@ watch(activeTab, async (val) => {
 
 const tabs = [
   { id: 'corner', name: '台角纸' },
-  { id: 'desk', name: '桌角标签' },
+  { id: 'desk', name: '桌角纸' },
   { id: 'ticket', name: '准考证' },
   { id: 'table', name: '考生信息表' },
   { id: 'exam_bag_label', name: '试卷袋' },
@@ -1340,8 +1276,6 @@ const {
 })
 const {
    deskEffectiveLayout,
-   deskSeatGrid,
-   deskSeatNumberGrid,
    deskPrintCellText,
    deskLayoutSummary,
 } = usePrintingDeskLayout({

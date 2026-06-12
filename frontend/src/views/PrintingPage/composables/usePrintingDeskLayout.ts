@@ -167,40 +167,6 @@ export function usePrintingDeskLayout({
     return grid
   }
 
-  const deskSeatGrid = computed(() => {
-    const { rows, cols, capacity, customColCounts } = deskEffectiveLayout.value
-    const grid = buildDeskGrid(() => ({ valid: true, student: null as any | null }))
-    if (!hasPreviewData.value) return grid
-
-    const mapping = getSeatMapping(rows, cols, config.desk.layoutPattern, config.desk.startPos === 'right' ? 'right' : 'left', customColCounts)
-    const students = firstRoomData.value.slice(0, capacity)
-    for (let index = 0; index < students.length; index++) {
-      const pos = mapping[index]
-      if (!pos) continue
-      const [row, col] = pos
-      if (row >= 0 && row < rows && col >= 0 && col < cols && grid[row][col].valid) {
-        grid[row][col].student = students[index]
-      }
-    }
-    return grid
-  })
-
-  const deskSeatNumberGrid = computed(() => {
-    const { rows, cols, customColCounts } = deskEffectiveLayout.value
-    const grid = buildDeskGrid(() => ({ valid: true, seatNo: null as number | null }))
-    const mapping = getSeatMapping(rows, cols, config.desk.layoutPattern, config.desk.startPos === 'right' ? 'right' : 'left', customColCounts)
-    const capacity = Object.keys(mapping).length
-    for (let index = 0; index < capacity; index++) {
-      const pos = mapping[index]
-      if (!pos) continue
-      const [row, col] = pos
-      if (row >= 0 && row < rows && col >= 0 && col < cols && grid[row][col].valid) {
-        grid[row][col].seatNo = index + 1
-      }
-    }
-    return grid
-  })
-
   const deskPrintGrid = computed(() => {
     const { rows, cols, capacity, customColCounts } = deskEffectiveLayout.value
     const grid = buildDeskGrid(() => ({ valid: true, student: null as any | null }))
@@ -242,8 +208,6 @@ export function usePrintingDeskLayout({
 
   return {
     deskEffectiveLayout,
-    deskSeatGrid,
-    deskSeatNumberGrid,
     deskPrintCellText,
     deskLayoutSummary
   }

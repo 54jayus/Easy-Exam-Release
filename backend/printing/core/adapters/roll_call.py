@@ -140,8 +140,8 @@ def _build_subject_mode(exam_arrangement):
 
     session_columns = [
         ("首选科目场次", "首选"),
-        ("再选科目一场次", "选科1"),
-        ("再选科目二场次", "选科2"),
+        ("再选科目一场次", "再选1"),
+        ("再选科目二场次", "再选2"),
     ]
     for session_name, column in session_columns:
         for _, row in df.iterrows():
@@ -166,7 +166,11 @@ def _build_regular(exam_arrangement, subject_names: list[str]):
     for subject in subject_names:
         for _, row in df.iterrows():
             if mode == "subject_mode" and subject in ELECTIVE_SUBJECTS:
-                selected = {_clean(row.get("首选")), _clean(row.get("选科1")), _clean(row.get("选科2"))}
+                selected = {
+                    _clean(row.get("首选")),
+                    _clean(row.get("再选1", row.get("选科1"))),
+                    _clean(row.get("再选2", row.get("选科2"))),
+                }
                 if subject not in selected:
                     continue
             _append(groups, subject, _clean(row.get("考场")), _clean(row.get("考场号")), row)

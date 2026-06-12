@@ -173,8 +173,8 @@ def test_import_results_subject_mode_enriches_subject_columns(tmp_path, recordin
     assert state.rooms.config["mode"] == "3+1+2"
     assert state.rooms.results[0]["考场"] == "第001考场"
     assert state.rooms.results[0]["首选"] == "物理"
-    assert state.rooms.results[0]["选科1"] == "化学"
-    assert state.rooms.results[0]["选科2"] == "生物"
+    assert state.rooms.results[0]["再选1"] == "化学"
+    assert state.rooms.results[0]["再选2"] == "生物"
     assert "物化生" in state.rooms.results[0]["考场选科组合"]
     assert "史地政" in state.rooms.results[0]["考场选科组合"]
     assert recording_repo.save_calls == 1

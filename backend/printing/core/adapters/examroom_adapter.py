@@ -212,8 +212,8 @@ def load_examroom_data_for_student_info(df, include_subject_fields=False):
         item["座位号"] = str(row.get("座位号", ""))
         if include_subject_fields:
             item["首选"] = str(row.get("首选", ""))
-            item["选科1"] = str(row.get("选科1", ""))
-            item["选科2"] = str(row.get("选科2", ""))
+            item["再选1"] = str(row.get("再选1", row.get("选科1", "")))
+            item["再选2"] = str(row.get("再选2", row.get("选科2", "")))
         data_list.append(item)
     return data_list
 
@@ -568,4 +568,3 @@ def load_examroom_data_for_exam_bag(exam_arrangement, subjects_data=None):
     if not subject_names:
         return []
     return _build_exam_bag_rows_from_arranged_students(exam_arrangement, subject_names)
-

@@ -2,7 +2,7 @@
   <el-dialog v-model="visible" title="统一座位布局" width="760px" append-to-body align-center>
     <div class="space-y-5 px-4 py-2">
       <div class="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs leading-relaxed text-blue-700">
-        默认布局用于全部考场；选择具体考场后可创建覆盖布局。桌角标签和点名表都会读取这里的设置。
+        默认布局用于全部考场；选择具体考场后可创建覆盖布局。桌角纸和点名表都会读取这里的设置。
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div>

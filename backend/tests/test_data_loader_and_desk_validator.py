@@ -97,8 +97,8 @@ def test_load_student_info_data_parses_required_and_optional_fields(tmp_path) ->
                 "班级": 1,
                 "学号": 2,
                 "首选": "物理",
-                "选科1": "化学",
-                "选科2": "",
+                "再选1": "化学",
+                "再选2": "",
             }
         ]
     ).to_excel(path, index=False)
@@ -114,8 +114,8 @@ def test_load_student_info_data_parses_required_and_optional_fields(tmp_path) ->
             "班级": "班级",
             "学号": "学号",
             "首选": "首选",
-            "选科1": "选科1",
-            "选科2": "选科2",
+            "再选1": "再选1",
+            "再选2": "再选2",
         },
     )
 
@@ -129,10 +129,27 @@ def test_load_student_info_data_parses_required_and_optional_fields(tmp_path) ->
             "班级": 1,
             "学号": 2,
             "首选": "物理",
-            "选科1": "化学",
-            "选科2": "",
+            "再选1": "化学",
+            "再选2": "",
         }
     ]
+
+
+def test_load_student_info_data_accepts_legacy_subject_mapping(tmp_path) -> None:
+    path = tmp_path / "legacy-student-info.xlsx"
+    pd.DataFrame(
+        [{
+            "考场号": "001", "考场": "第一考场", "座位号": "01",
+            "考生姓名": "张三", "考生考号": "240001", "班级": 1, "学号": 2,
+            "首选": "物理", "选科1": "化学", "选科2": "生物",
+        }]
+    ).to_excel(path, index=False)
+
+    mapping = {field: field for field in ("考场号", "考场", "座位号", "考生姓名", "考生考号", "班级", "学号", "首选", "选科1", "选科2")}
+    result = DataLoader.load_student_info_data(path, mapping)
+
+    assert result[0]["再选1"] == "化学"
+    assert result[0]["再选2"] == "生物"
 
 
 def test_check_desk_data_sort_detects_unsorted_string_room_numbers() -> None:

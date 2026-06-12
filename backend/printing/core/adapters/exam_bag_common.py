@@ -122,12 +122,14 @@ def _count_students_for_subject(room_df, subject_name):
             return int(room_df["选科"].fillna("").astype(str).apply(lambda x: _matches_subject_combination(x, normalized_subject)).sum())
 
     if normalized_subject in _ELECTIVE_SUBJECTS:
-        if "选科1" in room_df.columns or "选科2" in room_df.columns:
+        if any(col in room_df.columns for col in ("再选1", "再选2", "选科1", "选科2")):
             count = 0
-            if "选科1" in room_df.columns:
-                count += int(room_df["选科1"].fillna("").astype(str).map(_normalize_subject_name).eq(normalized_subject).sum())
-            if "选科2" in room_df.columns:
-                count += int(room_df["选科2"].fillna("").astype(str).map(_normalize_subject_name).eq(normalized_subject).sum())
+            first_col = "再选1" if "再选1" in room_df.columns else "选科1"
+            second_col = "再选2" if "再选2" in room_df.columns else "选科2"
+            if first_col in room_df.columns:
+                count += int(room_df[first_col].fillna("").astype(str).map(_normalize_subject_name).eq(normalized_subject).sum())
+            if second_col in room_df.columns:
+                count += int(room_df[second_col].fillna("").astype(str).map(_normalize_subject_name).eq(normalized_subject).sum())
             return count
         if "选科" in room_df.columns:
             return int(room_df["选科"].fillna("").astype(str).apply(lambda x: _matches_subject_combination(x, normalized_subject)).sum())

@@ -175,10 +175,11 @@ def import_normal_results(state, repo, build_exam_arrangement: Callable, df: pd.
     if mode == "subject_mode" and arrangement.subject_column in arrangement.arranged_students.columns:
         try:
             parsed_subjects = arrangement.arranged_students[arrangement.subject_column].apply(arrangement.parse_subject_combination)
-            arrangement.arranged_students[["首选", "选科1", "选科2"]] = pd.DataFrame(
+            arrangement.arranged_students[["首选", "再选1", "再选2"]] = pd.DataFrame(
                 parsed_subjects.tolist(),
                 index=arrangement.arranged_students.index,
             )
+            arrangement.arranged_students.drop(columns=["选科1", "选科2"], errors="ignore", inplace=True)
         except Exception:
             pass
         try:

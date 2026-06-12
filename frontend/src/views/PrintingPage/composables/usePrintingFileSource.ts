@@ -69,9 +69,9 @@ export function usePrintingFileSource({
     '考生考号': { label: '考号', required: true },
     '班级': { label: '班级', required: true },
     '学号': { label: '学号', required: true },
-    '首选': { label: '首选科目', required: false },
-    '选科1': { label: '再选科目', required: false },
-    '选科2': { label: '再选科目', required: false },
+    '首选': { label: '首选', required: false },
+    '再选1': { label: '再选1', required: false },
+    '再选2': { label: '再选2', required: false },
   } as const
 
   const filePreviewCache = reactive<FilePreviewCache>(
@@ -111,7 +111,8 @@ export function usePrintingFileSource({
   function applyMappingSnapshot(snapshot: Record<string, string>) {
     clearMapping()
     for (const [key, value] of Object.entries(snapshot || {})) {
-      mapping[key] = String(value ?? '')
+      const normalizedKey = key === '选科1' ? '再选1' : key === '选科2' ? '再选2' : key
+      mapping[normalizedKey] = String(value ?? '')
     }
   }
 
@@ -161,11 +162,18 @@ export function usePrintingFileSource({
 
   function autoMapFields() {
     clearMapping()
+    const legacyAliases: Record<string, string[]> = {
+      '再选1': ['选科1'],
+      '再选2': ['选科2'],
+    }
     for (const key in requiredFields) {
       if (headers.value.includes(key)) {
         mapping[key] = key
       } else {
-        const match = headers.value.find((header) => header.includes(key) || key.includes(header))
+        const aliases = legacyAliases[key] || []
+        const match = headers.value.find(
+          (header) => aliases.includes(header) || header.includes(key) || key.includes(header)
+        )
         if (match) mapping[key] = match
       }
     }

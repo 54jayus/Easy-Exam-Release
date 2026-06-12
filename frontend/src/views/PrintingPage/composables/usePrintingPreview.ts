@@ -29,7 +29,6 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
   const isPanningPreview = ref(false)
   const isCtrlDown = ref(false)
   const previewMode = ref<'style' | 'print'>('style')
-  const deskPreviewMode = ref<'seat' | 'print'>('seat')
 
   const previewBaseWidth = ref(0)
   const previewBaseHeight = ref(0)
@@ -44,7 +43,7 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
   })
 
   const previewPageSizeMm = computed(() => {
-    if (activeTab.value === 'desk' && deskPreviewMode.value === 'print') {
+    if (activeTab.value === 'desk') {
       return { width: '210mm', height: '297mm' }
     }
     if (activeTab.value === 'table') {
@@ -63,7 +62,7 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
   })
 
   const previewTargetPx = computed<PreviewTargetPx>(() => {
-    if (activeTab.value === 'desk' && deskPreviewMode.value === 'print') return { w: 794, h: 1122 }
+    if (activeTab.value === 'desk') return { w: 794, h: 1122 }
     if (activeTab.value === 'table') return { w: 794, h: 1122 }
     if (activeTab.value === 'exam_bag_label') return { w: 794, h: 1122 }
     if (activeTab.value === 'roll_call') {
@@ -227,13 +226,6 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
     handleAutoFit()
   })
 
-  watch(deskPreviewMode, async () => {
-    resetPreviewTransform()
-    await nextTick()
-    measurePreviewBaseSize()
-    updatePreviewScale()
-  })
-
   onMounted(() => {
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
@@ -258,7 +250,6 @@ export function usePrintingPreview({ activeTab, rollCallOrientation }: UsePrinti
     previewOffset,
     isPanningPreview,
     previewMode,
-    deskPreviewMode,
     previewCursorClass,
     previewPageSizeMm,
     previewTargetPx,

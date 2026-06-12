@@ -27,7 +27,7 @@
 
 - 仓库总入口：[../README.md](../README.md)
 - 前端专项说明：[../frontend/README.md](../frontend/README.md)
-- 用户手册：[../使用说明书.md](../使用说明书.md)
+- 用户手册：[../backend/resources/使用说明书.md](../backend/resources/使用说明书.md)
 
 ## 文档维护约定
 
