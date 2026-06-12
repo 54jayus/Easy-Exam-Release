@@ -164,6 +164,17 @@
                 </div>
              </section>
 
+             <section v-if="activeTab === 'desk'" class="space-y-3 animate-fade-in">
+                <div class="flex items-center gap-2 mb-2">
+                   <div class="w-1 h-3 bg-primary-500 rounded-full"></div>
+                   <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">参数配置</span>
+                </div>
+                <div class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left">
+                   <div class="text-xs font-bold text-slate-700">座位布局（只读）</div>
+                   <div class="text-[10px] text-slate-400">{{ deskLayoutSummary }}，统一在考场编排页设置</div>
+                </div>
+             </section>
+
              <!-- 3. Specific Settings (Other Tabs) -->
              <section v-if="activeTab !== 'desk'" class="space-y-4">
                 <div class="flex items-center gap-2 mb-2">
@@ -305,7 +316,17 @@
                     <el-checkbox v-model="config.rollCall.showClass">显示班级</el-checkbox>
                     <el-checkbox v-model="config.rollCall.showCheckbox">显示缺考框</el-checkbox>
                   </div>
-                  <div v-if="config.rollCall.templateMode === 'full'"><label class="text-xs text-slate-500">使用说明</label><el-input v-model="config.rollCall.instructions" type="textarea" :rows="3" size="small" /></div>
+                  <div v-if="config.rollCall.templateMode === 'full'" class="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="text-xs font-bold text-slate-700">使用说明</span>
+                      <el-button type="primary" link size="small" class="!h-auto !p-0" @click="showRollCallInstructionsDialog = true">
+                        编辑
+                      </el-button>
+                    </div>
+                    <div class="mt-1.5 max-h-12 overflow-hidden whitespace-pre-line text-[10px] leading-4 text-slate-400">
+                      {{ config.rollCall.instructions || '暂无使用说明' }}
+                    </div>
+                  </div>
                   <div class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left">
                     <div class="text-xs font-bold text-slate-700">座位布局（只读）</div><div class="text-[10px] text-slate-400">{{ deskLayoutSummary }}，统一在考场编排页设置</div>
                   </div>
@@ -733,6 +754,12 @@
       @save-subjects="handleSaveSubjects"
     />
 
+    <RollCallInstructionsDialog
+      v-model="showRollCallInstructionsDialog"
+      :instructions="config.rollCall.instructions"
+      @save="config.rollCall.instructions = $event"
+    />
+
   </div>
 </template>
 
@@ -757,6 +784,7 @@ import { usePrintingScheduleSource } from './PrintingPage/composables/usePrintin
 import { usePrintingSubjects } from './PrintingPage/composables/usePrintingSubjects'
 import PrintingMappingDialog from './PrintingPage/components/PrintingMappingDialog.vue'
 import PrintingSubjectsDialog from './PrintingPage/components/PrintingSubjectsDialog.vue'
+import RollCallInstructionsDialog from './PrintingPage/components/RollCallInstructionsDialog.vue'
 import { getSeatMapping, mirrorSeatLayout, normalizeSeatLayout } from '@/types/seatLayout'
 
 // --- State ---
@@ -834,6 +862,7 @@ const examBagConfigHint = computed(() => {
 })
 const headers = ref<string[]>([])
 const showMappingDialog = ref(false)
+const showRollCallInstructionsDialog = ref(false)
 const previewData = ref<any[]>([])
 const previewTotal = ref(0)
 
