@@ -1,7 +1,7 @@
 {
   "name": "easy-exam",
   "private": true,
-  "version": "3.5.0528",
+  "version": "3.6.0612",
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
