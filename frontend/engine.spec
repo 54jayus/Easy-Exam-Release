@@ -95,7 +95,6 @@ a = Analysis(
     binaries=env_binaries + ortools_binaries + pandas_binaries + numpy_binaries,
     datas=[
         (os.path.join(project_root, "backend", "resources"), "backend/resources"),
-        (os.path.join(project_root, "\u4f7f\u7528\u8bf4\u660e\u4e66.pdf"), "."),
     ]
     + ortools_datas,
     hiddenimports=[
