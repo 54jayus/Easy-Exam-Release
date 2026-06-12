@@ -546,7 +546,7 @@ export function useAppUpdate() {
       const result = await window.electron?.ipcRenderer.invoke('update:startDownload', {
         version: latestVersion.value || forceUpdateMeta.value?.latestVersion || '',
         releaseDate: releaseDate.value,
-        notes: notes.value,
+        notes: [...notes.value],
         mandatory: isForceUpdateMode.value,
         url: updateDownloadUrl.value,
       }) as UpdateCheckResult
