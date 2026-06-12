@@ -40,6 +40,7 @@ frontend/dev.log
 !frontend/build/
 frontend/build/*
 !frontend/build/icon.ico
+!frontend/build/icon.icns
 
 # IDE
 .vscode/

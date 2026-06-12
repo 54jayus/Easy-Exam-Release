@@ -308,6 +308,18 @@ function getTrayIcon() {
   return iconImage.resize({ width: 16, height: 16 })
 }
 
+function setMacDockIcon() {
+  if (process.platform !== 'darwin' || !app.dock) return
+
+  const iconPath = path.join(process.env.VITE_PUBLIC, 'icon-mac.png')
+  const iconImage = nativeImage.createFromPath(iconPath)
+  if (iconImage.isEmpty()) {
+    log('warn', 'main', 'macOS Dock 图标加载失败', { iconPath })
+    return
+  }
+  app.dock.setIcon(iconImage)
+}
+
 function createTray() {
   if (tray) return
 
@@ -558,6 +570,7 @@ if (gotSingleInstanceLock) {
       userData: app.getPath('userData'),
     })
     app.setAppUserModelId(APP_ID)
+    setMacDockIcon()
     loadWindowBehaviorPreferences()
     Menu.setApplicationMenu(null)
     createWindow()
