@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "version": "3.6.0612",
+  "version": "3.7.0712",
   "releaseDate": "2026-06-12",
   "notes": [
     "新增点名表功能，支持完整考务版和精简点名版双模板",
@@ -10,7 +10,7 @@
     "帮助中心全面优化，提升搜索和阅读体验"
   ],
   "mandatory": false,
-  "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.6.0612/EasyExam-Setup-3.6.612.exe",
+  "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.7.0712/EasyExam-Setup-3.7.612.exe",
   "sha256": "5829f263bcb58e4e62c1d5524c03dc685e59711d30b5bf2690b69ffd7cd31d04",
   "size": 276718631
 }
