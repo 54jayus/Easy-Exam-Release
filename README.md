@@ -24,7 +24,7 @@ update/
 https://raw.githubusercontent.com/54jayus/Easy-Exam-Release/main/update/win/latest.json
 ```
 
-## 安装包命名建议
+## 安装包命名规范
 
 与主项目当前打包规则保持一致：
 
@@ -35,14 +35,16 @@ EasyExam-Setup-<version>.exe
 例如：
 
 ```text
-EasyExam-Setup-3.4.0422.exe
+EasyExam-Setup-3.6.612.exe
 ```
+
+> **注意：** 版本号中的月份和日期不补零，如 `3.6.612` 而非 `3.6.0612`。
 
 ## 推荐发布流程
 
 1. 在主项目中构建新的安装包
-2. 在本仓库创建对应版本的 GitHub Release，例如 `v3.4.0422`
-3. 上传安装包 `EasyExam-Setup-3.4.0422.exe`
+2. 在本仓库创建对应版本的 GitHub Release，例如 `v3.6.612`
+3. 上传安装包 `EasyExam-Setup-3.6.612.exe`
 4. 更新 `update/win/latest.json`
 5. 提交并推送本仓库
 
@@ -64,4 +66,3 @@ EasyExam-Setup-3.4.0422.exe
   - 安装包哈希值
 - `size`
   - 安装包大小，单位字节
-
