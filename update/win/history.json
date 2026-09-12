@@ -36,7 +36,7 @@
     },
     {
       "version": "3.5.0528",
-      "title": "Easy Exam.v3.5.0528",
+      "title": "Easy Exam v3.5.0528",
       "releaseDate": "2026-05-28",
       "notes": [
         "全新更新对话框：重新设计的更新界面，展示更新日志和历史版本时间线",
@@ -56,7 +56,7 @@
     },
     {
       "version": "3.4.0422",
-      "title": "Easy Exam.v3.4.0422",
+      "title": "Easy Exam v3.4.0422",
       "releaseDate": "2026-04-22",
       "notes": [
         "优化了 3+1+2 选科考场编排，减少混合考场并改进尾部人数的考场规划",
@@ -74,7 +74,7 @@
     },
     {
       "version": "3.3.0416",
-      "title": "Easy Exam.v3.3.0416",
+      "title": "Easy Exam v3.3.0416",
       "releaseDate": "2026-04-16",
       "notes": [
         "增强了智能监考编排能力，支持在已有安排基础上继续补全，并提供更清晰的编排过程反馈",
@@ -91,7 +91,7 @@
     },
     {
       "version": "3.2.0316",
-      "title": "Easy Exam.v3.2.0316",
+      "title": "Easy Exam v3.2.0316",
       "releaseDate": "2026-03-16",
       "notes": [
         "新增高考模式支持",
@@ -107,7 +107,7 @@
     },
     {
       "version": "3.1.0301",
-      "title": "Easy Exam.v3.1.0301",
+      "title": "Easy Exam v3.1.0301",
       "releaseDate": "2026-03-01",
       "notes": [
         "优化帮助中心全文搜索功能",
