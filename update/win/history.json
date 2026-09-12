@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "3.7.913",
+      "title": "Easy Exam v3.7.913",
+      "releaseDate": "2026-09-13",
+      "notes": [
+        "设置中心全面重构：左侧分类导航（常规、外观、个人资料、授权、快捷键、数据、关于）搭配顶部搜索，常用设置一步直达",
+        "新增走班模式：在考场编排页配置科目映射后，可按走班结果自动生成考场与座位",
+        "高考时间设置全面升级：按日期分页管理各场次时间，自动检测场次冲突，支持自习时间配置",
+        "编排结果更易管理：结果列表支持分页与搜索，手动调整支持撤销上一次交换",
+        "新增监考邮件通知：生成监考表后可将监考安排发送到教师邮箱，支持实时发送进度与结果明细",
+        "更强的数据保护：整体替换数据前强制备份，保存前自动备份，数据文件损坏时自动隔离并提示",
+        "全新图标体系与统一主题色：全局图标更换为更清晰的线条图标，各页面配色统一"
+      ],
+      "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.7.913/EasyExam-Setup-3.7.913.exe",
+      "releasePageUrl": "https://github.com/54jayus/Easy-Exam-Release/releases/tag/v3.7.913",
+      "sha256": "a65767aaab131777b7dd56433e198cfe29c3504a4e2b93dabee7b6d5fade07df",
+      "size": 158097412
+    },
+    {
       "version": "3.6.0612",
       "title": "Easy Exam v3.6.0612",
       "releaseDate": "2026-06-12",
