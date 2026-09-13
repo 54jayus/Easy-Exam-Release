@@ -18,7 +18,7 @@
   "releasePageUrl": "https://github.com/54jayus/Easy-Exam-Release/releases/tag/v3.7.913",
   "mac": {
     "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.7.913/EasyExam-Setup-3.7.913.dmg",
-    "sha256": "266a01828b000e8047aa7bf2935ad8c455f91f2d3ea0628d8c805fa4fc0b7c4f",
-    "size": 213930822
+    "sha256": "6d8cd1f37edfdc6825a455e7b40facaca369c1d6df521983648e55428959aa34",
+    "size": 213930521
   }
 }
