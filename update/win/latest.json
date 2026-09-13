@@ -15,5 +15,10 @@
   "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.7.913/EasyExam-Setup-3.7.913.exe",
   "sha256": "a65767aaab131777b7dd56433e198cfe29c3504a4e2b93dabee7b6d5fade07df",
   "size": 158097412,
-  "releasePageUrl": "https://github.com/54jayus/Easy-Exam-Release/releases/tag/v3.7.913"
+  "releasePageUrl": "https://github.com/54jayus/Easy-Exam-Release/releases/tag/v3.7.913",
+  "mac": {
+    "url": "https://github.com/54jayus/Easy-Exam-Release/releases/download/v3.7.913/EasyExam-Setup-3.7.913.dmg",
+    "sha256": "266a01828b000e8047aa7bf2935ad8c455f91f2d3ea0628d8c805fa4fc0b7c4f",
+    "size": 213930822
+  }
 }
